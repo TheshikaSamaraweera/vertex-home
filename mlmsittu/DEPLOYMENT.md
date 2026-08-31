@@ -38,7 +38,7 @@ mounted volume, so there is nothing else to run.
 
 | Setting | Value | Why |
 |---|---|---|
-| AMI | Amazon Linux 2023 | The commands below are `dnf`; adjust for Ubuntu. |
+| AMI | Amazon Linux 2023 or Ubuntu 24.04 LTS | Both are covered below. Ubuntu needs Docker's own apt repository, not the distribution package. |
 | Type | `t3.small` | The JVM takes ~70% of its container's memory, PostgreSQL a few hundred MB, nginx nothing. `t3.micro` (1 GB) runs but leaves no headroom, and the build is what runs out first. |
 | Storage | 30 GB gp3 | The default 8 GB does not survive Docker images plus the database plus uploaded documents. Growing it later means resizing a live filesystem. |
 | Key pair | create and download | The only way in. There is no password login. |
@@ -50,15 +50,40 @@ way — the compose file exposes it to `app` alone.
 
 ### Docker
 
+**Amazon Linux 2023:**
+
 ```bash
 sudo dnf install -y docker git
 sudo systemctl enable --now docker
-sudo usermod -aG docker ec2-user      # log out and back in, or `newgrp docker`
-docker compose version                # v2 ships with the plugin
+sudo usermod -aG docker ec2-user
+```
+
+**Ubuntu** — use Docker's own repository, not `apt install docker.io`. The distribution package
+does not carry the Compose v2 plugin, so `docker compose` does not exist afterwards and you end up
+on the deprecated standalone `docker-compose` v1, which reads these files differently.
+
+```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl git
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc]   https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable"   | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo usermod -aG docker $USER
+```
+
+Then, on either:
+
+```bash
+newgrp docker            # or log out and back in
+docker compose version   # must print v2.x — not docker-compose 1.x
 ```
 
 `usermod` does not affect the shell you are already in. If the next `docker` command says
-`permission denied ... /var/run/docker.sock`, that is why — reconnect.
+`permission denied ... /var/run/docker.sock`, that is why, and `newgrp docker` fixes it without
+reconnecting.
 
 ### Swap, on a t3.small
 
