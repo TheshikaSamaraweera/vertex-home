@@ -1,0 +1,54 @@
+# ==============================================================================================
+# MLM Sittu
+#
+# Two rules are load-bearing and the rest is housekeeping:
+#
+#   1. `.env` never leaves the machine it was written on. The local one holds development
+#      defaults, but the same filename on the server holds the NIC pepper and encryption key,
+#      and those cannot be rotated once real identity numbers exist. Ignoring the name rather
+#      than the file means a real secret can never be committed by accident.
+#   2. `var/` holds uploaded NIC scans and bank slips. They are customer identity documents.
+#      A public repository would publish them; a private one would still put them somewhere
+#      they were never meant to be.
+# ==============================================================================================
+
+# --- Secrets ----------------------------------------------------------------------------------
+.env
+.env.local
+*.pem
+*.key
+*.p12
+*.jks
+
+# --- Uploaded documents -----------------------------------------------------------------------
+# NIC scans and payment slips. In production these live on a Docker volume, not in the tree.
+var/
+
+# --- Database dumps ---------------------------------------------------------------------------
+# Local backups written by dump-native.ps1 and by hand before a destructive migration. They carry
+# real rows — password hashes, encrypted NICs, customer names — and are recreated on demand.
+db-snapshot/
+*.dump
+
+# --- Java / Gradle ----------------------------------------------------------------------------
+build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+*.log
+
+# --- Node -------------------------------------------------------------------------------------
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+*.local
+
+# --- Editors and OS ---------------------------------------------------------------------------
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+out/
+.DS_Store
+Thumbs.db

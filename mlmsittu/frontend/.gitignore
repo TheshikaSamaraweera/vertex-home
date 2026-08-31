@@ -1,0 +1,14 @@
+node_modules
+dist
+*.local
+.vite
+
+# src/api/schema.d.ts is deliberately NOT ignored, though it is generated.
+#
+# `npm run build` runs `tsc -b` first, and five files under src/api import from './schema'. The
+# frontend image builds with only what is in the repository, so an ignored schema.d.ts means
+# `docker compose build` fails on a fresh clone with "Cannot find module './schema'".
+#
+# Regenerating it on the server is not an option either: `npm run api:sync` fetches the spec from
+# a running backend, and the backend is what the build is for. So the generated file is committed,
+# alongside the openapi.json it came from, and both are refreshed by api:sync when the API changes.

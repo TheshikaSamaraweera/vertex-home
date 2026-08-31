@@ -1,0 +1,105 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.1.0'
+	id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.democode'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	// --- web + persistence ---
+	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// Boot 4 makes the JSON mapper pluggable, so webmvc no longer drags Jackson in by itself.
+	implementation 'org.springframework.boot:spring-boot-starter-jackson'
+	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	// Boot 4 renamed the old spring-boot-starter-aop to spring-boot-starter-aspectj.
+	// Needed for the @Audited aspect.
+	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
+
+	// --- security ---
+	// Argon2id (architecture 7.3) needs BouncyCastle on the classpath.
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.bouncycastle:bcprov-jdk18on:1.78.1'
+
+	// --- shared session store (P7-01) ---
+	// Sessions live in PostgreSQL rather than on the heap, so they survive a restart and are
+	// shared between instances. The plan named Redis; the database is already here, already
+	// clustered with the data, and satisfies the same observable requirements.
+	// Boot 4 modularised autoconfiguration: spring-boot-autoconfigure no longer carries session
+	// support, so the bare spring-session-jdbc artifact puts the classes on the classpath and
+	// wires none of them. The starter is what brings the autoconfiguration with it.
+	implementation 'org.springframework.boot:spring-boot-starter-session-jdbc'
+
+	// --- outbound mail ---
+	// Purchase orders are emailed to the supplier. Inert until spring.mail.host is set: with no
+	// host configured the SMTP sender is not registered at all and messages go to the log.
+	implementation 'org.springframework.boot:spring-boot-starter-mail'
+
+	// --- migrations ---
+	// schema is owned by Flyway, never by Hibernate auto-DDL
+	implementation 'org.springframework.boot:spring-boot-starter-flyway'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+
+	// --- API description (architecture 6.2) ---
+	// Serves /v3/api-docs, from which the frontend's TypeScript types are generated. The 3.x line
+	// is the one built for Spring Boot 4; 2.x targets Boot 3 and will not start here.
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
+
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	runtimeOnly 'org.postgresql:postgresql'
+
+	// --- test ---
+	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
+	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'com.tngtech.archunit:archunit-junit5:1.3.0'
+	testCompileOnly 'org.projectlombok:lombok'
+	testAnnotationProcessor 'org.projectlombok:lombok'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+	testLogging {
+		events 'passed', 'skipped', 'failed'
+		exceptionFormat 'full'
+	}
+
+	// Development plan P3-05:
+	//     ./gradlew test --tests ReservationConcurrencyTest -Prepeat=100
+	// Controls how many rounds the reservation concurrency tests run. A deadlock is a race, so
+	// one round proves very little — repetition is what makes the test meaningful.
+	if (project.hasProperty('repeat')) {
+		systemProperty 'reservation.test.repeat', project.property('repeat')
+	}
+
+	// Concurrent reservation rounds are slower than a normal unit test.
+	timeout = Duration.ofMinutes(20)
+}
+
+// Helper for manual testing: prints the current TOTP code for a secret so you can
+// exercise the 2FA login step in Postman without an authenticator app.
+//   ./gradlew totp -Psecret=JBSWY3DPEHPK3PXP
+tasks.register('totp', JavaExec) {
+	group = 'verification'
+	description = 'Print the current TOTP code for a base32 secret'
+	classpath = sourceSets.main.runtimeClasspath
+	mainClass = 'com.democode.mlmsittu.identity.internal.service.TotpCliTool'
+	if (project.hasProperty('secret')) {
+		args project.property('secret')
+	}
+}

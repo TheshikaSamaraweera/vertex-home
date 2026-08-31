@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>System Flows — Distribution &amp; Inventory Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  :root{
+    --ground:#eaeef2;
+    --panel:#f7f9fb;
+    --ink:#16202e;
+    --ink-2:#4a5a6e;
+    --ink-3:#7c8ea3;
+    --rule:#ccd6e0;
+    --teal:#0d5c63;
+    --rust:#9c4221;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--ground);color:var(--ink);
+    font-family:var(--sans);font-size:15px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{display:grid;grid-template-columns:238px minmax(0,1fr);gap:0;max-width:1560px;margin:0 auto}
+
+  /* ---- left rail ---- */
+  .rail{
+    position:sticky;top:0;height:100vh;overflow-y:auto;
+    padding:36px 22px;border-right:1px solid var(--rule);background:var(--panel);
+  }
+  .rail h1{
+    font-size:15px;line-height:1.3;margin:0 0 4px;letter-spacing:-.2px;
+  }
+  .rail .sub{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);letter-spacing:.6px;text-transform:uppercase;margin-bottom:26px}
+  .rail a{
+    display:flex;gap:9px;text-decoration:none;color:var(--ink-2);
+    font-size:12.5px;padding:5px 0;border-top:1px solid transparent;
+  }
+  .rail a:hover{color:var(--teal)}
+  .rail a .id{font-family:var(--mono);font-size:11px;color:var(--ink-3);flex:0 0 30px}
+  .rail a:hover .id{color:var(--teal)}
+  .rail a:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .rail .grp{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;
+    color:var(--ink-3);margin:20px 0 6px;padding-bottom:5px;border-bottom:1px solid var(--rule)}
+
+  /* ---- main ---- */
+  main{padding:44px 46px 100px;min-width:0}
+  .masthead{border-bottom:2px solid var(--ink);padding-bottom:20px;margin-bottom:8px}
+  .masthead h2{margin:0 0 6px;font-size:29px;letter-spacing:-.6px;font-weight:700}
+  .masthead p{margin:0;color:var(--ink-2);font-size:14px;max-width:70ch}
+  .meta{font-family:var(--mono);font-size:11px;color:var(--ink-3);letter-spacing:.5px;
+    text-transform:uppercase;margin-top:14px}
+
+  section{margin-top:46px;scroll-margin-top:20px}
+  .head{display:flex;align-items:baseline;gap:13px;border-bottom:1px solid var(--rule);padding-bottom:9px}
+  .head .id{font-family:var(--mono);font-size:12px;color:var(--teal);font-weight:600;letter-spacing:.5px}
+  .head h3{margin:0;font-size:19px;letter-spacing:-.3px;font-weight:650}
+  .desc{color:var(--ink-2);font-size:13.5px;margin:11px 0 0;max-width:78ch}
+  .canvas{background:var(--panel);border:1px solid var(--rule);border-radius:4px;
+    padding:24px 20px;margin-top:16px;overflow-x:auto}
+  .mermaid{display:flex;justify-content:center;min-width:min-content}
+
+  .callout{border-left:3px solid var(--rust);background:#fdf6f2;padding:11px 15px;
+    margin-top:14px;font-size:13px;color:#5c3a2a;border-radius:0 3px 3px 0}
+  .callout b{color:var(--rust)}
+  code{font-family:var(--mono);font-size:12.5px;background:#e3e9ef;padding:1px 5px;border-radius:3px}
+
+  footer{margin-top:60px;padding-top:18px;border-top:1px solid var(--rule);
+    font-size:12.5px;color:var(--ink-3);max-width:80ch}
+
+  @media (max-width:900px){
+    .wrap{grid-template-columns:1fr}
+    .rail{position:static;height:auto;border-right:none;border-bottom:1px solid var(--rule)}
+    main{padding:28px 20px 70px}
+    .masthead h2{font-size:23px}
+  }
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<nav class="rail">
+  <h1>System Flows</h1>
+  <div class="sub">Handoff v1.0</div>
+
+  <div class="grp">Overview</div>
+  <a href="#f01"><span class="id">F-01</span><span>Master system flow</span></a>
+
+  <div class="grp">Onboarding</div>
+  <a href="#f02"><span class="id">F-02</span><span>Account creation</span></a>
+  <a href="#f03"><span class="id">F-03</span><span>KYC review</span></a>
+  <a href="#f04"><span class="id">F-04</span><span>Distributor lifecycle</span></a>
+  <a href="#f05"><span class="id">F-05</span><span>Business ID allocation</span></a>
+  <a href="#f06"><span class="id">F-06</span><span>Deletion &amp; NIC reuse</span></a>
+
+  <div class="grp">Supply chain</div>
+  <a href="#f07"><span class="id">F-07</span><span>Procurement to stock</span></a>
+  <a href="#f08"><span class="id">F-08</span><span>Item set availability</span></a>
+  <a href="#f09"><span class="id">F-09</span><span>Stock reservation</span></a>
+
+  <div class="grp">Commerce</div>
+  <a href="#f10"><span class="id">F-10</span><span>Order to fulfilment</span></a>
+  <a href="#f11"><span class="id">F-11</span><span>Payment verification</span></a>
+
+  <div class="grp">Platform</div>
+  <a href="#f12"><span class="id">F-12</span><span>RBAC &amp; duty split</span></a>
+  <a href="#f13"><span class="id">F-13</span><span>Request path</span></a>
+  <a href="#f14"><span class="id">F-14</span><span>Outbox &amp; workers</span></a>
+</nav>
+
+<main>
+  <div class="masthead">
+    <h2>Flow Specification</h2>
+    <p>Every process path through the platform, from first signup to stock leaving the warehouse. Flow IDs are stable and referenced from the architecture handoff document.</p>
+    <div class="meta">14 flows · Mermaid source · v1.0 · 6 Aug 2026</div>
+  </div>
+
+  <!-- F-01 -->
+  <section id="f01">
+    <div class="head"><span class="id">F-01</span><h3>Master system flow</h3></div>
+    <p class="desc">How the four domains connect. Onboarding gates access; procurement fills stock; commerce consumes it; every mutation lands in the audit log.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart TB
+  V["Visitor"] --> A1["Create account"]
+  A1 --> A2["Verify email + mobile OTP"]
+  A2 --> A3["Submit business registration<br/>NIC, slip, referrer ID"]
+  A3 --> RQ{{"Admin review queue"}}
+  RQ -->|approved| BID["Allocate Business ID<br/>compute ltree path"]
+  RQ -->|rejected| X["Rejected — reason recorded"]
+  RQ -->|resubmit| A3
+  BID --> D["Active distributor"]
+
+  S["Supplier"] --> PO["Purchase order"]
+  PO --> GR["Goods receipt"]
+  GR --> LEDGER[("stock_movement<br/>append-only ledger")]
+  LEDGER --> SL["stock_level projection"]
+
+  D --> SO["Sales order"]
+  C["Walk-in customer"] --> SO
+  SL --> RES["Reserve stock"]
+  SO --> RES
+  RES --> PAY["Upload bank slip"]
+  PAY --> PV{{"Finance verifies slip"}}
+  PV -->|verified| FUL["Fulfil + decrement"]
+  PV -->|rejected| PAY
+  FUL --> LEDGER
+
+  D -.attribution only.-> REF["referral_summary<br/>direct_count"]
+  REF -.-> TREE["Hierarchy + treemap views"]
+
+  BID --> AUD[("audit_log")]
+  PV --> AUD
+  FUL --> AUD
+
+  classDef gate fill:#fdf6f2,stroke:#9c4221,color:#5c3a2a
+  classDef store fill:#e6f0f0,stroke:#0d5c63,color:#0d3f44
+  class RQ,PV gate
+  class LEDGER,AUD store
+    </pre></div>
+    <div class="callout"><b>Scope note — amended 8 Aug 2026.</b> An earlier revision described the referral branch as read-only with no entitlement derived from it. That was recorded in error. The §0.2 reward mechanics <b>are</b> in scope: four stages, one per approved referral, four children maximum, bonus stage on completion. <code>direct_count</code> still feeds views and reports only — stage state is stored and transactionally guarded, never recomputed from a count at decision time, because two concurrent approvals under one parent would otherwise both award the same stage.</div>
+  </section>
+
+  <!-- F-02 -->
+  <section id="f02">
+    <div class="head"><span class="id">F-02</span><h3>Account creation and verification</h3></div>
+    <p class="desc">Two independent channels. Email uses a signed link; mobile uses a server-stored OTP. Both must pass before login is permitted.</p>
+    <div class="canvas"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor U as Visitor
+  participant API as API Gateway
+  participant ID as Identity module
+  participant R as Redis
+  participant W as Worker
+  participant EXT as SMTP / SMS
+
+  U->>API: POST /auth/register
+  API->>ID: validate + hash password "Argon2id"
+  ID->>ID: create app_user "status=unverified"
+  ID->>R: store email token + OTP hash
+  ID-->>W: enqueue send jobs
+  W->>EXT: verification link + 6-digit OTP
+  EXT-->>U: email and SMS
+
+  U->>API: GET /auth/verify-email?token
+  API->>ID: mark email_verified
+
+  U->>API: POST /auth/verify-otp
+  API->>R: constant-time compare hash
+  alt code matches
+    ID->>ID: mark mobile_verified
+    ID-->>U: 200 — login enabled
+  else 5 failures
+    R->>R: lock 15 minutes
+    ID-->>U: 429 OTP_LOCKED
+  end
+    </pre></div>
+    <div class="callout"><b>Terminology.</b> Admin 2FA uses <b>TOTP</b> (authenticator app, RFC 6238). Mobile verification uses <b>SMS OTP</b> — a stored random code. Different mechanisms; don't share the implementation.</div>
+  </section>
+
+  <!-- F-03 -->
+  <section id="f03">
+    <div class="head"><span class="id">F-03</span><h3>Business registration and KYC review</h3></div>
+    <p class="desc">The critical manual path. Claim-based locking prevents two reviewers acting on one record, and every document view is logged for PDPA.</p>
+    <div class="canvas"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor U as Distributor
+  participant API as API Gateway
+  participant KYC as Onboarding module
+  participant S3 as Object storage
+  participant DB as PostgreSQL
+  actor RV as KYC reviewer
+
+  U->>API: POST /registrations "NIC, images, referrer ID"
+  API->>API: validate Business ID check digit
+  API->>KYC: verify referrer exists and has capacity
+  KYC->>S3: store NIC image + bank slip "SSE"
+  KYC->>DB: nic_hash "HMAC" + nic_encrypted "AES-GCM"
+  KYC->>DB: status = submitted
+  KYC-->>U: 202 pending review
+
+  RV->>API: POST /admin/registrations/:id/claim
+  API->>DB: lock to reviewer, status = under_review
+  RV->>API: GET document
+  API->>DB: write access_log entry
+  API->>S3: presigned URL "60s, single use"
+  S3-->>RV: image
+
+  alt approve
+    RV->>API: POST approve
+    API->>DB: BEGIN
+    DB->>DB: allocate business_id from sequence
+    DB->>DB: compute ltree path from referrer
+    DB->>DB: status = active
+    DB->>DB: outbox: DistributorApproved
+    API->>DB: COMMIT
+  else reject
+    RV->>API: POST reject "reason enum + note"
+    DB->>DB: status = rejected
+  else request resubmission
+    DB->>DB: status = resubmit_required
+  end
+    </pre></div>
+    <div class="callout"><b>Separation of duties.</b> The submitting user can never be the reviewer. Enforce server-side — a client-side check is not a control.</div>
+  </section>
+
+  <!-- F-04 -->
+  <section id="f04">
+    <div class="head"><span class="id">F-04</span><h3>Distributor lifecycle</h3></div>
+    <p class="desc">Full state machine. Note that <code>deleted</code> is soft — financial records are retained for statutory audit.</p>
+    <div class="canvas"><pre class="mermaid">
+stateDiagram-v2
+  [*] --> unverified
+  unverified --> verified : email + OTP passed
+  verified --> submitted : registration sent
+  submitted --> under_review : reviewer claims
+  under_review --> approved : documents valid
+  under_review --> rejected : fails checks
+  under_review --> resubmit_required : correctable issue
+  resubmit_required --> submitted : new documents
+  approved --> active : Business ID allocated
+  active --> suspended : admin action
+  suspended --> active : reinstated
+  active --> deleted : deletion request
+  suspended --> deleted : deletion request
+  rejected --> [*]
+  deleted --> [*]
+
+  note right of deleted
+    Soft delete. Business ID retired
+    permanently. nic_hash freed by
+    partial unique index — see F-06.
+  end note
+    </pre></div>
+  </section>
+
+  <!-- F-05 -->
+  <section id="f05">
+    <div class="head"><span class="id">F-05</span><h3>Business ID allocation and validation</h3></div>
+    <p class="desc">Allocated once at approval, immutable for life. The check digit rejects typos client-side, before a bad parent ID can reach the database.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart LR
+  subgraph ALLOC["Allocation — at approval only"]
+    SEQ["nextval'business_id_seq'"] --> B32["Crockford Base32<br/>excludes I L O U"]
+    B32 --> DAMM["Damm check character"]
+    DAMM --> OUT["SLV-8K3M9-4"]
+  end
+
+  subgraph VALID["Validation — on referrer entry"]
+    IN["User types parent ID"] --> RX{"regex shape ok?"}
+    RX -->|no| E1["Reject — malformed"]
+    RX -->|yes| CK{"check digit valid?"}
+    CK -->|no| E2["Reject — likely typo"]
+    CK -->|yes| LOOK{"exists and active?"}
+    LOOK -->|no| E3["Reject — not found"]
+    LOOK -->|yes| CAP{"under width cap?"}
+    CAP -->|no| E4["REFERRER_AT_CAPACITY"]
+    CAP -->|yes| OK["Accept"]
+  end
+
+  OUT -.stored on distributor.-> LOOK
+
+  classDef err fill:#fdf6f2,stroke:#9c4221,color:#5c3a2a
+  class E1,E2,E3,E4 err
+    </pre></div>
+    <div class="callout"><b>Why not a numeric path as the public ID.</b> A path like <code>1131</code> is mutable under tree edits, unbounded in length, leaks the full upline, is enumerable, and has no error detection — a typo yields another <em>valid</em> ID and silently attaches the record to the wrong parent. The path is kept internally as <code>ltree</code> and still displayed in admin views.</div>
+  </section>
+
+  <!-- F-06 -->
+  <section id="f06">
+    <div class="head"><span class="id">F-06</span><h3>Deletion and NIC re-registration</h3></div>
+    <p class="desc">Your rule: a deleted account may re-register with the same national ID. A partial unique index gives exactly that without weakening uniqueness for live records.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart TB
+  REQ["Deletion request"] --> ADM{"Admin approves?"}
+  ADM -->|no| KEEP["Remains active"]
+  ADM -->|yes| TX["BEGIN transaction"]
+  TX --> S1["distributor.status = deleted"]
+  TX --> S2["set deleted_at = now"]
+  TX --> S3["retire business_id — never reissued"]
+  TX --> S4["retain financial records<br/>statutory audit period"]
+  TX --> S5["schedule document purge"]
+  S1 & S2 & S3 & S4 & S5 --> COMMIT["COMMIT"]
+
+  COMMIT --> FREE["Partial unique index no longer<br/>matches this nic_hash"]
+  FREE --> NEW["Same NIC may register again"]
+  NEW --> HIST["Prior record kept — full history<br/>queryable by nic_hash"]
+
+  classDef ok fill:#e6f0f0,stroke:#0d5c63,color:#0d3f44
+  class FREE,NEW ok
+    </pre></div>
+    <div class="callout"><b>Pepper placement.</b> The HMAC pepper must live outside the database — in KMS or the environment. Sri Lankan NIC format is small enough that an unpeppered hash is brute-forceable from a stolen dump alone.</div>
+  </section>
+
+  <!-- F-07 -->
+  <section id="f07">
+    <div class="head"><span class="id">F-07</span><h3>Procurement to stock</h3></div>
+    <p class="desc">Purchase order through partial receipt. <code>stock_level</code> is never written directly — only the ledger service touches it.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart TB
+  SUP["Supplier record"] --> PO["Create purchase order"]
+  PO --> LINES["PO lines: item, qty, unit cost"]
+  LINES --> SENT["Status: sent"]
+  SENT --> ARR["Goods arrive"]
+  ARR --> GR["Create goods receipt"]
+  GR --> CHK{"Full quantity?"}
+  CHK -->|yes| CLOSE["PO line closed"]
+  CHK -->|partial| OPEN["PO line stays open<br/>remaining qty tracked"]
+  OPEN --> ARR
+
+  CLOSE --> MV["stock_movement +qty<br/>type=receipt, ref=goods_receipt"]
+  OPEN --> MV
+  MV --> PROJ["Recompute stock_level<br/>same transaction"]
+  PROJ --> RL{"below reorder_level?"}
+  RL -->|yes| ALERT["Reorder alert to procurement"]
+  RL -->|no| DONE["Done"]
+
+  classDef store fill:#e6f0f0,stroke:#0d5c63,color:#0d3f44
+  class MV store
+    </pre></div>
+    <div class="callout"><b>Ledger discipline.</b> <code>stock_movement</code> is the source of truth; <code>stock_level</code> is a projection. Any drift is reconcilable by replay. Never <code>UPDATE stock_level</code> outside the movement service.</div>
+  </section>
+
+  <!-- F-08 -->
+  <section id="f08">
+    <div class="head"><span class="id">F-08</span><h3>Item set availability</h3></div>
+    <p class="desc">Sets are virtual — creating one consumes nothing. Availability is computed on read from the scarcest component.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart LR
+  Q["GET /item-sets/:id/availability"] --> L["Load item_set_line rows"]
+  L --> LOOP["For each line"]
+  LOOP --> AV["available = on_hand - reserved"]
+  AV --> DIV["floor'available / line.quantity'"]
+  DIV --> MIN["MIN across all lines"]
+  MIN --> RESULT["Sets available"]
+
+  MIN --> WARN{"shared component<br/>with another set?"}
+  WARN -->|yes| FLAG["Flag contention —<br/>figure is optimistic"]
+  WARN -->|no| CLEAN["Figure is firm"]
+
+  classDef warn fill:#fdf6f2,stroke:#9c4221,color:#5c3a2a
+  class FLAG warn
+    </pre></div>
+    <div class="callout"><b>The trap.</b> You allowed one item in multiple sets. Two sets sharing a component can each report "available" when only one can actually ship. Availability is advisory; only reservation (F-09) is authoritative.</div>
+  </section>
+
+  <!-- F-09 -->
+  <section id="f09">
+    <div class="head"><span class="id">F-09</span><h3>Stock reservation</h3></div>
+    <p class="desc">The concurrency-critical path. Deterministic lock ordering prevents deadlock when two orders touch overlapping components.</p>
+    <div class="canvas"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant API as API Gateway
+  participant INV as Inventory module
+  participant DB as PostgreSQL
+
+  API->>INV: confirm order "lines incl. sets"
+  INV->>INV: expand sets to component items
+  INV->>INV: sort item_id ASC "deadlock avoidance"
+  INV->>DB: BEGIN
+
+  loop each component, in sorted order
+    INV->>DB: SELECT ... FOR UPDATE on stock_level
+    DB-->>INV: locked row
+    alt on_hand - reserved >= required
+      INV->>DB: reserved += required
+    else insufficient
+      INV->>DB: ROLLBACK
+      INV-->>API: 409 INSUFFICIENT_STOCK "item, shortfall"
+    end
+  end
+
+  INV->>DB: order status = confirmed
+  INV->>DB: COMMIT
+  INV-->>API: 200 reserved
+    </pre></div>
+    <div class="callout"><b>Lock ordering is not optional.</b> Two orders sharing components in opposite sequence will deadlock under load. Sorting by <code>item_id</code> before locking makes it impossible.</div>
+  </section>
+
+  <!-- F-10 -->
+  <section id="f10">
+    <div class="head"><span class="id">F-10</span><h3>Order to fulfilment</h3></div>
+    <p class="desc">End to end, including the manual slip step. Stock stays reserved — not decremented — until payment clears.</p>
+    <div class="canvas"><pre class="mermaid">
+sequenceDiagram
+  autonumber
+  actor B as Buyer
+  participant API as API Gateway
+  participant COM as Commerce module
+  participant INV as Inventory module
+  actor FIN as Finance officer
+  actor WH as Warehouse
+
+  B->>API: POST /sales-orders
+  API->>INV: reserve stock "F-09"
+  INV-->>API: reserved
+  API-->>B: order confirmed + bank details
+
+  B->>B: bank transfer, out of band
+  B->>API: POST /payments "slip image + bank_ref"
+  API->>COM: unique index check on bank_ref
+  alt duplicate reference
+    COM-->>B: 409 DUPLICATE_SLIP
+  else new
+    COM->>COM: status = pending
+  end
+
+  FIN->>API: GET pending payments
+  FIN->>FIN: compare slip against bank statement
+  alt verified
+    FIN->>API: POST /payments/:id/verify
+    COM->>COM: status = verified
+    COM-->>WH: release for picking
+    WH->>API: POST fulfilment
+    API->>INV: reserved -= qty, on_hand -= qty
+    INV->>INV: stock_movement -qty
+  else rejected
+    FIN->>API: POST reject "reason"
+    COM->>INV: release reservation
+    COM-->>B: resubmit slip
+  end
+    </pre></div>
+  </section>
+
+  <!-- F-11 -->
+  <section id="f11">
+    <div class="head"><span class="id">F-11</span><h3>Payment verification states</h3></div>
+    <p class="desc">Slip-based payment has one dominant fraud mode: one genuine slip submitted against several orders. The unique index closes it.</p>
+    <div class="canvas"><pre class="mermaid">
+stateDiagram-v2
+  [*] --> pending : slip uploaded
+  pending --> duplicate_blocked : bank_ref already used
+  pending --> under_check : finance claims
+  under_check --> verified : matches statement
+  under_check --> rejected : mismatch or unreadable
+  rejected --> pending : buyer resubmits
+  verified --> released : stock released
+  released --> [*]
+  duplicate_blocked --> [*]
+
+  note right of duplicate_blocked
+    UNIQUE INDEX on payment.bank_ref
+    WHERE bank_ref IS NOT NULL.
+    Verifier types the reference from
+    the image; DB rejects reuse.
+  end note
+    </pre></div>
+  </section>
+
+  <!-- F-12 -->
+  <section id="f12">
+    <div class="head"><span class="id">F-12</span><h3>RBAC and separation of duties</h3></div>
+    <p class="desc">Six roles. The three barred paths are the ones that matter — each blocks a single actor from completing a financially sensitive loop alone.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart TB
+  SA["super_admin"] --> RM["Role management"]
+  SA --> CFG["System config<br/>incl. referral width cap"]
+
+  KR["kyc_reviewer"] --> RVW["Review queue + documents"]
+  IC["inventory_clerk"] --> STK["Items, stock, goods receipt"]
+  PROC["procurement_officer"] --> POM["Suppliers, purchase orders"]
+  FO["finance_officer"] --> PVR["Payment verification, reports"]
+  SUP["support_agent"] --> RO["Read-only customer data"]
+
+  BAR1["BARRED: submitter cannot review own registration"]
+  BAR2["BARRED: order recorder cannot verify own payment"]
+  BAR3["BARRED: super_admin cannot self-approve KYC"]
+
+  RVW -.enforced.-> BAR1
+  PVR -.enforced.-> BAR2
+  SA -.enforced.-> BAR3
+
+  RM --> AUD[("audit_log — append-only")]
+  PVR --> AUD
+  RVW --> AUD
+  CFG --> AUD
+
+  classDef bar fill:#fdf6f2,stroke:#9c4221,color:#5c3a2a
+  classDef store fill:#e6f0f0,stroke:#0d5c63,color:#0d3f44
+  class BAR1,BAR2,BAR3 bar
+  class AUD store
+    </pre></div>
+  </section>
+
+  <!-- F-13 -->
+  <section id="f13">
+    <div class="head"><span class="id">F-13</span><h3>Request path</h3></div>
+    <p class="desc">Every authenticated request runs this gauntlet. Reads that tolerate staleness are routed to the replica to protect checkout latency.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart LR
+  C["Client PWA"] --> CF["Cloudflare<br/>TLS · WAF · rate limit"]
+  CF --> LB["Load balancer"]
+  LB --> APP["App container"]
+  APP --> SES{"session valid?"}
+  SES -->|no| E401["401"]
+  SES -->|yes| RBAC{"role permits?"}
+  RBAC -->|no| E403["403"]
+  RBAC -->|yes| IDEM{"POST with<br/>idempotency key?"}
+  IDEM -->|replay| CACHED["Return stored response"]
+  IDEM -->|new| H["Handler"]
+  H --> RW{"read or write?"}
+  RW -->|write| PRI[("Primary")]
+  RW -->|tolerant read| REP[("Read replica")]
+  H --> RD[("Redis — sessions, limits")]
+  H --> LOG[("audit_log")]
+
+  classDef store fill:#e6f0f0,stroke:#0d5c63,color:#0d3f44
+  classDef err fill:#fdf6f2,stroke:#9c4221,color:#5c3a2a
+  class PRI,REP,RD,LOG store
+  class E401,E403 err
+    </pre></div>
+    <div class="callout"><b>Replica routing.</b> Send treemap aggregation, hierarchy expansion and report exports to the replica. Never route stock availability there — replication lag causes overselling.</div>
+  </section>
+
+  <!-- F-14 -->
+  <section id="f14">
+    <div class="head"><span class="id">F-14</span><h3>Outbox and background workers</h3></div>
+    <p class="desc">Side effects are committed as rows in the same transaction as the business change, then dispatched. No lost emails, no phantom sends on rollback.</p>
+    <div class="canvas"><pre class="mermaid">
+flowchart TB
+  TX["Business transaction"] --> BOTH["Domain write + outbox row<br/>same COMMIT"]
+  BOTH --> POLL["Dispatcher polls unsent rows"]
+  POLL --> Q["BullMQ queue on Redis"]
+
+  Q --> J1["Send OTP / email"]
+  Q --> J2["Retention sweep —<br/>purge expired KYC documents"]
+  Q --> J3["Report generation"]
+  Q --> J4["Treemap aggregation refresh"]
+  Q --> J5["Reorder-level scan"]
+
+  J1 --> RES{"succeeded?"}
+  RES -->|yes| MARK["Mark sent"]
+  RES -->|no| RETRY["Exponential backoff<br/>max 5 attempts"]
+  RETRY --> DLQ["Dead-letter queue + alert"]
+
+  classDef warn fill:#fdf6f2,stroke:#9c4221,color:#5c3a2a
+  class DLQ warn
+    </pre></div>
+    <div class="callout"><b>Why the outbox.</b> Sending mail inside a transaction means a rollback still delivers the message. Writing the intent as a row makes the side effect atomic with the change that caused it.</div>
+  </section>
+
+  <footer>
+    Flow IDs F-01 to F-14 are stable and cross-referenced from the architecture handoff. Mermaid source is inline in this file — copy any block into <code>docs/flows/</code> for version control. Scope per §0.2 (amended 8 Aug 2026): referral relationships are stored and visualised, <b>and</b> the four-stage enrolment reward mechanic is in scope. A flow for stage unlocking is not yet drawn and should be added as F-15 before Phase 4.
+  </footer>
+</main>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    securityLevel: 'loose',
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    themeVariables: {
+      background: '#f7f9fb',
+      primaryColor: '#ffffff',
+      primaryTextColor: '#16202e',
+      primaryBorderColor: '#0d5c63',
+      lineColor: '#4a5a6e',
+      secondaryColor: '#e6f0f0',
+      tertiaryColor: '#eaeef2',
+      noteBkgColor: '#fdf6f2',
+      noteTextColor: '#5c3a2a',
+      noteBorderColor: '#9c4221',
+      actorBkg: '#e6f0f0',
+      actorBorder: '#0d5c63',
+      actorTextColor: '#16202e',
+      signalColor: '#4a5a6e',
+      signalTextColor: '#16202e',
+      labelBoxBkgColor: '#e6f0f0',
+      labelBoxBorderColor: '#0d5c63'
+    },
+    flowchart: { curve: 'basis', padding: 16, useMaxWidth: true },
+    sequence: { useMaxWidth: true, wrap: true, width: 175 }
+  });
+</script>
+</body>
+</html>

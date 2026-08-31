@@ -1,0 +1,510 @@
+{
+  "info": {
+    "name": "MLM Sittu — Phase 2 (Catalogue, Stock Ledger, Procurement)",
+    "description": "Gate 2 verification.\n\nStart the app with seed data:\n    ./gradlew bootRun --args=\"--spring.profiles.active=seed\"\n\nRun the folders top to bottom. The collection re-logs in when it needs a different role, and captures ids as it goes — you should not have to paste a UUID anywhere.\n\nThe TOTP code is computed automatically by a collection-level pre-request script. No phone needed.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// RFC 6238 TOTP, so every login request in this collection can fill in {{totpCode}}.",
+          "function base32ToHex(base32) {",
+          "  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';",
+          "  let bits = '', hex = '';",
+          "  const cleaned = base32.replace(/=+$/, '').toUpperCase();",
+          "  for (let i = 0; i < cleaned.length; i++) {",
+          "    const val = alphabet.indexOf(cleaned.charAt(i));",
+          "    if (val < 0) throw new Error('totpSecret is not valid base32');",
+          "    bits += val.toString(2).padStart(5, '0');",
+          "  }",
+          "  for (let i = 0; i + 8 <= bits.length; i += 8) {",
+          "    hex += parseInt(bits.substr(i, 8), 2).toString(16).padStart(2, '0');",
+          "  }",
+          "  return hex;",
+          "}",
+          "",
+          "const secret = pm.collectionVariables.get('totpSecret');",
+          "if (secret) {",
+          "  const counter = Math.floor(Math.floor(Date.now() / 1000) / 30);",
+          "  const hmac = CryptoJS.HmacSHA1(",
+          "    CryptoJS.enc.Hex.parse(counter.toString(16).padStart(16, '0')),",
+          "    CryptoJS.enc.Hex.parse(base32ToHex(secret))",
+          "  ).toString(CryptoJS.enc.Hex);",
+          "  const offset = parseInt(hmac.substr(hmac.length - 1), 16);",
+          "  const binary = (parseInt(hmac.substr(offset * 2, 8), 16) & 0x7fffffff) % 1000000;",
+          "  pm.collectionVariables.set('totpCode', binary.toString().padStart(6, '0'));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "password", "value": "Password123!" },
+    { "key": "totpSecret", "value": "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP" },
+    { "key": "challengeId", "value": "" },
+    { "key": "scratchItemId", "value": "" },
+    { "key": "sharedItemId", "value": "" },
+    { "key": "item2Id", "value": "" },
+    { "key": "item3Id", "value": "" },
+    { "key": "lowStockItemId", "value": "" },
+    { "key": "activeSupplierId", "value": "" },
+    { "key": "inactiveSupplierId", "value": "" },
+    { "key": "poId", "value": "" },
+    { "key": "poLineId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0 · Sign in as inventory clerk",
+      "item": [
+        {
+          "name": "0.1 Login (password)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"inventory@mlmsittu.local\",\n  \"password\": \"{{password}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "const b = pm.response.json();",
+            "if (b.challengeId) pm.collectionVariables.set('challengeId', b.challengeId);"
+          ] } }]
+        },
+        {
+          "name": "0.2 Login (TOTP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"challengeId\": \"{{challengeId}}\",\n  \"code\": \"{{totpCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login/totp", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login","totp"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('signed in as inventory clerk', () => pm.expect(pm.response.json().user.roles).to.include('INVENTORY_CLERK'));"
+          ] } }]
+        },
+        {
+          "name": "0.3 Capture seeded item ids",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/items", "host": ["{{baseUrl}}"], "path": ["api","v1","items"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data;",
+            "pm.test('20 seeded items', () => pm.expect(data.length).to.be.at.least(20));",
+            "pm.test('envelope shape unchanged', () => pm.expect(pm.response.json()).to.have.property('nextCursor'));",
+            "const find = sku => (data.find(i => i.sku === sku) || {}).id;",
+            "pm.collectionVariables.set('sharedItemId', find('SLV-001'));",
+            "pm.collectionVariables.set('item2Id', find('SLV-002'));",
+            "pm.collectionVariables.set('item3Id', find('SLV-003'));",
+            "pm.collectionVariables.set('lowStockItemId', find('SLV-020'));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "1 · Catalogue (P2-01, P2-02)",
+      "item": [
+        {
+          "name": "1.1 Duplicate SKU, lower case (expect 409)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"sku\": \"slv-001\",\n  \"name\": \"Duplicate attempt\",\n  \"unitCost\": 10.00,\n  \"sellingPrice\": 20.00,\n  \"reorderLevel\": 5\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/items", "host": ["{{baseUrl}}"], "path": ["api","v1","items"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409', () => pm.response.to.have.status(409));",
+            "pm.test('DUPLICATE_SKU — case-insensitive', () => pm.expect(pm.response.json().code).to.eql('DUPLICATE_SKU'));"
+          ] } }]
+        },
+        {
+          "name": "1.2 Create scratch item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"sku\": \"TEST-900\",\n  \"name\": \"Ledger Test Item\",\n  \"unitCost\": 100.00,\n  \"sellingPrice\": 150.00,\n  \"reorderLevel\": 20\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/items", "host": ["{{baseUrl}}"], "path": ["api","v1","items"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) { pm.collectionVariables.set('scratchItemId', pm.response.json().id); }",
+            "pm.test('201 or 409 if you already ran this', () => pm.expect([201,409]).to.include(pm.response.code));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "2 · Stock ledger (P2-04, P2-10)",
+      "item": [
+        {
+          "name": "2.1 Adjust +50",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{scratchItemId}}\",\n  \"qtyDelta\": 50,\n  \"reason\": \"opening count\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/stock/adjustments", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","adjustments"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('onHand 50', () => pm.expect(pm.response.json().onHand).to.eql(50));"
+          ] } }]
+        },
+        {
+          "name": "2.2 Adjust -20",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{scratchItemId}}\",\n  \"qtyDelta\": -20,\n  \"reason\": \"damage\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/stock/adjustments", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","adjustments"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('onHand 30', () => pm.expect(pm.response.json().onHand).to.eql(30));"
+          ] } }]
+        },
+        {
+          "name": "2.3 Adjust -40 (MUST FAIL, stock stays 30)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{scratchItemId}}\",\n  \"qtyDelta\": -40,\n  \"reason\": \"overdraw test\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/stock/adjustments", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","adjustments"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409', () => pm.response.to.have.status(409));",
+            "const b = pm.response.json();",
+            "pm.test('INSUFFICIENT_STOCK', () => pm.expect(b.code).to.eql('INSUFFICIENT_STOCK'));",
+            "pm.test('carries the numbers', () => { pm.expect(b.required).to.eql(40); pm.expect(b.available).to.eql(30); pm.expect(b.shortfall).to.eql(10); });"
+          ] } }]
+        },
+        {
+          "name": "2.4 Adjust with no reason (MUST FAIL)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{scratchItemId}}\",\n  \"qtyDelta\": -1\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/stock/adjustments", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","adjustments"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400', () => pm.response.to.have.status(400));",
+            "pm.test('reason is required', () => pm.expect(pm.response.json().errors.reason).to.eql('REASON_REQUIRED'));"
+          ] } }]
+        },
+        {
+          "name": "2.5 Zero-quantity adjustment (MUST FAIL)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{scratchItemId}}\",\n  \"qtyDelta\": 0,\n  \"reason\": \"nothing happened\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/stock/adjustments", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","adjustments"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('400 ZERO_QUANTITY', () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql('ZERO_QUANTITY'); });"
+          ] } }]
+        },
+        {
+          "name": "2.6 Movements are traceable",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/movements?itemId={{scratchItemId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","movements"], "query": [{ "key": "itemId", "value": "{{scratchItemId}}" }] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data;",
+            "pm.test('two movements, no rejected ones recorded', () => pm.expect(data.length).to.eql(2));",
+            "pm.test('sum equals 30', () => pm.expect(data.reduce((s, m) => s + m.qtyDelta, 0)).to.eql(30));",
+            "pm.test('every movement has a reason or a reference', () => data.forEach(m => pm.expect(m.reason || m.referenceType).to.be.ok));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "3 · Procurement (P2-06, P2-07)",
+      "item": [
+        {
+          "name": "3.1 Sign in as procurement — password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"procurement@mlmsittu.local\",\n  \"password\": \"{{password}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.collectionVariables.set('challengeId', pm.response.json().challengeId);"
+          ] } }]
+        },
+        {
+          "name": "3.2 Sign in as procurement — TOTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"challengeId\": \"{{challengeId}}\",\n  \"code\": \"{{totpCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login/totp", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login","totp"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('now procurement officer', () => pm.expect(pm.response.json().user.roles).to.include('PROCUREMENT_OFFICER'));"
+          ] } }]
+        },
+        {
+          "name": "3.3 Capture supplier ids",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/suppliers?includeInactive=true", "host": ["{{baseUrl}}"], "path": ["api","v1","suppliers"], "query": [{ "key": "includeInactive", "value": "true" }] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data;",
+            "pm.collectionVariables.set('activeSupplierId', (data.find(s => s.code === 'SUP-001')||{}).id);",
+            "pm.collectionVariables.set('inactiveSupplierId', (data.find(s => s.code === 'SUP-002')||{}).id);",
+            "pm.test('one seeded supplier is deactivated', () => pm.expect(data.some(s => !s.active)).to.be.true);"
+          ] } }]
+        },
+        {
+          "name": "3.4 Order from a deactivated supplier (MUST FAIL)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"supplierId\": \"{{inactiveSupplierId}}\",\n  \"lines\": [ { \"itemId\": \"{{sharedItemId}}\", \"quantity\": 10 } ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/purchase-orders", "host": ["{{baseUrl}}"], "path": ["api","v1","purchase-orders"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409 SUPPLIER_INACTIVE', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().code).to.eql('SUPPLIER_INACTIVE'); });"
+          ] } }]
+        },
+        {
+          "name": "3.5 Create PO with three lines",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"supplierId\": \"{{activeSupplierId}}\",\n  \"lines\": [\n    { \"itemId\": \"{{sharedItemId}}\", \"quantity\": 100 },\n    { \"itemId\": \"{{item2Id}}\", \"quantity\": 30 },\n    { \"itemId\": \"{{item3Id}}\", \"quantity\": 20 }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/purchase-orders", "host": ["{{baseUrl}}"], "path": ["api","v1","purchase-orders"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201', () => pm.response.to.have.status(201));",
+            "const po = pm.response.json();",
+            "pm.test('starts as draft', () => pm.expect(po.status).to.eql('draft'));",
+            "pm.test('three lines', () => pm.expect(po.lines.length).to.eql(3));",
+            "pm.collectionVariables.set('poId', po.id);",
+            "pm.collectionVariables.set('poLineId', po.lines.find(l => l.quantityOrdered === 100).id);"
+          ] } }]
+        },
+        {
+          "name": "3.6 Duplicate line for one item (MUST FAIL)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"supplierId\": \"{{activeSupplierId}}\",\n  \"lines\": [\n    { \"itemId\": \"{{item2Id}}\", \"quantity\": 5 },\n    { \"itemId\": \"{{item2Id}}\", \"quantity\": 7 }\n  ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/purchase-orders", "host": ["{{baseUrl}}"], "path": ["api","v1","purchase-orders"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409 DUPLICATE_ORDER_LINE', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().code).to.eql('DUPLICATE_ORDER_LINE'); });"
+          ] } }]
+        },
+        {
+          "name": "3.7 Send the order",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/purchase-orders/{{poId}}/send", "host": ["{{baseUrl}}"], "path": ["api","v1","purchase-orders","{{poId}}","send"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status sent', () => pm.expect(pm.response.json().status).to.eql('sent'));"
+          ] } }]
+        },
+        {
+          "name": "3.8 Edit lines after sending (MUST FAIL)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"lines\": [ { \"itemId\": \"{{sharedItemId}}\", \"quantity\": 5 } ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/purchase-orders/{{poId}}/lines", "host": ["{{baseUrl}}"], "path": ["api","v1","purchase-orders","{{poId}}","lines"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409 PURCHASE_ORDER_NOT_EDITABLE', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().code).to.eql('PURCHASE_ORDER_NOT_EDITABLE'); });",
+            "pm.test('no duplicate status key in the body', () => pm.expect(pm.response.json().status).to.eql(409));"
+          ] } }]
+        },
+        {
+          "name": "3.9 Procurement cannot book a receipt (MUST FAIL — duty split)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"purchaseOrderId\": \"{{poId}}\",\n  \"lines\": [ { \"purchaseOrderLineId\": \"{{poLineId}}\", \"quantity\": 1 } ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/goods-receipts", "host": ["{{baseUrl}}"], "path": ["api","v1","goods-receipts"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('403 — ordering and receiving are different people', () => pm.response.to.have.status(403));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "4 · Goods receipt (P2-08)",
+      "item": [
+        {
+          "name": "4.1 Back to inventory clerk — password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"inventory@mlmsittu.local\",\n  \"password\": \"{{password}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('challengeId', pm.response.json().challengeId);"] } }]
+        },
+        {
+          "name": "4.2 Back to inventory clerk — TOTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"challengeId\": \"{{challengeId}}\",\n  \"code\": \"{{totpCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login/totp", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login","totp"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "4.3 Receive 60 of 100 (partial)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"purchaseOrderId\": \"{{poId}}\",\n  \"lines\": [ { \"purchaseOrderLineId\": \"{{poLineId}}\", \"quantity\": 60 } ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/goods-receipts", "host": ["{{baseUrl}}"], "path": ["api","v1","goods-receipts"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('201', () => pm.response.to.have.status(201));",
+            "pm.test('receipt numbered', () => pm.expect(pm.response.json().receiptNumber).to.match(/^GRN-\\d{6}$/));"
+          ] } }]
+        },
+        {
+          "name": "4.4 Line is open with 40 outstanding",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/purchase-orders/{{poId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","purchase-orders","{{poId}}"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const line = pm.response.json().lines.find(l => l.quantityOrdered === 100);",
+            "pm.test('received 60', () => pm.expect(line.quantityReceived).to.eql(60));",
+            "pm.test('outstanding 40', () => pm.expect(line.outstanding).to.eql(40));",
+            "pm.test('line still open', () => pm.expect(line.closed).to.be.false);",
+            "pm.test('order partially received', () => pm.expect(pm.response.json().status).to.eql('partially_received'));"
+          ] } }]
+        },
+        {
+          "name": "4.5 Receive the remaining 40",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"purchaseOrderId\": \"{{poId}}\",\n  \"lines\": [ { \"purchaseOrderLineId\": \"{{poLineId}}\", \"quantity\": 40 } ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/goods-receipts", "host": ["{{baseUrl}}"], "path": ["api","v1","goods-receipts"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('201', () => pm.response.to.have.status(201));"] } }]
+        },
+        {
+          "name": "4.6 Receive 10 more (MUST FAIL)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"purchaseOrderId\": \"{{poId}}\",\n  \"lines\": [ { \"purchaseOrderLineId\": \"{{poLineId}}\", \"quantity\": 10 } ]\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/goods-receipts", "host": ["{{baseUrl}}"], "path": ["api","v1","goods-receipts"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('409 OVER_RECEIPT', () => { pm.response.to.have.status(409); pm.expect(pm.response.json().code).to.eql('OVER_RECEIPT'); });",
+            "const b = pm.response.json();",
+            "pm.test('explains itself', () => { pm.expect(b.ordered).to.eql(100); pm.expect(b.outstanding).to.eql(0); pm.expect(b.attempted).to.eql(10); });"
+          ] } }]
+        },
+        {
+          "name": "4.7 Both receipts left a traceable movement",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/movements?itemId={{sharedItemId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","movements"], "query": [{ "key": "itemId", "value": "{{sharedItemId}}" }] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const data = pm.response.json().data;",
+            "const receipts = data.filter(m => m.type === 'RECEIPT');",
+            "pm.test('two receipt movements', () => pm.expect(receipts.length).to.eql(2));",
+            "pm.test('each names its goods receipt', () => receipts.forEach(m => { pm.expect(m.referenceType).to.eql('goods_receipt'); pm.expect(m.referenceId).to.be.ok; }));",
+            "pm.test('quantities are 60 and 40', () => pm.expect(receipts.map(m => m.qtyDelta).sort((a,b)=>a-b)).to.eql([40,60]));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "5 · Reorder alerts (P2-09)",
+      "item": [
+        {
+          "name": "5.1 Scan — nothing below threshold yet",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/reorder-scan", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","reorder-scan"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('200', () => pm.response.to.have.status(200));"] } }]
+        },
+        {
+          "name": "5.2 Drop SLV-020 below its level of 8",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{lowStockItemId}}\",\n  \"qtyDelta\": -45,\n  \"reason\": \"stock count\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/stock/adjustments", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","adjustments"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('below reorder level flagged inline', () => pm.expect(pm.response.json().belowReorderLevel).to.be.true);"
+          ] } }]
+        },
+        {
+          "name": "5.3 Scan — one alert raised",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/reorder-scan", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","reorder-scan"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('one raised', () => pm.expect(pm.response.json().alertsRaised).to.eql(1));"
+          ] } }]
+        },
+        {
+          "name": "5.4 Scan again — no duplicate alert",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/reorder-scan", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","reorder-scan"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('nothing raised the second time', () => pm.expect(pm.response.json().alertsRaised).to.eql(0));",
+            "pm.test('still exactly one open', () => pm.expect(pm.response.json().openTotal).to.eql(1));"
+          ] } }]
+        },
+        {
+          "name": "5.5 Restock, then scan — alert clears",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{lowStockItemId}}\",\n  \"qtyDelta\": 20,\n  \"reason\": \"restock\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/stock/adjustments", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","adjustments"] }
+          }
+        },
+        {
+          "name": "5.6 Scan — cleared",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/reorder-scan", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","reorder-scan"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('one cleared', () => pm.expect(pm.response.json().alertsCleared).to.eql(1));",
+            "pm.test('none open', () => pm.expect(pm.response.json().openTotal).to.eql(0));"
+          ] } }]
+        },
+        {
+          "name": "5.7 Clerk cannot reconcile (MUST FAIL)",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/reconcile", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","reconcile"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('403 — reconciliation is a super_admin repair tool', () => pm.response.to.have.status(403));"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "6 · Reconciliation (P2-05) — super admin",
+      "item": [
+        {
+          "name": "6.1 Sign in as super admin — password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"super@mlmsittu.local\",\n  \"password\": \"{{password}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.collectionVariables.set('challengeId', pm.response.json().challengeId);"] } }]
+        },
+        {
+          "name": "6.2 Sign in as super admin — TOTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"challengeId\": \"{{challengeId}}\",\n  \"code\": \"{{totpCode}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login/totp", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login","totp"] }
+          }
+        },
+        {
+          "name": "6.3 Reconcile — run BEFORE and AFTER the SQL corruption in the guide",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/stock/reconcile", "host": ["{{baseUrl}}"], "path": ["api","v1","stock","reconcile"] } },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "const r = pm.response.json();",
+            "pm.test('200', () => pm.response.to.have.status(200));",
+            "console.log('rowsChecked', r.rowsChecked, 'discrepancies', r.discrepanciesFound);",
+            "pm.test('clean run has no discrepancies (run it before corrupting anything)', () => pm.expect(r.discrepanciesFound).to.eql(0));",
+            "// Now run the UPDATE from guide section 3.6 and send this request again:",
+            "//   UPDATE stock_level SET on_hand = 999 WHERE item_id = (SELECT id FROM item WHERE sku='SLV-001');",
+            "// It should report exactly one discrepancy and repair it."
+          ] } }]
+        }
+      ]
+    }
+  ]
+}

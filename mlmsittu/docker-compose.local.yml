@@ -1,0 +1,130 @@
+# ==============================================================================================
+# MLM Sittu — backend, frontend and database, on your own machine.
+#
+#   docker compose -f docker-compose.local.yml build
+#   docker compose -f docker-compose.local.yml up -d
+#
+# Standalone: this file does not extend docker-compose.yml. That one is the EC2 deployment and
+# stays untouched.
+#
+# Every credential comes from `.env` in this folder, which Compose reads automatically. See
+# LOCAL-DOCKER.md for what each variable does.
+#
+# ----------------------------------------------------------------------------------------------
+# DEVELOPMENT ONLY. This runs the `local` Spring profile, which does not mark the session cookie
+# Secure and keeps the development NIC secrets. Both are wrong on a server and necessary here —
+# LOCAL-DOCKER.md explains why. Do not run this file on EC2.
+# ----------------------------------------------------------------------------------------------
+# ==============================================================================================
+
+services:
+
+  # ---------------------------------------------------------------- database
+  db:
+    image: postgres:18-alpine
+    container_name: mlmsittu-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_MIGRATION_USER}
+      POSTGRES_PASSWORD: ${DB_MIGRATION_PASSWORD}
+      # The reporting day boundary is defined in Asia/Colombo. A database on UTC would put every
+      # evening's sales into the following day's totals.
+      TZ: Asia/Colombo
+    ports:
+      # 5433 on your machine, 5432 inside. Your native PostgreSQL 18 keeps 5432 and its data.
+      - "${DB_PORT}:5432"
+    volumes:
+      # Mounted at /var/lib/postgresql, NOT /var/lib/postgresql/data.
+      #
+      # postgres:18 stores data in a major-version subdirectory (data/18) so that
+      # pg_upgrade --link can work across a future major version without crossing a mount
+      # boundary. Mounting the old .../data path makes the image refuse to start: it finds
+      # what looks like an un-upgraded cluster and stops rather than risk the data.
+      - pgdata:/var/lib/postgresql
+      # Runs once, on an empty data directory, before the database accepts connections. Creates
+      # the mlmsittu_app role the application connects as — weaker than the owner, with no DDL
+      # rights and no UPDATE or DELETE on audit_log. That is what makes the audit trail
+      # append-only in fact rather than by convention.
+      - ./mlmsittu/db/bootstrap/01-app-role.sql:/docker-entrypoint-initdb.d/01-app-role.sql:ro
+    healthcheck:
+      # The application must not start before the database can answer, or Flyway fails and the
+      # container restarts in a loop that reads like an application fault.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_MIGRATION_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  # ---------------------------------------------------------------- backend
+  app:
+    build:
+      context: ./mlmsittu
+    container_name: mlmsittu-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Not `prod`. Under prod the session cookie is Secure and the browser drops it over plain
+      # http://localhost, so login fails with correct credentials; and prod refuses to start on
+      # the development NIC secrets, which are the ones your existing data was hashed with.
+      SPRING_PROFILES_ACTIVE: local
+
+      # `db` is this compose file's service name, resolved on the container network. It is not
+      # localhost — from inside the app container, localhost is the app container.
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_MIGRATION_USER: ${DB_MIGRATION_USER}
+      DB_MIGRATION_PASSWORD: ${DB_MIGRATION_PASSWORD}
+
+      SECURITY_NIC_PEPPER: ${SECURITY_NIC_PEPPER}
+      SECURITY_NIC_ENCRYPTION_KEY: ${SECURITY_NIC_ENCRYPTION_KEY}
+
+      # Mail is commented out, not set to empty.
+      #
+      # An EMPTY value is not the same as unset. Compose would pass SPRING_MAIL_HOST="" , Spring
+      # would see the property as present, and Boot would autoconfigure a mailer aimed at
+      # localhost:587 — which then fails its health check and takes the whole container DOWN,
+      # while SmtpEmailTransport quietly activates and tries to deliver real mail to nothing.
+      #
+      # With these absent there is no JavaMailSender at all: messages are queued in
+      # outbox_message and written to `docker compose logs app`. Nothing is lost — turn mail on
+      # later and the backlog is delivered on the next poll.
+      #
+      # To enable, fill the values in .env and uncomment these five lines.
+      #SPRING_MAIL_HOST: ${SPRING_MAIL_HOST}
+      #SPRING_MAIL_PORT: ${SPRING_MAIL_PORT}
+      #SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
+      #SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+      #NOTIFICATIONS_MAIL_FROM: ${NOTIFICATIONS_MAIL_FROM}
+
+      DOCUMENT_ROOT: /var/mlmsittu/documents
+      TZ: Asia/Colombo
+    ports:
+      # Direct access to the API. nginx only proxies /api/, so `npm run api:sync` — which reads
+      # /v3/api-docs — needs this.
+      - "${API_PORT}:8080"
+    volumes:
+      # Uploaded NIC images and bank slips. A path inside the container is erased by the next
+      # `--build`, taking the KYC evidence with it.
+      - documents:/var/mlmsittu/documents
+
+  # ---------------------------------------------------------------- frontend
+  web:
+    build:
+      context: ./frontend
+    container_name: mlmsittu-web
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      # This is the one you open in a browser.
+      - "${WEB_PORT}:80"
+    environment:
+      TZ: Asia/Colombo
+
+volumes:
+  pgdata:
+  documents:

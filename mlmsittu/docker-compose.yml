@@ -1,0 +1,134 @@
+# ==============================================================================================
+# MLM Sittu — the whole stack on one EC2 instance.
+#
+#   docker compose up -d --build
+#
+# Three containers: PostgreSQL, the Spring application, and nginx serving the frontend and
+# proxying the API. No Redis and no MinIO — Phase 7 put sessions and rate limits in PostgreSQL,
+# and documents are on a mounted volume, so neither is needed.
+#
+# Every secret comes from .env, which is not in the image and must not be committed. Copy
+# .env.example, fill it in, and keep it readable only by the deploy user.
+# ==============================================================================================
+
+services:
+
+  # ---------------------------------------------------------------- database
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mlmsitty}
+      POSTGRES_USER: ${DB_MIGRATION_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_MIGRATION_PASSWORD:?set DB_MIGRATION_PASSWORD in .env}
+      # Asia/Colombo throughout. The reporting day boundary is defined in that zone, and a
+      # database on UTC would put every evening's sales in the following day's totals.
+      TZ: Asia/Colombo
+    volumes:
+      # Mounted at /var/lib/postgresql, NOT /var/lib/postgresql/data.
+      #
+      # postgres:18 stores data in a major-version subdirectory (data/18) so that
+      # pg_upgrade --link can work across a future major version without crossing a mount
+      # boundary. Mounting the old .../data path makes the image refuse to start: it finds
+      # what looks like an un-upgraded cluster and stops rather than risk the data.
+      - pgdata:/var/lib/postgresql
+      # Runs once, on an empty data directory, before the database accepts connections.
+      #
+      # This is what creates the mlmsittu_app role: the application connects as that weaker
+      # account with no DDL rights and no UPDATE or DELETE on audit_log, which is what makes the
+      # audit trail append-only in fact rather than by convention. Skipping it would leave the
+      # application connecting as the owner and every one of those restrictions silently absent.
+      #
+      # One file, not the directory. 02-test-database.sql creates mlmsitty_test for the build to
+      # trample on, and mounting the folder would put a test database on the production server.
+      - ./mlmsittu/db/bootstrap/01-app-role.sql:/docker-entrypoint-initdb.d/01-app-role.sql:ro
+    healthcheck:
+      # The application must not start before the database can answer, or Flyway fails and the
+      # container restarts in a loop that reads like an application fault.
+      test: ["CMD-SHELL", "pg_isready -U ${DB_MIGRATION_USER:-postgres} -d ${DB_NAME:-mlmsitty}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Not published. Nothing outside the compose network has any business reaching PostgreSQL
+    # directly; to inspect it, use `docker compose exec db psql`.
+    expose:
+      - "5432"
+
+  # ---------------------------------------------------------------- application
+  app:
+    build:
+      context: ./mlmsittu
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+      # Two accounts, deliberately. Flyway migrates as the owner because it creates tables; the
+      # application runs as the weaker role. See db/bootstrap/01-app-role.sql.
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-mlmsitty}
+      DB_USER: ${DB_USER:-mlmsittu_app}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      DB_MIGRATION_USER: ${DB_MIGRATION_USER:-postgres}
+      DB_MIGRATION_PASSWORD: ${DB_MIGRATION_PASSWORD:?set DB_MIGRATION_PASSWORD in .env}
+
+      # No defaults, and the application refuses to start under the prod profile if these are
+      # still the development values. They protect stored NIC numbers, and they can never be
+      # changed once real data exists — the pepper is baked into every stored hash.
+      SECURITY_NIC_PEPPER: ${SECURITY_NIC_PEPPER:?set SECURITY_NIC_PEPPER in .env}
+      SECURITY_NIC_ENCRYPTION_KEY: ${SECURITY_NIC_ENCRYPTION_KEY:?set SECURITY_NIC_ENCRYPTION_KEY in .env}
+
+      DOCUMENT_ROOT: /var/mlmsittu/documents
+
+      # Mail is optional, and these are COMMENTED OUT rather than defaulted to empty.
+      #
+      # An empty value is not the same as an absent one. `${SPRING_MAIL_HOST:-}` passes an empty
+      # string when the variable is unset, Spring sees the property as present, and Boot
+      # autoconfigures a mailer aimed at localhost:587. Its health check then fails, which takes
+      # /actuator/health DOWN and marks the container unhealthy while nothing is actually wrong —
+      # and SmtpEmailTransport activates (@ConditionalOnProperty treats "" as present) and tries
+      # to deliver real mail to a server that is not there.
+      #
+      # This was found running the same images locally. With these absent there is no mail sender
+      # at all: messages queue in outbox_message and go to `docker compose logs app`.
+      #
+      # To enable mail, set the values in .env and uncomment these seven lines. See DEPLOYMENT.md
+      # section 5 — the queued backlog is delivered on the next poll, so nothing is lost.
+      #SPRING_MAIL_HOST: ${SPRING_MAIL_HOST}
+      #SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      #SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
+      #SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+      #SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      #SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      #NOTIFICATIONS_MAIL_FROM: ${NOTIFICATIONS_MAIL_FROM}
+
+      TZ: Asia/Colombo
+    volumes:
+      # Uploaded NIC images and bank slips. A path inside the container would be erased by the
+      # next `docker compose up --build`, taking the KYC evidence with it.
+      - documents:/var/mlmsittu/documents
+    expose:
+      - "8080"
+
+  # ---------------------------------------------------------------- frontend and gateway
+  web:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      # The only port open to the world. Put TLS in front of this — an ALB, or nginx with
+      # certbot on the instance — before it is reachable from anywhere but your own network.
+      # The application sets Secure on the session cookie under the prod profile, so over plain
+      # http the browser will refuse to store it and nobody will be able to log in. That is the
+      # intended failure: it is louder than sending session cookies in clear text.
+      - "${HTTP_PORT:-80}:80"
+    environment:
+      TZ: Asia/Colombo
+
+volumes:
+  pgdata:
+  documents:

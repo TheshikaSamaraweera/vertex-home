@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+
+/* ==============================================================================================
+   MLM Sittu — light theme, deep forest green.
+
+   ONE PALETTE, NO DARK MODE
+   -------------------------
+   The app previously followed the operating system's colour scheme, which meant it rendered dark
+   on a machine set to dark — including, at a client demo, on the client's machine. There is now a
+   single light palette and `color-scheme: light`, so the app looks identical everywhere regardless
+   of the viewer's settings. Do not reintroduce a `prefers-color-scheme` block without also
+   designing the dark palette properly; a half-designed second theme is how the original problem
+   happened.
+
+   THE COLOURS
+   -----------
+   Green is the brand, so the neutrals are given a slight green bias rather than being left a flat
+   grey — a neutral that shares a hue with the accent reads as chosen rather than inherited.
+
+   Because the brand is green, the positive-state colour has to work harder to stay distinct from
+   it: `--c-ok` is deliberately lighter and brighter than `--c-brand`, and the two never appear in
+   the same component role (brand fills buttons and navigation, ok tints badges). Amber and
+   terracotta carry the rest of the state signalling so the interface does not collapse into one
+   hue.
+   ============================================================================================== */
+
+:root {
+  /* Surfaces. Ground sits behind cards; panel is the card; panel-2 is inset — table headers,
+     hover rows, form wells. */
+  --c-ground: #eff4f0;
+  --c-panel: #ffffff;
+  --c-panel-2: #e8f0ea;
+
+  /* Text. Near-black with a green bias rather than a pure grey ramp. */
+  --c-ink: #14221a;
+  --c-ink-2: #47584e;
+  --c-ink-3: #78887e;
+  --c-rule: #d1ded4;
+
+  /* Brand. Buttons, links, active navigation, focus rings, chart emphasis. */
+  --c-brand: #146b3a;
+  --c-brand-deep: #0e4e2a;
+  --c-brand-ink: #ffffff;
+  --c-brand-soft: #e3f0e8;
+
+  /* Semantic state. Distinct hues so a status reads without being read. */
+  --c-ok: #1e874f;
+  --c-ok-soft: #ddf0e6;
+  --c-warn: #96620a;
+  --c-warn-soft: #faefd9;
+  --c-danger: #a6341f;
+  --c-danger-soft: #fbe9e4;
+
+  /* Navigation rail.
+     
+     A tinted surface, not another sheet of white. The sidebar used to be --c-panel sitting on
+     --c-ground: two near-whites with almost no figure/ground separation, so the rail read as an
+     absence rather than a region. The hierarchy was inverted too — the section headings, the
+     labels that organise the whole application, were the faintest marks on the screen at 9.5px of
+     pale grey.
+     
+     The fix is contrast and weight rather than darkness: a distinctly tinted ground, headings in
+     real ink instead of the lightest grey, and an active item filled with the brand rather than
+     hinted at with a wash of it. */
+  --c-nav: #e4eee7;
+  --c-nav-raised: #d3e5d9;
+  --c-nav-edge: #b6d3c0;
+  --c-nav-ink: #0f2419;
+  --c-nav-ink-2: #3c5145;
+  --c-nav-ink-3: #5d7266;
+
+  /* Elevation. Two steps only: resting cards, and things that float above them. */
+  --elev-card: 0 1px 2px rgba(20, 34, 26, 0.05), 0 1px 3px rgba(20, 34, 26, 0.04);
+  --elev-float: 0 4px 6px -2px rgba(20, 34, 26, 0.08), 0 16px 32px -12px rgba(20, 34, 26, 0.24);
+}
+
+/* `inline` emits var() references rather than baking values, so a token change here reaches every
+   utility class without Tailwind regenerating anything. */
+@theme inline {
+  --color-ground: var(--c-ground);
+  --color-panel: var(--c-panel);
+  --color-panel2: var(--c-panel-2);
+  --color-ink: var(--c-ink);
+  --color-ink2: var(--c-ink-2);
+  --color-ink3: var(--c-ink-3);
+  --color-rule: var(--c-rule);
+  --color-nav: var(--c-nav);
+  --color-navraised: var(--c-nav-raised);
+  --color-navedge: var(--c-nav-edge);
+  --color-navink: var(--c-nav-ink);
+  --color-navink2: var(--c-nav-ink-2);
+  --color-navink3: var(--c-nav-ink-3);
+  --color-brand: var(--c-brand);
+  --color-branddeep: var(--c-brand-deep);
+  --color-brandink: var(--c-brand-ink);
+  --color-brandsoft: var(--c-brand-soft);
+  --color-ok: var(--c-ok);
+  --color-oksoft: var(--c-ok-soft);
+  --color-warn: var(--c-warn);
+  --color-warnsoft: var(--c-warn-soft);
+  --color-danger: var(--c-danger);
+  --color-dangersoft: var(--c-danger-soft);
+
+  --shadow-card: var(--elev-card);
+  --shadow-float: var(--elev-float);
+
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: 'Cascadia Code', ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
+}
+
+html {
+  /* Light only. This is what stops a dark-mode machine rendering dark form controls, scrollbars
+     and autofill backgrounds inside an otherwise light page. */
+  color-scheme: light;
+}
+
+body {
+  background: var(--c-ground);
+  color: var(--c-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Anything showing aligned figures — stock counts, quantities, prices — gets tabular digits so
+   columns line up instead of shimmering as values change. */
+.nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Headings sit tighter than body text; at display sizes the default tracking looks loose. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.011em;
+  text-wrap: balance;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--c-brand);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Date and file inputs render their own icons from the colour scheme; nudge them to the ink ramp
+   so they do not sit at full black against a green-biased palette. */
+input[type='date']::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}
+input[type='date']::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+::selection {
+  background: var(--c-brand-soft);
+  color: var(--c-ink);
+}
+
+/* Scrollbars inside panels, so a long table does not paint a system-grey bar across the green. */
+* {
+  scrollbar-color: var(--c-rule) transparent;
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
