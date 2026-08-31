@@ -100,9 +100,22 @@ services:
       #SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
       #SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
       #SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
-      #SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
-      #SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
       #NOTIFICATIONS_MAIL_FROM: ${NOTIFICATIONS_MAIL_FROM}
+      #
+      # auth and STARTTLS used to be listed here too. They now live in application.properties,
+      # where they are inert until a host exists — they describe what port 587 requires, not what
+      # this server is, so repeating them per environment only created somewhere to forget them.
+
+      # Where links inside emails point. Not optional, and not only a mail setting.
+      #
+      # The account-verification link is built from this. The code falls back to
+      # http://localhost:5173 — the Vite dev server — so leaving it unset sends every new customer
+      # a link that cannot possibly work, and the send itself succeeds, so nothing here reports a
+      # problem. The recipient is the one who finds out.
+      #
+      # Use the address a browser actually reaches: https://your-domain.lk once TLS is in front,
+      # http://<elastic-ip> before that.
+      APP_BASE_URL: ${APP_BASE_URL}
 
       TZ: Asia/Colombo
     volumes:

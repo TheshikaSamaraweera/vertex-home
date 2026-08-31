@@ -82,23 +82,34 @@ services:
       SECURITY_NIC_PEPPER: ${SECURITY_NIC_PEPPER}
       SECURITY_NIC_ENCRYPTION_KEY: ${SECURITY_NIC_ENCRYPTION_KEY}
 
-      # Mail is commented out, not set to empty.
+      # Mail. To turn it OFF again, comment these five out — do not blank them in .env.
       #
-      # An EMPTY value is not the same as unset. Compose would pass SPRING_MAIL_HOST="" , Spring
-      # would see the property as present, and Boot would autoconfigure a mailer aimed at
-      # localhost:587 — which then fails its health check and takes the whole container DOWN,
-      # while SmtpEmailTransport quietly activates and tries to deliver real mail to nothing.
+      # An EMPTY value is not the same as unset. Compose passes SPRING_MAIL_HOST="", Spring sees
+      # the property as present, and Boot autoconfigures a mailer aimed at localhost:587 — which
+      # fails its health check and takes the whole container DOWN, while SmtpEmailTransport
+      # quietly activates and tries to deliver real mail to nothing. That is not a hypothetical;
+      # it is what happened the first time this file was written.
       #
-      # With these absent there is no JavaMailSender at all: messages are queued in
-      # outbox_message and written to `docker compose logs app`. Nothing is lost — turn mail on
-      # later and the backlog is delivered on the next poll.
+      # With them absent there is no JavaMailSender at all: messages are queued in outbox_message
+      # and written to `docker compose logs app`. Nothing is lost either way — the outbox is the
+      # store, and anything queued while mail was off is delivered on the next poll after it
+      # comes back on.
       #
-      # To enable, fill the values in .env and uncomment these five lines.
-      #SPRING_MAIL_HOST: ${SPRING_MAIL_HOST}
-      #SPRING_MAIL_PORT: ${SPRING_MAIL_PORT}
-      #SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
-      #SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
-      #NOTIFICATIONS_MAIL_FROM: ${NOTIFICATIONS_MAIL_FROM}
+      # auth and STARTTLS are not here: application.properties sets them, because they describe
+      # port 587 rather than this machine.
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
+      NOTIFICATIONS_MAIL_FROM: ${NOTIFICATIONS_MAIL_FROM}
+
+      # Where the links inside those emails point.
+      #
+      # Without this the code falls back to http://localhost:5173 — the Vite dev server, which is
+      # not running under Docker. Every verification link would be dead on arrival, and the
+      # failure is invisible from the server: the mail sends perfectly and the recipient is the
+      # one who finds out. It must match WEB_PORT.
+      APP_BASE_URL: ${APP_BASE_URL}
 
       DOCUMENT_ROOT: /var/mlmsittu/documents
       TZ: Asia/Colombo
