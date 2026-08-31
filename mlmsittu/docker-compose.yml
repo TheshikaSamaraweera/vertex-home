@@ -106,6 +106,12 @@ services:
       # where they are inert until a host exists — they describe what port 587 requires, not what
       # this server is, so repeating them per environment only created somewhere to forget them.
 
+      # Plain-HTTP bring-up only. Leave it out and the cookie is Secure, which is correct.
+      #
+      # Uncomment ONLY while reaching the server over http://<ip> with no TLS in front, and take it
+      # out again the hour a certificate is in place. See application-prod.properties.
+      #SESSION_COOKIE_SECURE: "false"
+
       # Where links inside emails point. Not optional, and not only a mail setting.
       #
       # The account-verification link is built from this. The code falls back to
