@@ -34,30 +34,95 @@ mounted volume, so there is nothing else to run.
 
 ## 1. The instance
 
-A `t3.small` is enough to start: the JVM takes ~70% of its container's memory, PostgreSQL wants a
-few hundred MB, and nginx is negligible. `t3.micro` (1 GB) will work but leaves little headroom.
+### Launching it
+
+| Setting | Value | Why |
+|---|---|---|
+| AMI | Amazon Linux 2023 | The commands below are `dnf`; adjust for Ubuntu. |
+| Type | `t3.small` | The JVM takes ~70% of its container's memory, PostgreSQL a few hundred MB, nginx nothing. `t3.micro` (1 GB) runs but leaves no headroom, and the build is what runs out first. |
+| Storage | 30 GB gp3 | The default 8 GB does not survive Docker images plus the database plus uploaded documents. Growing it later means resizing a live filesystem. |
+| Key pair | create and download | The only way in. There is no password login. |
+| Elastic IP | allocate and associate | A stopped instance gets a **new** public IP on restart, which silently breaks `APP_BASE_URL` and every verification link already emailed. |
+
+**Security group inbound:** 22 from your own IP only, 80 and 443 from anywhere.
+**Do not open 5432.** The database is not published outside the compose network and must stay that
+way — the compose file exposes it to `app` alone.
+
+### Docker
 
 ```bash
-sudo dnf install -y docker            # Amazon Linux 2023
+sudo dnf install -y docker git
 sudo systemctl enable --now docker
-sudo usermod -aG docker ec2-user      # log out and back in
+sudo usermod -aG docker ec2-user      # log out and back in, or `newgrp docker`
 docker compose version                # v2 ships with the plugin
 ```
 
-**Security group:** open 443 (and 80 only to redirect). **Do not open 5432** — the database is not
-published outside the compose network, and it should stay that way.
+`usermod` does not affect the shell you are already in. If the next `docker` command says
+`permission denied ... /var/run/docker.sock`, that is why — reconnect.
+
+### Swap, on a t3.small
+
+```bash
+sudo dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+Not optional in practice. `docker compose build` runs Gradle and Vite, both of which are memory
+hungry, and on 2 GB with no swap the kernel's OOM killer takes the build out — usually reported as
+an opaque non-zero exit rather than anything mentioning memory.
+
+### Getting the code across
+
+The repository is private, so the instance needs its own read-only credential. A **deploy key** is
+the right one: it grants access to this repository alone, and revoking it cannot lock anyone out
+of anything else.
+
+```bash
+ssh-keygen -t ed25519 -C "mlmsittu-ec2" -f ~/.ssh/id_ed25519 -N ''
+cat ~/.ssh/id_ed25519.pub
+```
+
+Paste that into GitHub → the repository → Settings → Deploy keys → Add deploy key. Leave **Allow
+write access unchecked** — the server only ever reads.
+
+```bash
+sudo mkdir -p /opt/mlmsittu && sudo chown ec2-user:ec2-user /opt/mlmsittu
+git clone git@github.com:TheshikaSamaraweera/vertex-home.git /opt/mlmsittu
+cd /opt/mlmsittu/mlmsittu          # the compose files live one level down
+```
+
+Pasting the source over SCP works too, but then `git pull` in section 7 does not, and updates
+become a manual copy every time.
 
 ---
 
 ## 2. Configuration
 
 ```bash
-cd /opt/mlmsittu
+cd /opt/mlmsittu/mlmsittu
 cp .env.example .env
 chmod 600 .env
 ```
 
-Fill in `.env`. Generate the two NIC secrets separately:
+`.env` is gitignored, so it is never in the clone and never overwritten by `git pull`. Do **not**
+copy the development `.env` from your own machine: it carries the placeholder NIC keys published
+in this repository, and the prod profile refuses to start with them — which is the check working,
+not a bug.
+
+### `APP_BASE_URL` — set this or every verification email is wasted
+
+```
+APP_BASE_URL=http://<your-elastic-ip>        # https://your-domain.lk once TLS is up
+```
+
+No trailing slash. It is what the account-confirmation link is built from, and the code falls back
+to `http://localhost:5173` — a developer's Vite server. Get it wrong and the send still succeeds,
+the log still says `Email sent`, the outbox row still says `sent`; the recipient is the only one
+who ever finds out. Change it again the moment you put a domain in front, and note that anything
+already emailed keeps the old address.
+
+Generate the two NIC secrets separately:
 
 ```bash
 openssl rand -base64 48    # SECURITY_NIC_PEPPER
@@ -91,7 +156,7 @@ docker compose logs -f app
 What should happen, in order:
 
 1. `db` comes up and runs `01-app-role.sql`, creating the `mlmsittu_app` role.
-2. `app` waits for the database to pass its health check, then Flyway migrates from V1 to V22.
+2. `app` waits for the database to pass its health check, then Flyway migrates from V1 to V24.
 3. `Started MlmsittuApplication` — expect 30–60 seconds on a small instance.
 4. `web` serves on port 80.
 
@@ -206,25 +271,67 @@ the pack is still issued — only the notification is outstanding.
 
 ## 6. Creating the first administrator
 
-The seed accounts are development-only and must not exist in production. Create a super admin by
-hand:
+**A fresh database has no accounts at all.** No migration seeds one, deliberately — a shipped
+account with a known password is a back door in every deployment that forgets to remove it. So the
+first administrator is made by hand, and until you do it nobody can sign in.
+
+Do **not** write the password hash yourself. Argon2id parameters have to match the application's
+encoder exactly, and a mismatch fails at login looking indistinguishable from a wrong password.
+Let the application hash it, by using the ordinary signup endpoint and then promoting the account:
+
+```bash
+# 1. The application creates the account and hashes the password with its own encoder.
+curl -sS -X POST http://localhost/api/v1/auth/register      -H 'Content-Type: application/json'      -d '{"fullName":"Your Name","email":"you@yourcompany.lk","password":"<a long password>"}'
+```
+
+It answers `If that address can be registered, a confirmation link is on its way.` whatever
+happens — that endpoint deliberately refuses to reveal whether an address is already taken, so it
+is not a way to enumerate accounts. The account exists but is `unverified`, and signup also grants
+it `DISTRIBUTOR`, which an administrator has no business holding.
 
 ```bash
 docker compose exec db psql -U postgres -d mlmsitty
 ```
 
 ```sql
--- Generate the hash with the application's own encoder rather than inventing one; Argon2id
--- parameters have to match or the login will fail in a way that looks like a wrong password.
-INSERT INTO app_user (email, full_name, password_hash, status, email_verified)
-VALUES ('you@yourcompany.lk', 'Your Name', '<argon2id hash>', 'active', true);
+-- 2. Activate it. Skips the emailed link, which matters because mail may not be on yet, and the
+--    person doing this is standing at the server anyway.
+UPDATE app_user SET status = 'active', email_verified = true
+ WHERE email = 'you@yourcompany.lk';
 
+-- 3. Promote. No hash is written here, which is the whole point.
 INSERT INTO user_role (user_id, role_id)
 SELECT u.id, r.id FROM app_user u, app_role r
- WHERE u.email = 'you@yourcompany.lk' AND r.code = 'SUPER_ADMIN';
+ WHERE u.email = 'you@yourcompany.lk' AND r.code = 'SUPER_ADMIN'
+ON CONFLICT DO NOTHING;
+
+-- 4. Drop the DISTRIBUTOR role signup added. Leaving it makes an administrator show up in the
+--    customer network as a person who could be referred, which is not a thing they are.
+DELETE FROM user_role ur USING app_user u, app_role r
+ WHERE ur.user_id = u.id AND ur.role_id = r.id
+   AND u.email = 'you@yourcompany.lk' AND r.code = 'DISTRIBUTOR';
 ```
 
-Then enrol TOTP on first login — every administrative role requires it.
+Confirm it before you close the terminal:
+
+```bash
+curl -sS -X POST http://localhost/api/v1/auth/login      -H 'Content-Type: application/json'      -d '{"email":"you@yourcompany.lk","password":"<the same password>"}'
+```
+
+`"roles":["SUPER_ADMIN"]` and HTTP 200 means it worked.
+
+### TOTP
+
+`SUPER_ADMIN` and `ADMIN` do **not** require it — that was turned off at the client's request, and
+`app_role.requires_mfa` is `false` for both. The staff roles still do: `FINANCE_OFFICER`,
+`INVENTORY_CLERK`, `KYC_REVIEWER`, `PROCUREMENT_OFFICER` and `SUPPORT_AGENT` are handed an
+enrolment QR on first login and cannot sign in until they scan it.
+
+To require it of administrators too, one statement and a restart is all it takes:
+
+```sql
+UPDATE app_role SET requires_mfa = true WHERE code IN ('SUPER_ADMIN', 'ADMIN');
+```
 
 ---
 
