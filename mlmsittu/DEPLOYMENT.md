@@ -166,8 +166,10 @@ openssl rand -base64 48    # SECURITY_NIC_ENCRYPTION_KEY
 > deliberate: a container that came up with the development keys would encrypt real identity
 > numbers with a key published in this repository, and would look perfectly healthy doing it.
 
-If you change `DB_PASSWORD`, change it in `mlmsittu/db/bootstrap/01-app-role.sql` too — that
-script creates the role, and it only runs once, on first start.
+`DB_PASSWORD` is read straight from `.env` by `01-app-role.sh` when the database is first
+created, so there is no second place to change it. It runs **once**, on an empty data directory:
+changing the password afterwards needs `ALTER ROLE`, not a restart. This compose file also makes
+that script refuse to start if `DB_PASSWORD` is still the example value published in the repo.
 
 ---
 
@@ -180,7 +182,7 @@ docker compose logs -f app
 
 What should happen, in order:
 
-1. `db` comes up and runs `01-app-role.sql`, creating the `mlmsittu_app` role.
+1. `db` comes up and runs `01-app-role.sh`, creating the `mlmsittu_app` role with the password from `.env`.
 2. `app` waits for the database to pass its health check, then Flyway migrates from V1 to V24.
 3. `Started MlmsittuApplication` — expect 30–60 seconds on a small instance.
 4. `web` serves on port 80.
@@ -477,7 +479,7 @@ docker compose logs app | tail -50
   The way to avoid the question entirely: **never edit a migration that has been applied
   anywhere.** Write the next one instead.
 - **`password authentication failed for user "mlmsittu_app"`** — `DB_PASSWORD` no longer matches
-  the role. `01-app-role.sql` runs **once**, on the database's first ever start, so changing the
+  the role. `01-app-role.sh` runs **once**, on the database's first ever start, so changing the
   password in `.env` later does not change the role. Change it in the database by hand:
   `ALTER ROLE mlmsittu_app PASSWORD '...';`
 

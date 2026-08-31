@@ -28,6 +28,8 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_MIGRATION_USER}
       POSTGRES_PASSWORD: ${DB_MIGRATION_PASSWORD}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
       # The reporting day boundary is defined in Asia/Colombo. A database on UTC would put every
       # evening's sales into the following day's totals.
       TZ: Asia/Colombo
@@ -46,7 +48,7 @@ services:
       # the mlmsittu_app role the application connects as — weaker than the owner, with no DDL
       # rights and no UPDATE or DELETE on audit_log. That is what makes the audit trail
       # append-only in fact rather than by convention.
-      - ./mlmsittu/db/bootstrap/01-app-role.sql:/docker-entrypoint-initdb.d/01-app-role.sql:ro
+      - ./mlmsittu/db/bootstrap/01-app-role.sh:/docker-entrypoint-initdb.d/01-app-role.sh:ro
     healthcheck:
       # The application must not start before the database can answer, or Flyway fails and the
       # container restarts in a loop that reads like an application fault.

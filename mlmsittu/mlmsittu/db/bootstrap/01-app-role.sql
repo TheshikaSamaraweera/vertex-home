@@ -1,6 +1,13 @@
 -- ==============================================================================================
 -- ONE-TIME BOOTSTRAP · run as a superuser, before the first application start.
 --
+-- FOR A NATIVE PostgreSQL ON A DEVELOPMENT MACHINE ONLY.
+--
+-- Docker uses 01-app-role.sh instead, which takes the password from DB_PASSWORD. This file
+-- carries a literal, which is fine for a laptop database holding nothing and reachable from
+-- nowhere, and is exactly why it is not what a server runs: the value below is published in this
+-- repository, so a production deployment using it would have no application-role password at all.
+--
 --   "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -U postgres -d mlmsitty ^
 --       -f db\bootstrap\01-app-role.sql
 --

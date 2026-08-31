@@ -21,6 +21,14 @@ services:
       POSTGRES_DB: ${DB_NAME:-mlmsitty}
       POSTGRES_USER: ${DB_MIGRATION_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_MIGRATION_PASSWORD:?set DB_MIGRATION_PASSWORD in .env}
+      # Read by 01-app-role.sh to create the application's role. The password used to be a
+      # literal in that script, which put the production database password in a public repository
+      # and made it identical in every deployment that never thought to change it.
+      DB_USER: ${DB_USER:-mlmsittu_app}
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      # Makes that script refuse the published example password. Production only — the local
+      # compose leaves it unset, because there the documented default is the right answer.
+      STRICT_ROLE_PASSWORD: "true"
       # Asia/Colombo throughout. The reporting day boundary is defined in that zone, and a
       # database on UTC would put every evening's sales in the following day's totals.
       TZ: Asia/Colombo
@@ -41,7 +49,7 @@ services:
       #
       # One file, not the directory. 02-test-database.sql creates mlmsitty_test for the build to
       # trample on, and mounting the folder would put a test database on the production server.
-      - ./mlmsittu/db/bootstrap/01-app-role.sql:/docker-entrypoint-initdb.d/01-app-role.sql:ro
+      - ./mlmsittu/db/bootstrap/01-app-role.sh:/docker-entrypoint-initdb.d/01-app-role.sh:ro
     healthcheck:
       # The application must not start before the database can answer, or Flyway fails and the
       # container restarts in a loop that reads like an application fault.
@@ -67,7 +75,7 @@ services:
       SPRING_PROFILES_ACTIVE: prod
 
       # Two accounts, deliberately. Flyway migrates as the owner because it creates tables; the
-      # application runs as the weaker role. See db/bootstrap/01-app-role.sql.
+      # application runs as the weaker role. See db/bootstrap/01-app-role.sh.
       DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-mlmsitty}
       DB_USER: ${DB_USER:-mlmsittu_app}
       DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}

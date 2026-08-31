@@ -105,7 +105,7 @@ turn mail on later and the backlog is delivered on the next poll.
 
 ### Three warnings
 
-**`DB_USER` / `DB_PASSWORD` must match `mlmsittu/db/bootstrap/01-app-role.sql`.** That script
+**`DB_USER` / `DB_PASSWORD` are read by `mlmsittu/db/bootstrap/01-app-role.sh`.** That script
 creates the role and runs **once**, on the database's first ever start. Changing the password in
 `.env` afterwards does not change the role, and the app fails to authenticate.
 
