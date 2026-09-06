@@ -82,7 +82,11 @@ class SignupAndStagesTest {
     @DisplayName("an account is usable the moment it is created")
     void registrationIsImmediatelyActive() {
         String email = "signup-" + UUID.randomUUID() + "@test.local";
-        signup.register("Nimal Perera", email, "+94770000000", "correct-horse-battery", "127.0.0.1");
+        // Not a fixed number: it is unique across the table now, so a literal passes on a fresh
+        // database and then silently conflicts forever after — and register() is deliberately
+        // silent about conflicts, so the failure surfaces as "no such user" three lines later.
+        String mobile = "+9477" + (1000000 + RANDOM_SUFFIX.incrementAndGet());
+        signup.register("Nimal Perera", email, mobile, "correct-horse-battery", "127.0.0.1");
 
         AppUser created = users.findByEmail(email).orElseThrow();
         assertThat(created.statusValue())

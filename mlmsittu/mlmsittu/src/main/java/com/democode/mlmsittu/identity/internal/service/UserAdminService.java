@@ -35,9 +35,44 @@ public class UserAdminService {
         this.roles = roles;
     }
 
+    /**
+     * Staff accounts only — everyone who holds a role other than {@code DISTRIBUTOR}.
+     *
+     * <p>This screen exists to answer "who may approve KYC, verify payments and change roles", and
+     * every customer in the list is noise against that question. It is also the wrong place to
+     * look at customers: they are people with registrations, referrers, packs and stages, and none
+     * of that is here. Onboarding → Customers is the screen that shows them properly.
+     *
+     * <p>It stops being cosmetic as the network grows. Ten thousand customers and eight staff in
+     * one list is a page where the dangerous rows are impossible to find, and the roles that
+     * matter are the ones nobody can see.
+     *
+     * <p>A customer is not hidden from administration — {@link #getUser} still returns anyone by
+     * id, and role changes still work on any account. Only the listing is narrowed, so promoting a
+     * customer to staff means going through their customer record, which is the deliberate order:
+     * you should be looking at who they are when you decide that.
+     */
     @Transactional(readOnly = true)
     public List<UserSummary> listUsers() {
-        return users.findAllOrdered().stream().map(UserSummary::from).toList();
+        return users.findAllOrdered().stream()
+                .map(UserSummary::from)
+                .filter(UserAdminService::isStaff)
+                .toList();
+    }
+
+    /**
+     * Anything other than {@code DISTRIBUTOR} makes an account staff.
+     *
+     * <p>Written as "not only a customer" rather than as a list of staff roles on purpose: a role
+     * added later is staff by default and appears here without anybody remembering to add it. The
+     * reverse — naming the staff roles — fails silently the first time somebody adds one, and it
+     * fails by hiding an account that can approve things.
+     *
+     * <p>An account with no roles at all is included. It is not a customer, it is a loose end, and
+     * the screen that manages roles is exactly where it should be visible.
+     */
+    private static boolean isStaff(UserSummary user) {
+        return user.roles().stream().anyMatch(role -> !"DISTRIBUTOR".equals(role));
     }
 
     @Transactional(readOnly = true)

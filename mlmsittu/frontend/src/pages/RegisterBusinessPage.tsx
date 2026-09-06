@@ -38,7 +38,6 @@ export function RegisterBusinessPage() {
   // Administrators register other people; everybody else registers themselves, and never
   // sees the choice.
   const canRegisterOthers = hasRole('ADMIN');
-  const [mode, setMode] = useState<'self' | 'other'>(canRegisterOthers ? 'other' : 'self');
 
   const [referrerInput, setReferrerInput] = useState('');
   const [nicNumber, setNicNumber] = useState('');
@@ -51,7 +50,12 @@ export function RegisterBusinessPage() {
   // An administrator can fill this in for somebody else. The client asked for it because most of
   // their distributors are not comfortable with a signup form and an email link — so somebody at
   // a desk takes their details and does both steps for them.
-  const forSomeoneElse = canRegisterOthers && mode === 'other';
+  // An administrator always registers somebody else here; everyone else always registers
+  // themselves. There used to be a toggle between the two, which asked a question with only one
+  // sensible answer: an administrator filling in their own NIC and bank slip on the staff screen
+  // is not a thing that happens, and the tab was one misclick away from filing a customer's
+  // paperwork against the administrator's own account.
+  const forSomeoneElse = canRegisterOthers;
   const [account, setAccount] = useState({
     fullName: '',
     email: '',
@@ -78,10 +82,19 @@ export function RegisterBusinessPage() {
     ['submitted', 'under_review', 'resubmit_required'].includes(registration.status ?? ''),
   );
 
+  // An administrator may leave the referrer blank, and only an administrator: that registers the
+  // person as a root, with a Business ID of their own and nobody above them. Somebody has to be
+  // first, and on an empty network there is no honest answer to "who referred you".
+  //
+  // The server enforces the same rule on the same endpoint; this only makes it visible in the
+  // form. On the customer's own registration the field stays required.
+  const registeringARoot = forSomeoneElse && referrerInput.trim() === '';
+
   const referrerUsable =
-    referrerState.status === 'valid' &&
-    referrerLookup.data?.valid === true &&
-    referrerLookup.data?.hasCapacity === true;
+    registeringARoot ||
+    (referrerState.status === 'valid' &&
+      referrerLookup.data?.valid === true &&
+      referrerLookup.data?.hasCapacity === true);
 
   const accountReady =
     !forSomeoneElse ||
@@ -195,18 +208,6 @@ export function RegisterBusinessPage() {
             ? t('Register somebody in person. You create their account and file their registration; a reviewer still checks it by hand.')
             : t('Your referrer’s ID, your NIC, and a bank transfer slip. A reviewer checks it by hand.')
         }
-        actions={
-          canRegisterOthers && (
-            <div className="flex overflow-hidden rounded-md border border-rule">
-              <ModeTab active={mode === 'other'} onClick={() => setMode('other')}>
-                {t('Register someone')}
-              </ModeTab>
-              <ModeTab active={mode === 'self'} onClick={() => setMode('self')}>
-                {t('Register myself')}
-              </ModeTab>
-            </div>
-          )
-        }
       />
 
       {submitted && forSomeoneElse && (
@@ -233,7 +234,11 @@ export function RegisterBusinessPage() {
           <div className="p-4">
             <Field
               label={t('Referrer Business ID')}
-              hint={t('On their card, like 143 — the digits, nothing else')}
+              hint={
+                forSomeoneElse
+                  ? t('On their card, like 143. Leave blank to start a new network — this person gets an ID of their own.')
+                  : t('On their card, like 143 — the digits, nothing else')
+              }
               error={
                 referrerState.status === 'malformed' || referrerState.status === 'failed-check'
                   ? referrerState.message
@@ -241,14 +246,23 @@ export function RegisterBusinessPage() {
               }
             >
               <Input
-                required
+                required={!forSomeoneElse}
                 autoFocus
                 className="font-mono"
-                placeholder="143"
+                placeholder={forSomeoneElse ? t('143, or leave blank') : '143'}
                 value={referrerInput}
                 onChange={(event) => setReferrerInput(event.target.value)}
               />
             </Field>
+
+            {registeringARoot && (
+              <div className="mt-2 rounded border border-rule bg-panel2 px-3 py-2 text-xs">
+                <p className="font-semibold text-ink">{t('Starting a new network')}</p>
+                <p className="mt-0.5 text-ink2">
+                  {t('Nobody sits above this person. Once approved they are given a Business ID, and that ID is what you hand to the first five people they recruit.')}
+                </p>
+              </div>
+            )}
 
             {/* The check character has already passed locally by this point, so anything shown
                 here is a fact about the distributor, not about the typing. */}
@@ -490,26 +504,3 @@ function ItemPackPicker({
  * Only administrators see it. For everybody else there is one answer and offering a choice would
  * just be a control that does nothing.
  */
-function ModeTab({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={
-        'px-3 py-1.5 text-[13px] transition-colors ' +
-        (active ? 'bg-brand font-semibold text-brandink' : 'bg-panel text-ink2 hover:text-brand')
-      }
-    >
-      {children}
-    </button>
-  );
-}

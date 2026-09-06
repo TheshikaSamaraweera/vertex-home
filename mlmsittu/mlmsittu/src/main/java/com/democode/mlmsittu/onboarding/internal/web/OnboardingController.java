@@ -236,13 +236,22 @@ public class OnboardingController {
         return new SubmissionAccepted(registrationId, "submitted");
     }
 
-    /** @param userId whose registration this is — not the administrator filling it in */
+    /**
+     * @param userId whose registration this is — not the administrator filling it in
+     * @param referrerBusinessId <b>optional here, and required on the public form.</b> Left blank,
+     *     this person becomes a root: they are given a Business ID of their own with nobody above
+     *     them, and that ID is what the office hands to the first five people they recruit.
+     *     <p>Somebody has to be first, and on the public form there is no honest answer to "who
+     *     referred you" for that person. Allowing it only here is the difference between an
+     *     administrator making a deliberate decision and a stranger placing themselves at the top
+     *     of the tree.
+     */
     public record OnBehalfRequest(
             @NotNull(message = "REQUIRED") UUID userId,
             @NotBlank(message = "REQUIRED") @Size(max = 20) String nicNumber,
             @NotNull(message = "REQUIRED") UUID nicDocumentId,
             @NotNull(message = "REQUIRED") UUID slipDocumentId,
-            @NotBlank(message = "REQUIRED") String referrerBusinessId,
+            @Size(max = 64) String referrerBusinessId,
             @Size(max = 500) String fullAddress,
             @Size(max = 255) String bankName,
             @Size(max = 255) String bankBranch,

@@ -304,6 +304,60 @@ class OnboardingControlsTest {
         return new Scenario(applicant, registrationId, referrerBusinessId);
     }
 
+    @Test
+    @DisplayName("a registration with no referrer becomes a root, and its ID seats the first five")
+    void aRegistrationWithNoReferrerBecomesARoot() {
+        // Somebody has to be first. Until this existed the network could not be started at all
+        // without editing the database: registration demanded an active referrer, and on an empty
+        // system there was none to name.
+        UUID applicant = newUser("root-applicant");
+        UUID registrationId = submitFor(applicant, uniqueNic(), null);
+        UUID reviewer = newUser("root-reviewer");
+        registrations.claim(registrationId, reviewer);
+
+        String businessId = registrations.approve(registrationId, reviewer).businessId();
+
+        assertThat(businessId)
+                .as("a root identifier: no seat digits, so nothing sits above this person")
+                .matches("^[1-9][06-9]*$");
+
+        // And it is usable as a referrer straight away — which is the entire point of allowing it.
+        UUID child = newUser("first-recruit");
+        UUID childRegistration = submitFor(child, uniqueNic(), businessId);
+        UUID childReviewer = newUser("child-reviewer");
+        registrations.claim(childRegistration, childReviewer);
+
+        assertThat(registrations.approve(childRegistration, childReviewer).businessId())
+                .as("seat 1 under the root")
+                .isEqualTo(businessId + "1");
+    }
+
+    @Test
+    @DisplayName("every root gets a different identifier")
+    void rootsDoNotCollide() {
+        String first = newRootBusinessId();
+        String second = newRootBusinessId();
+        assertThat(first).isNotEqualTo(second);
+        assertThat(second).matches("^[1-9][06-9]*$");
+    }
+
+    private String newRootBusinessId() {
+        UUID applicant = newUser("root");
+        UUID registrationId = submitFor(applicant, uniqueNic(), null);
+        UUID reviewer = newUser("reviewer");
+        registrations.claim(registrationId, reviewer);
+        return registrations.approve(registrationId, reviewer).businessId();
+    }
+
+    /** NIC numbers are unique across the table, and the test database is not reset between runs. */
+    private static String uniqueNic() {
+        return String.valueOf(200000000000L + NIC_SEQUENCE.incrementAndGet());
+    }
+
+    private static final java.util.concurrent.atomic.AtomicLong NIC_SEQUENCE =
+            new java.util.concurrent.atomic.AtomicLong(
+                    new java.security.SecureRandom().nextInt(100_000_000));
+
     private UUID submitFor(UUID applicant, String nicNumber, String referrerBusinessId) {
         var nicDoc = documents.store(smallJpeg(), "image/jpeg", "nic", applicant);
         var slipDoc = documents.store(smallJpeg(), "image/jpeg", "bank_slip", applicant);

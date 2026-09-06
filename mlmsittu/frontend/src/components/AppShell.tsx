@@ -63,13 +63,8 @@ export function AppShell() {
       ],
     },
     {
-      // These three moved here from Onboarding. Onboarding is about getting someone approved and
-      // on the books; from the moment they are, they are part of the sales network — who they
-      // are, who referred whom, and what they have earned. Reading them in that order is the
-      // whole story, and it was previously split across two unrelated headings.
       heading: t('Sales'),
       items: [
-        { to: '/distributors', label: t('Customers'), roles: ['ADMIN'] },
         { to: '/hierarchy', label: t('Referral hierarchy'), roles: ['ADMIN'] },
         { to: '/rewards', label: t('Reward packs'), roles: ['ADMIN'], badge: 'rewards' },
       ],
@@ -86,19 +81,23 @@ export function AppShell() {
       ],
     },
     {
+      // The whole path a person takes to become a customer, in the order it happens: register
+      // them, verify the paperwork, and then find them in the list. Customers sat under Sales,
+      // which put the finished record two headings away from the screen that created it.
       heading: t('Onboarding'),
       items: [
-        {
-          to: '/registrations',
-          label: t('Registration verification'),
-          roles: ['KYC_REVIEWER', 'ADMIN'],
-        },
         {
           to: '/my-registration',
           // An administrator uses this screen to register other people, so calling it "mine"
           // describes the wrong thing entirely for them.
           label: hasRole('ADMIN') ? t('User registration') : t('My registration'),
         },
+        {
+          to: '/registrations',
+          label: t('Registration verification'),
+          roles: ['KYC_REVIEWER', 'ADMIN'],
+        },
+        { to: '/distributors', label: t('Customers'), roles: ['ADMIN'] },
       ],
     },
     {

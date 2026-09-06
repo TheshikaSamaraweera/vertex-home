@@ -76,18 +76,31 @@ public class RegistrationService {
     @Audited(action = "REGISTRATION_SUBMITTED", entityType = "registration", auditFailures = true)
     public UUID submit(UUID userId, SubmissionRequest request) {
 
-        // Resolve the referrer first: shape, existence and active status, each a distinct error.
-        DistributorNode referrer = distributors.resolveReferrer(request.referrerBusinessId());
+        // No referrer means a root: somebody with nobody above them, given a Business ID of their
+        // own. Only an administrator can reach this — the public form still requires a referrer,
+        // because a stranger who could leave it blank could put themselves at the top of the tree.
+        //
+        // The identifier is allocated at approval, not here, by the same code that allocates every
+        // other one. Roots take 1, 2, 3 … 9, then 10, 16, 17 — never a value a seat chain could
+        // also spell. See PositionalId.
+        boolean isRoot =
+                request.referrerBusinessId() == null || request.referrerBusinessId().isBlank();
 
-        // Advisory only — capacity is consumed at approval under a row lock, not here. Checking
-        // now still saves an applicant from completing a form that cannot be approved.
-        if (!distributors.hasCapacity(referrer.id())) {
-            ConflictException full =
-                    new ConflictException(
-                            "REFERRER_AT_CAPACITY",
-                            "That distributor already has the maximum number of referrals.");
-            full.with("referrerId", referrer.id());
-            throw full;
+        DistributorNode referrer = null;
+        if (!isRoot) {
+            // Shape, existence and active status, each a distinct error.
+            referrer = distributors.resolveReferrer(request.referrerBusinessId());
+
+            // Advisory only — capacity is consumed at approval under a row lock, not here.
+            // Checking now still saves an applicant completing a form that cannot be approved.
+            if (!distributors.hasCapacity(referrer.id())) {
+                ConflictException full =
+                        new ConflictException(
+                                "REFERRER_AT_CAPACITY",
+                                "That distributor already has the maximum number of referrals.");
+                full.with("referrerId", referrer.id());
+                throw full;
+            }
         }
 
         UUID identityDocumentId = storeIdentityDocument(userId, request.nicNumber());
@@ -97,9 +110,11 @@ public class RegistrationService {
             registrationId =
                     registrations.create(
                             userId,
-                            com.democode.mlmsittu.shared.businessid.PositionalId.normalise(
-                                    request.referrerBusinessId()),
-                            referrer.id(),
+                            isRoot
+                                    ? null
+                                    : com.democode.mlmsittu.shared.businessid.PositionalId
+                                            .normalise(request.referrerBusinessId()),
+                            isRoot ? null : referrer.id(),
                             request.fullAddress(),
                             request.bankName(),
                             request.bankBranch(),
@@ -118,10 +133,16 @@ public class RegistrationService {
 
         // The distributor row exists from submission so the referral link is recorded, but it
         // holds no Business ID and no path until approval — which is where a slot is consumed.
-        distributors.createPending(userId, referrer.id());
+        // A root's pending row has no referrer, which is what makes it a root: attachToReferrer
+        // sees a null parent at approval, allocates a root identifier and gives it a path with a
+        // single segment.
+        distributors.createPending(userId, isRoot ? null : referrer.id());
 
         registrations.recordEvent(registrationId, "draft", "submitted", userId, null, null);
-        AuditContext.record(registrationId, null, Map.of("referrer", referrer.businessId()));
+        AuditContext.record(
+                registrationId,
+                null,
+                Map.of("referrer", isRoot ? "(none — root)" : referrer.businessId()));
         return registrationId;
     }
 

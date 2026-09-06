@@ -183,6 +183,11 @@ export function PurchaseOrdersPage() {
  * the server does — and the server refuses it outright once the order has been sent, because the
  * supplier is working from the document we issued.
  */
+/** One line as it is being typed. Strings throughout, because that is what an input holds. */
+type Line = { itemId: string; quantity: string; unitCost: string };
+
+const EMPTY_LINE: Line = { itemId: '', quantity: '1', unitCost: '' };
+
 function OrderModal({ editingId, onClose }: { editingId?: string; onClose: () => void }) {
   const { t } = useTranslation();
   const create = useCreatePurchaseOrder();
@@ -192,8 +197,18 @@ function OrderModal({ editingId, onClose }: { editingId?: string; onClose: () =>
   const existing = usePurchaseOrder(editingId ?? null);
 
   const [supplierId, setSupplierId] = useState('');
-  const [lines, setLines] = useState([{ itemId: '', quantity: '1', unitCost: '' }]);
+  const [lines, setLines] = useState<Line[]>([]);
   const [loaded, setLoaded] = useState(false);
+
+  // The entry row: one set of fields that never grows, sitting above the table of what has been
+  // added. It replaces a form that grew a row per item, where ten items meant thirty inputs on
+  // screen at once and the field you wanted was wherever the scroll happened to leave it.
+  const [draft, setDraft] = useState<Line>(EMPTY_LINE);
+
+  // Which added line the entry row is currently editing, or null when it is adding a new one.
+  // Editing reuses the same fields rather than making the table cells editable: one place where
+  // values are typed, and the same validation guarding both.
+  const [editingLine, setEditingLine] = useState<number | null>(null);
 
   // Fill the form from the order once, then leave it alone — refetching mid-edit would throw away
   // whatever the user had typed.
@@ -213,8 +228,64 @@ function OrderModal({ editingId, onClose }: { editingId?: string; onClose: () =>
   const usable = lines.filter((line) => line.itemId && Number(line.quantity) > 0);
   const mutation = editingId ? replace : create;
 
-  const update = (index: number, patch: Partial<(typeof lines)[number]>) =>
-    setLines(lines.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  const itemsById = new Map((items.data ?? []).map((item) => [item.id, item]));
+
+  const draftUsable = Boolean(draft.itemId) && Number(draft.quantity) > 0;
+
+  /** Items already on the order, so the picker cannot offer the same one twice. */
+  const alreadyChosen = lines
+    .filter((_, index) => index !== editingLine)
+    .map((line) => line.itemId);
+
+  function commitDraft() {
+    if (!draftUsable) return;
+    setLines(
+      editingLine === null
+        ? [...lines, draft]
+        : lines.map((line, index) => (index === editingLine ? draft : line)),
+    );
+    // Clearing is the point: the next item is typed into an empty row, not into the last one's
+    // leftovers, which is how a quantity ends up copied onto the wrong item.
+    setDraft(EMPTY_LINE);
+    setEditingLine(null);
+  }
+
+  /**
+   * Enter adds the line instead of submitting the order.
+   *
+   * The entry fields sit inside the same form as the Create button, so without this Enter would
+   * create the order and close the dialog — losing the line the person was in the middle of
+   * typing, which is the worst possible response to that keystroke.
+   */
+  function addOnEnter(event: React.KeyboardEvent) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    commitDraft();
+  }
+
+  function editLine(index: number) {
+    const line = lines[index];
+    if (!line) return;
+    setDraft(line);
+    setEditingLine(index);
+  }
+
+  function deleteLine(index: number) {
+    setLines(lines.filter((_, i) => i !== index));
+    if (editingLine === index) {
+      // The row being edited has gone; the entry row must not keep pointing at an index that now
+      // belongs to a different item.
+      setDraft(EMPTY_LINE);
+      setEditingLine(null);
+    } else if (editingLine !== null && editingLine > index) {
+      setEditingLine(editingLine - 1);
+    }
+  }
+
+  const total = usable.reduce(
+    (sum, line) => sum + Number(line.quantity) * Number(line.unitCost || 0),
+    0,
+  );
 
   const payloadLines = usable.map((line) => ({
     itemId: line.itemId,
@@ -267,64 +338,157 @@ function OrderModal({ editingId, onClose }: { editingId?: string; onClose: () =>
 
           <div>
             <p className="mb-2 text-xs font-semibold tracking-wide text-ink2 uppercase">
-              {t('Lines')}
+              {editingLine === null ? t('Add an item') : t('Edit this item')}
             </p>
-            <div className="flex flex-col gap-2">
-              {lines.map((line, index) => (
-                <div key={index} className="flex flex-wrap items-start gap-2">
-                  <div className="min-w-[16rem] flex-1">
-                    <ItemPicker
-                      items={items.data ?? []}
-                      value={line.itemId}
-                      exclude={lines.filter((_, i) => i !== index).map((other) => other.itemId)}
-                      onChange={(itemId) => {
-                        const chosen = (items.data ?? []).find((item) => item.id === itemId);
-                        update(index, {
-                          itemId,
-                          // Default to the catalogue cost, still editable — the agreed price is
-                          // what the supplier will invoice, not whatever the catalogue says today.
-                          unitCost: line.unitCost || String(chosen?.unitCost ?? ''),
-                        });
-                      }}
-                      placeholder={t('Search by name or item code…')}
-                    />
-                  </div>
-                  <Input
-                    type="number"
-                    min="1"
-                    className="nums w-20"
-                    aria-label={t('Quantity')}
-                    value={line.quantity}
-                    onChange={(event) => update(index, { quantity: event.target.value })}
-                  />
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    className="nums w-28"
-                    aria-label={t('Unit cost')}
-                    value={line.unitCost}
-                    onChange={(event) => update(index, { unitCost: event.target.value })}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setLines(lines.filter((_, i) => i !== index))}
-                    aria-label={t('Remove')}
-                  >
-                    ✕
-                  </Button>
-                </div>
-              ))}
+
+            {/* The entry row. Fixed height, always in the same place, whether the order has one
+                line or forty. */}
+            <div className="flex flex-wrap items-end gap-2 rounded-md border border-rule bg-panel2 p-3">
+              <div className="min-w-[16rem] flex-1">
+                <label className="mb-1 block text-xs text-ink2">{t('Item')}</label>
+                <ItemPicker
+                  items={items.data ?? []}
+                  value={draft.itemId}
+                  exclude={alreadyChosen}
+                  onChange={(itemId) => {
+                    const chosen = itemsById.get(itemId);
+                    setDraft({
+                      ...draft,
+                      itemId,
+                      // Default to the catalogue cost, still editable — the agreed price is what
+                      // the supplier will invoice, not whatever the catalogue says today.
+                      unitCost: draft.unitCost || String(chosen?.unitCost ?? ''),
+                    });
+                  }}
+                  placeholder={t('Search by name or item code…')}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-ink2">{t('Quantity')}</label>
+                <Input
+                  type="number"
+                  min="1"
+                  className="nums w-24"
+                  value={draft.quantity}
+                  onChange={(event) => setDraft({ ...draft, quantity: event.target.value })}
+                  onKeyDown={addOnEnter}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs text-ink2">{t('Unit cost')}</label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="nums w-32"
+                  value={draft.unitCost}
+                  onChange={(event) => setDraft({ ...draft, unitCost: event.target.value })}
+                  onKeyDown={addOnEnter}
+                />
+              </div>
+              <Button type="button" variant="primary" onClick={commitDraft} disabled={!draftUsable}>
+                {editingLine === null ? t('Add') : t('Update')}
+              </Button>
+              {editingLine !== null && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setDraft(EMPTY_LINE);
+                    setEditingLine(null);
+                  }}
+                >
+                  {t('Cancel')}
+                </Button>
+              )}
             </div>
-            <Button
-              type="button"
-              size="sm"
-              className="mt-2"
-              onClick={() => setLines([...lines, { itemId: '', quantity: '1', unitCost: '' }])}
-            >
-              {t('Add line')}
-            </Button>
+
+            {/* What is on the order so far. Empty until something is added, rather than showing a
+                blank row that looks like it needs filling in. */}
+            {lines.length === 0 ? (
+              <p className="mt-3 rounded-md border border-dashed border-rule px-3 py-6 text-center text-sm text-ink3">
+                {t('No items yet. Choose one above and press Add.')}
+              </p>
+            ) : (
+              <table className="mt-3 w-full text-sm">
+                <thead>
+                  <tr className="border-b border-rule text-left text-xs text-ink2">
+                    <th className="py-2 font-medium">{t('Item')}</th>
+                    <th className="py-2 text-right font-medium">{t('Quantity')}</th>
+                    <th className="py-2 text-right font-medium">{t('Unit cost')}</th>
+                    <th className="py-2 text-right font-medium">{t('Line total')}</th>
+                    <th className="py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line, index) => {
+                    const item = itemsById.get(line.itemId);
+                    return (
+                      <tr
+                        key={line.itemId || index}
+                        className={
+                          'border-b border-rule ' +
+                          (index === editingLine ? 'bg-brandsoft' : '')
+                        }
+                      >
+                        <td className="py-2">
+                          <span className="text-ink">{item?.name ?? t('Unknown item')}</span>
+                          <span className="ml-2 font-mono text-xs text-ink3">{item?.sku}</span>
+                        </td>
+                        <td className="nums py-2 text-right">{line.quantity}</td>
+                        <td className="nums py-2 text-right">{line.unitCost || '—'}</td>
+                        <td className="nums py-2 text-right">
+                          {line.unitCost
+                            ? (Number(line.quantity) * Number(line.unitCost)).toLocaleString(
+                                undefined,
+                                { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                              )
+                            : '—'}
+                        </td>
+                        <td className="py-2 text-right whitespace-nowrap">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => editLine(index)}
+                          >
+                            {t('Edit')}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteLine(index)}
+                          >
+                            {t('Delete')}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td className="py-2 text-xs text-ink2" colSpan={3}>
+                      {t('{{count}} item(s)', { count: lines.length })}
+                    </td>
+                    <td className="nums py-2 text-right font-semibold text-ink">
+                      {total.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            )}
+
+            {editingLine !== null && (
+              <p className="mt-2 text-xs text-ink2">
+                {t('Editing a line above. Press Update to keep the change, or Cancel to leave it as it was.')}
+              </p>
+            )}
           </div>
 
           <ErrorBanner error={mutation.error} />
