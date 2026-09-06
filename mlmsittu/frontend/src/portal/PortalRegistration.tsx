@@ -25,9 +25,33 @@ export function PortalRegistration() {
   // one. A pending or finally-rejected application has nothing for the applicant to do.
   const canSubmit = access === 'REGISTRATION_REQUIRED' || access === 'CHANGES_REQUESTED';
 
+  // Nothing else in the portal opens until this is approved, and somebody who has just created an
+  // account has no way to know that. The rest of the page explains where an application is; this
+  // says, once and plainly, that there is one thing to do and this is it.
+  const notStarted = access === 'REGISTRATION_REQUIRED';
+
   return (
     <>
-      <PageHeader title={t('Business registration')} description={copy.body} />
+      <PageHeader
+        title={notStarted ? t('Finish setting up your account') : t('Business registration')}
+        // The banner below carries this when there is nothing submitted yet. Saying it twice, once
+        // quietly and once loudly, reads as two different messages that happen to agree.
+        description={notStarted ? undefined : copy.body}
+      />
+
+      {notStarted && (
+        <div className="mb-5 rounded-lg border-2 border-brand bg-brandsoft px-5 py-4">
+          <p className="text-sm font-semibold text-ink">
+            {t('One step left: your business registration')}
+          </p>
+          <p className="mt-1 text-sm text-ink2">
+            {t('Your dashboard, your referrals and your reward stages all open once this is approved. Until then there is nothing else to do here.')}
+          </p>
+          <p className="mt-2 text-xs text-ink2">
+            {t('You will need: the Business ID of whoever referred you, your NIC and a photo of it, and your bank transfer slip.')}
+          </p>
+        </div>
+      )}
 
       <Card>
         <div className="flex flex-wrap items-start gap-4 p-5">

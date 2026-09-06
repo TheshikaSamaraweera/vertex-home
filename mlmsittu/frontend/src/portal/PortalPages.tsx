@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { usePortalMe, usePortalReferrals, type DistributorNode } from '../api/portal';
 import {
   Badge,
@@ -28,6 +28,23 @@ import { REFERRAL_STAGES } from '../lib/stages';
 export function PortalDashboard() {
   const { t } = useTranslation();
   const me = usePortalMe();
+
+  // Until the registration is approved there is exactly one thing to do, so land on it.
+  //
+  // This page used to render for everybody. Somebody who had just created an account arrived at a
+  // dashboard of em-dashes — no Business ID, no stages, no referrals — with the one action they
+  // needed behind a link in the navigation. The page was not wrong, it was answering a question
+  // they could not yet ask.
+  //
+  // The redirect waits for the first load rather than guessing: sending an approved customer to
+  // the registration page for half a second, every time they open the portal, is worse than a
+  // spinner.
+  if (me.isLoading) {
+    return <Spinner />;
+  }
+  if (me.data && me.data.access !== 'ACTIVE') {
+    return <Navigate to="/portal/registration" replace />;
+  }
 
   const stages = me.data?.stages;
   const completed = stages?.stagesCompleted ?? 0;
