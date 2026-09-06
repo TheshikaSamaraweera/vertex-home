@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8082",
+      "url": "http://localhost:8080",
       "description": "Generated server url"
     }
   ],
@@ -2020,66 +2020,6 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/CategoryResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/verify-email": {
-      "post": {
-        "tags": [
-          "auth-controller"
-        ],
-        "operationId": "verifyEmail",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyEmailRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/VerificationResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/auth/resend-verification": {
-      "post": {
-        "tags": [
-          "auth-controller"
-        ],
-        "operationId": "resend",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ResendRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/AcknowledgementResponse"
                 }
               }
             }
@@ -5881,50 +5821,6 @@
           }
         }
       },
-      "VerifyEmailRequest": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "token"
-        ]
-      },
-      "VerificationResult": {
-        "type": "object",
-        "properties": {
-          "verified": {
-            "type": "boolean"
-          },
-          "email": {
-            "type": "string"
-          }
-        }
-      },
-      "ResendRequest": {
-        "type": "object",
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "minLength": 1
-          }
-        },
-        "required": [
-          "email"
-        ]
-      },
-      "AcknowledgementResponse": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string"
-          }
-        }
-      },
       "RegisterRequest": {
         "type": "object",
         "properties": {
@@ -5951,17 +5847,23 @@
           }
         },
         "required": [
-          "email",
           "fullName",
           "password"
         ]
       },
+      "AcknowledgementResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "properties": {
-          "email": {
+          "identifier": {
             "type": "string",
-            "format": "email",
             "maxLength": 320,
             "minLength": 0
           },
@@ -5972,7 +5874,7 @@
           }
         },
         "required": [
-          "email",
+          "identifier",
           "password"
         ]
       },

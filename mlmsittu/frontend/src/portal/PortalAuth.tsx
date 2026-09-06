@@ -62,7 +62,7 @@ export function PortalLoginPage() {
   const { t } = useTranslation();
   const { setUser } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -74,7 +74,7 @@ export function PortalLoginPage() {
     try {
       const result = await api.post<{ mfaRequired?: boolean; user?: unknown }>(
         '/api/v1/auth/login',
-        { email, password },
+        { identifier, password },
       );
 
       // Distributors carry a role that does not require an authenticator, so a successful password
@@ -102,14 +102,18 @@ export function PortalLoginPage() {
   return (
     <PortalFrame title={t('Customer sign in')} subtitle={t('MLM Sittu')}>
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
-        <Field label={t('Email')}>
+        {/* One field, either identifier. Most customers here have no email address, so asking
+            for one by name would read as "you cannot sign in" to exactly the people this portal
+            was built for. */}
+        <Field label={t('Email or phone number')}>
           <Input
-            type="email"
+            type="text"
             required
             autoFocus
             autoComplete="username"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            value={identifier}
+            onChange={(event) => setIdentifier(event.target.value)}
+            placeholder={t('you@example.lk  or  077 123 4567')}
           />
         </Field>
         <Field label={t('Password')}>
@@ -141,14 +145,10 @@ export function PortalLoginPage() {
 
 // ================================================================== create an account
 
-type Mode = 'signup' | 'sent' | 'verifying' | 'verified' | 'failed';
-
 export function PortalSignupPage() {
   const { t } = useTranslation();
 
-  const tokenFromLink = new URLSearchParams(window.location.search).get('token');
-  const [mode, setMode] = useState<Mode>(tokenFromLink ? 'verifying' : 'signup');
-
+  const [done, setDone] = useState(false);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
@@ -158,27 +158,24 @@ export function PortalSignupPage() {
 
   const fieldErrors = error instanceof ApiError ? error.fieldErrors : {};
 
-  // The confirmation link lands here with ?token=…, so verification starts by itself.
-  if (tokenFromLink && mode === 'verifying') {
-    void api
-      .post('/api/v1/auth/verify-email', { token: tokenFromLink })
-      .then(() => {
-        setMode('verified');
-        window.history.replaceState({}, '', window.location.pathname);
-      })
-      .catch((caught) => {
-        setError(caught);
-        setMode('failed');
-      });
-  }
+  // Mirrors the server's rule so it is visible while typing, rather than after a round trip that
+  // clears the password field.
+  const hasIdentifier = email.trim() !== '' || mobile.trim() !== '';
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await api.post('/api/v1/auth/register', { fullName, email, mobile, password });
-      setMode('sent');
+      // Blank is sent as undefined rather than "": one means "no email address", the other is a
+      // value that fails validation.
+      await api.post('/api/v1/auth/register', {
+        fullName,
+        email: email.trim() || undefined,
+        mobile: mobile.trim() || undefined,
+        password,
+      });
+      setDone(true);
     } catch (caught) {
       setError(caught);
     } finally {
@@ -188,29 +185,35 @@ export function PortalSignupPage() {
 
   return (
     <PortalFrame title={t('Create your account')} subtitle={t('Become a customer')}>
-      {mode === 'signup' && (
+      {!done && (
         <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
           <p className="text-xs text-ink2">
-            {t('This is step one of three: create an account, confirm your email, then register your business. Nothing opens until the registration is approved.')}
+            {t('This is step one of two: create an account, then register your business. Nothing opens until the registration is approved.')}
           </p>
-
           <Field label={t('Full name')} error={fieldErrors.fullName}>
             <Input required autoFocus value={fullName} onChange={(e) => setFullName(e.target.value)} />
           </Field>
+
+          <p className="text-xs text-ink3">
+            {t('Give an email address or a phone number. Either one is enough, and you can give both.')}
+          </p>
+
           <Field label={t('Email')} error={fieldErrors.email}>
             <Input
               type="email"
-              required
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder={t('Leave blank if you have none')}
             />
           </Field>
-          <Field label={t('Mobile')} hint={t('Optional for now')}>
+          <Field label={t('Phone number')} error={fieldErrors.mobile}>
             <Input
+              type="tel"
+              autoComplete="tel"
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
-              placeholder="+94 77 000 0000"
+              placeholder="077 123 4567"
             />
           </Field>
           <Field
@@ -230,7 +233,7 @@ export function PortalSignupPage() {
 
           <ErrorBanner error={error} />
 
-          <Button type="submit" variant="primary" disabled={busy}>
+          <Button type="submit" variant="primary" disabled={busy || !hasIdentifier}>
             {busy ? t('Creating…') : t('Create account')}
           </Button>
           <p className="text-center text-xs text-ink2">
@@ -242,46 +245,20 @@ export function PortalSignupPage() {
         </form>
       )}
 
-      {mode === 'sent' && (
-        <div className="flex flex-col gap-4">
-          <h2 className="text-sm font-semibold text-ink">{t('Check your email')}</h2>
-          <p className="text-sm text-ink2">
-            {t('If that address can be registered, a confirmation link is on its way. It works once and expires in 24 hours.')}
-          </p>
-          <Link to="/portal/login">
-            <Button className="w-full">{t('Back to sign in')}</Button>
-          </Link>
-        </div>
-      )}
-
-      {mode === 'verifying' && (
-        <p className="py-6 text-center text-sm text-ink2">{t('Confirming your email…')}</p>
-      )}
-
-      {mode === 'verified' && (
+      {done && (
         <div className="flex flex-col gap-4">
           <div className="rounded-md border border-ok bg-oksoft px-3 py-2.5">
-            <p className="text-sm font-semibold text-ok">{t('Email confirmed')}</p>
+            <p className="text-sm font-semibold text-ok">{t('Account created')}</p>
             <p className="mt-1 text-xs text-ink2">
-              {t('Sign in and register your business — that is the last step.')}
+              {/* Says nothing about whether the details were new: that would turn signup into a
+                  way to find out who already has an account. */}
+              {t('Sign in with what you entered, then register your business — that is the last step.')}
             </p>
           </div>
           <Link to="/portal/login">
             <Button variant="primary" className="w-full">
               {t('Sign in')}
             </Button>
-          </Link>
-        </div>
-      )}
-
-      {mode === 'failed' && (
-        <div className="flex flex-col gap-4">
-          <ErrorBanner error={error} />
-          <p className="text-xs text-ink2">
-            {t('Links work once and last 24 hours. Sign in and request another if this one has expired.')}
-          </p>
-          <Link to="/portal/login">
-            <Button className="w-full">{t('Back to sign in')}</Button>
           </Link>
         </div>
       )}

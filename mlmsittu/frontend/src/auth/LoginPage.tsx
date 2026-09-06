@@ -29,7 +29,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
   const { setUser } = useAuth();
 
   const [stage, setStage] = useState<Stage>({ name: 'password' });
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<unknown>(null);
@@ -42,7 +42,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      const result = await api.post<LoginResponse>('/api/v1/auth/login', { email, password });
+      const result = await api.post<LoginResponse>('/api/v1/auth/login', { identifier, password });
 
       if (!result.mfaRequired) {
         const me = await api.get<UserSummary>('/api/v1/auth/me');
@@ -103,15 +103,15 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
         <div className="rounded-lg border border-rule bg-panel p-5">
           {stage.name === 'password' && (
             <form onSubmit={submitPassword} className="flex flex-col gap-4">
-              <Field label={t('Email')} error={fieldErrors.email}>
+              <Field label={t('Email or phone number')} error={fieldErrors.identifier}>
                 <Input
-                  type="email"
+                  type="text"
                   autoComplete="username"
                   required
                   autoFocus
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="inventory@mlmsittu.local"
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  placeholder={t('you@example.lk  or  077 123 4567')}
                 />
               </Field>
               <Field label={t('Password')} error={fieldErrors.password}>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { SignupPage } from './auth/SignupPage';
@@ -43,13 +43,12 @@ import { PortalRegistration } from './portal/PortalRegistration';
  */
 export function App() {
   const { user, loading, hasRole } = useAuth();
-  const location = useLocation();
 
-  // A verification link arrives as /verify-email?token=… on a browser with no session, so the
-  // signup flow has to be reachable before any route guard runs.
-  const arrivingFromEmailLink = location.pathname.startsWith('/verify-email');
-  const inPortal = location.pathname.startsWith('/portal');
-  const [showSignup, setShowSignup] = useState(arrivingFromEmailLink && !inPortal);
+  // There used to be a third case here: /verify-email?token=… arriving on a browser with no
+  // session, which had to reach the signup flow before any route guard ran. Accounts are usable
+  // the moment they are created now, so nothing issues such a link and the path falls through to
+  // sign-in like any other unknown one.
+  const [showSignup, setShowSignup] = useState(false);
 
   // Waiting for the initial /auth/me. Rendering a login page here would flash it on every refresh
   // for anyone already signed in.

@@ -90,25 +90,26 @@ services:
 
       DOCUMENT_ROOT: /var/mlmsittu/documents
 
-      # Mail is optional, and these are COMMENTED OUT rather than defaulted to empty.
+      # Mail. Controlled entirely from .env now — there is nothing to uncomment.
       #
-      # An empty value is not the same as an absent one. `${SPRING_MAIL_HOST:-}` passes an empty
-      # string when the variable is unset, Spring sees the property as present, and Boot
-      # autoconfigures a mailer aimed at localhost:587. Its health check then fails, which takes
-      # /actuator/health DOWN and marks the container unhealthy while nothing is actually wrong —
-      # and SmtpEmailTransport activates (@ConditionalOnProperty treats "" as present) and tries
-      # to deliver real mail to a server that is not there.
+      # Fill SPRING_MAIL_HOST in and messages are sent; leave it blank and they are written to
+      # `docker compose logs app` instead. Either way they are stored in outbox_message first, so
+      # anything queued while mail was off is delivered on the next poll once it is on. Nothing is
+      # ever lost by having mail switched off.
       #
-      # This was found running the same images locally. With these absent there is no mail sender
-      # at all: messages queue in outbox_message and go to `docker compose logs app`.
+      # These used to be commented out because an empty value is not an absent one: compose passes
+      # SPRING_MAIL_HOST="", Spring sees the property as present, and SmtpEmailTransport activated
+      # on a server that had simply never configured mail. That is fixed where it belonged — the
+      # transport now asks whether the host is non-blank — so the variables can be passed
+      # unconditionally and the .env is the single place that decides.
       #
-      # To enable mail, set the values in .env and uncomment these seven lines. See DEPLOYMENT.md
-      # section 5 — the queued backlog is delivered on the next poll, so nothing is lost.
-      #SPRING_MAIL_HOST: ${SPRING_MAIL_HOST}
-      #SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
-      #SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME}
-      #SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD}
-      #NOTIFICATIONS_MAIL_FROM: ${NOTIFICATIONS_MAIL_FROM}
+      # auth and STARTTLS are not here. application.properties sets them, because they describe
+      # what port 587 requires rather than what this server is.
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      NOTIFICATIONS_MAIL_FROM: ${NOTIFICATIONS_MAIL_FROM:-}
       #
       # auth and STARTTLS used to be listed here too. They now live in application.properties,
       # where they are inert until a host exists — they describe what port 587 requires, not what

@@ -38,11 +38,17 @@ public class AuthController {
 
     // ------------------------------------------------------------------ signup
 
+    /**
+     * {@code email} and {@code mobile} are both optional here, and exactly one of them being
+     * required is not something bean validation can express across two fields. That rule lives in
+     * {@code AccountSignupService.Identifiers}, which is also where the phone number is put into
+     * canonical form — one place, so the desk and the login form cannot disagree about what
+     * counts as the same number.
+     */
     public record RegisterRequest(
             @jakarta.validation.constraints.NotBlank(message = "REQUIRED")
                     @jakarta.validation.constraints.Size(max = 255) String fullName,
-            @jakarta.validation.constraints.NotBlank(message = "REQUIRED")
-                    @jakarta.validation.constraints.Email(message = "INVALID_EMAIL")
+            @jakarta.validation.constraints.Email(message = "INVALID_EMAIL")
                     @jakarta.validation.constraints.Size(max = 320) String email,
             @jakarta.validation.constraints.Size(max = 24) String mobile,
             @jakarta.validation.constraints.NotBlank(message = "REQUIRED")
@@ -52,10 +58,10 @@ public class AuthController {
     public record AcknowledgementResponse(String message) {}
 
     /**
-     * Creates an unverified account and emails a confirmation link.
+     * Creates an account, ready to sign in.
      *
-     * <p>Always the same answer, whether or not the address was already taken. Saying "that email
-     * is registered" turns this endpoint into a way to discover who has an account.
+     * <p>Always the same answer, whether or not the identifier was already taken. Saying "that
+     * email is registered" turns this endpoint into a way to discover who has an account.
      */
     @PostMapping("/register")
     public AcknowledgementResponse register(
@@ -64,29 +70,9 @@ public class AuthController {
                 body.fullName(), body.email(), body.mobile(), body.password(),
                 request.getRemoteAddr());
         return new AcknowledgementResponse(
-                "If that address can be registered, a confirmation link is on its way.");
+                "If those details can be registered, the account is ready to sign in.");
     }
 
-    public record VerifyEmailRequest(
-            @jakarta.validation.constraints.NotBlank(message = "REQUIRED") String token) {}
-
-    @PostMapping("/verify-email")
-    public AccountSignupService.VerificationResult verifyEmail(
-            @Valid @RequestBody VerifyEmailRequest body) {
-        return signupService.verify(body.token());
-    }
-
-    public record ResendRequest(
-            @jakarta.validation.constraints.NotBlank(message = "REQUIRED")
-                    @jakarta.validation.constraints.Email(message = "INVALID_EMAIL") String email) {}
-
-    @PostMapping("/resend-verification")
-    public AcknowledgementResponse resend(
-            @Valid @RequestBody ResendRequest body, HttpServletRequest request) {
-        signupService.resendVerification(body.email(), request.getRemoteAddr());
-        return new AcknowledgementResponse(
-                "If that address needs confirming, a new link is on its way.");
-    }
 
     /**
      * Step one. Returns a session for accounts without MFA, or a challenge for administrators.
@@ -99,7 +85,7 @@ public class AuthController {
             @Valid @RequestBody LoginRequest body,
             HttpServletRequest request,
             HttpServletResponse response) {
-        return authService.login(body.email(), body.password(), request, response);
+        return authService.login(body.identifier(), body.password(), request, response);
     }
 
     /** Step two: the six-digit code. On success the session cookie is set. */

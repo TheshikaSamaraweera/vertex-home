@@ -724,38 +724,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/verify-email": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["verifyEmail"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/resend-verification": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["resend"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -2412,30 +2380,18 @@ export interface components {
             name?: string;
             active?: boolean;
         };
-        VerifyEmailRequest: {
-            token: string;
-        };
-        VerificationResult: {
-            verified?: boolean;
-            email?: string;
-        };
-        ResendRequest: {
+        RegisterRequest: {
+            fullName: string;
             /** Format: email */
-            email: string;
+            email?: string;
+            mobile?: string;
+            password: string;
         };
         AcknowledgementResponse: {
             message?: string;
         };
-        RegisterRequest: {
-            fullName: string;
-            /** Format: email */
-            email: string;
-            mobile?: string;
-            password: string;
-        };
         LoginRequest: {
-            /** Format: email */
-            email: string;
+            identifier: string;
             password: string;
         };
         LoginResponse: {
@@ -4616,54 +4572,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["CategoryResponse"];
-                };
-            };
-        };
-    };
-    verifyEmail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["VerifyEmailRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["VerificationResult"];
-                };
-            };
-        };
-    };
-    resend: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResendRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["AcknowledgementResponse"];
                 };
             };
         };

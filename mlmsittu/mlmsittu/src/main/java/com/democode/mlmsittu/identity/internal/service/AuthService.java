@@ -9,6 +9,7 @@ import com.democode.mlmsittu.identity.internal.web.dto.UserSummary;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
 import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ForbiddenException;
+import com.democode.mlmsittu.shared.phone.PhoneNumber;
 import com.democode.mlmsittu.shared.error.RateLimitExceededException;
 import com.democode.mlmsittu.shared.error.UnauthenticatedException;
 import com.democode.mlmsittu.shared.ratelimit.api.RateLimiter;
@@ -94,14 +95,22 @@ public class AuthService {
     @Transactional
     @Audited(action = "LOGIN", entityType = "app_user", auditFailures = true)
     public LoginResponse login(
-            String email,
+            String identifier,
             String rawPassword,
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        String normalisedEmail = email.trim().toLowerCase(Locale.ROOT);
+        // One field, either kind of identifier. Which one it is decides the lookup, not the
+        // answer: both paths end in the same "no such account" so the form cannot be used to ask
+        // whether a given address or number is registered.
+        boolean byPhone = PhoneNumber.looksLikePhoneNumber(identifier);
+        String normalised =
+                byPhone
+                        ? phoneKeyFor(identifier)
+                        : identifier.trim().toLowerCase(Locale.ROOT);
+
         String ipKey = "login:ip:" + request.getRemoteAddr();
-        String accountKey = "login:account:" + normalisedEmail;
+        String accountKey = "login:account:" + normalised;
 
         // Both limits are checked before any password work. Throttling by account alone lets one
         // attacker sweep many accounts from one host; throttling by IP alone lets a botnet
@@ -119,7 +128,8 @@ public class AuthService {
                             + " minutes.");
         }
 
-        Optional<AppUser> found = users.findByEmail(normalisedEmail);
+        Optional<AppUser> found =
+                byPhone ? users.findByMobile(normalised) : users.findByEmail(normalised);
 
         // Hash a throwaway value when the account does not exist so a missing account and a wrong
         // password take comparable time. Without this, response timing enumerates valid emails.
@@ -147,7 +157,7 @@ public class AuthService {
             String secret = totp.generateSecret();
             String challengeId = challenges.create(user.getId(), secret);
             return LoginResponse.enrolment(
-                    challengeId, secret, totp.otpauthUri(secret, user.getEmail()));
+                    challengeId, secret, totp.otpauthUri(secret, labelFor(user)));
         }
 
         if (mfaRequired) {
@@ -263,6 +273,31 @@ public class AuthService {
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);
         securityContextRepository.saveContext(context, request, response);
+    }
+
+    private String labelFor(AppUser user) {
+        // What the authenticator app shows beside the code. Email is no longer guaranteed, so
+        // fall back to the number and then to the name — an entry labelled with nothing is
+        // unidentifiable in an app holding several.
+        if (user.getEmail() != null && !user.getEmail().isBlank()) {
+            return user.getEmail();
+        }
+        if (user.getMobile() != null && !user.getMobile().isBlank()) {
+            return user.getMobile();
+        }
+        return user.getFullName();
+    }
+
+    private String phoneKeyFor(String identifier) {
+        // A number that cannot be read must behave exactly like one that simply is not
+        // registered. Letting the exception out would answer a question the login form must not
+        // answer, and would turn a typo into a 500 rather than "those details are wrong".
+        try {
+            String canonical = PhoneNumber.normalise(identifier);
+            return canonical == null ? "" : canonical;
+        } catch (IllegalArgumentException unreadable) {
+            return identifier.trim();
+        }
     }
 
     private UnauthenticatedException invalidCredentials() {

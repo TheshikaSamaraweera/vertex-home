@@ -48,9 +48,17 @@ public class UserInserter {
 
     /** @return the saved user, or empty when that email is already registered */
     @Transactional
-    public Optional<AppUser> insertIfEmailFree(AppUser candidate) {
-        // The conflict target matches idx_app_user_email, which is an expression index on
-        // lower(email) — naming the expression is what lets ON CONFLICT use it.
+    public Optional<AppUser> insertIfIdentifiersFree(AppUser candidate) {
+        // ON CONFLICT with no target, deliberately.
+        //
+        // There are two unique indexes on this table now — one over lower(email), one over mobile
+        // — and either can be the one that collides. A targeted ON CONFLICT names exactly one
+        // index and lets a violation of the other propagate as an exception, which in PostgreSQL
+        // aborts the transaction and takes the audit write down with it. The untargeted form
+        // covers both, which is the only correct answer when there are two ways to conflict.
+        //
+        // The cost is that the caller is not told which identifier was taken. Callers that need to
+        // know look it up afterwards, once, on a path that only runs when something did conflict.
         var ids =
                 jdbc.query(
                         """
@@ -58,7 +66,7 @@ public class UserInserter {
                             (email, mobile, full_name, password_hash, status,
                              email_verified, mobile_verified)
                         VALUES (?, ?, ?, ?, ?, false, false)
-                        ON CONFLICT (lower(email)) DO NOTHING
+                        ON CONFLICT DO NOTHING
                         RETURNING id
                         """,
                         (rs, rowNum) -> rs.getObject(1, UUID.class),
@@ -69,7 +77,7 @@ public class UserInserter {
                         candidate.getStatus());
 
         if (ids.isEmpty()) {
-            log.info("Signup attempted for an address that already exists");
+            log.info("Signup attempted with an email or phone number that already exists");
             return Optional.empty();
         }
         return users.findById(ids.getFirst());

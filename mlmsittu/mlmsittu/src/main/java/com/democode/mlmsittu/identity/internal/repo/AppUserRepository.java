@@ -18,6 +18,17 @@ public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
     @Query("select u from AppUser u where lower(u.email) = lower(:email)")
     Optional<AppUser> findByEmail(@Param("email") String email);
 
+    /**
+     * By phone number, which must already be in canonical form.
+     *
+     * <p>No {@code lower()} and no normalising here: {@code idx_app_user_mobile} indexes the stored
+     * value exactly, and the column only ever holds what {@code PhoneNumber.normalise} produced.
+     * Normalising in the query instead would mean the index could not be used and the two
+     * definitions of "the same number" could drift apart.
+     */
+    @Query("select u from AppUser u where u.mobile = :mobile")
+    Optional<AppUser> findByMobile(@Param("mobile") String mobile);
+
     @Query("select u from AppUser u order by u.createdAt asc, u.id asc")
     List<AppUser> findAllOrdered();
 

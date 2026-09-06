@@ -52,6 +52,17 @@ class SignupAndStagesTest {
     }
 
 
+    /**
+     * Distinct phone numbers per test.
+     *
+     * <p>A number is now unique across the whole table, and the test database is not reset between
+     * runs, so a hard-coded number passes once and then fails forever with a duplicate — which
+     * reads like a bug in the code under test rather than in the test.
+     */
+    private static final java.util.concurrent.atomic.AtomicInteger RANDOM_SUFFIX =
+            new java.util.concurrent.atomic.AtomicInteger(
+                    new java.security.SecureRandom().nextInt(1_000_000));
+
     @Autowired private AccountSignupService signup;
     @Autowired private ReferralHierarchy hierarchy;
     @Autowired private AppUserRepository users;
@@ -68,69 +79,84 @@ class SignupAndStagesTest {
     // ==============================================================================
 
     @Test
-    @DisplayName("P4-05 · login is blocked until the link is used, and the link works once")
-    void verificationActivatesTheAccountExactlyOnce() {
+    @DisplayName("an account is usable the moment it is created")
+    void registrationIsImmediatelyActive() {
         String email = "signup-" + UUID.randomUUID() + "@test.local";
         signup.register("Nimal Perera", email, "+94770000000", "correct-horse-battery", "127.0.0.1");
 
         AppUser created = users.findByEmail(email).orElseThrow();
         assertThat(created.statusValue())
-                .as("login is refused while unverified")
-                .isEqualTo(UserStatus.UNVERIFIED);
-        assertThat(created.isEmailVerified()).isFalse();
+                .as("no verification step stands between registering and signing in")
+                .isEqualTo(UserStatus.ACTIVE);
+    }
 
-        String token = captureLatestToken(email);
-        assertThat(signup.verify(token).verified()).isTrue();
+    @Test
+    @DisplayName("an email address alone is enough")
+    void emailOnlyIsAccepted() {
+        String email = "email-only-" + UUID.randomUUID() + "@test.local";
+        signup.register("Email Only", email, null, "correct-horse-battery", "127.0.0.11");
 
-        AppUser verified = users.findByEmail(email).orElseThrow();
-        assertThat(verified.isEmailVerified()).isTrue();
-        assertThat(verified.statusValue()).isEqualTo(UserStatus.ACTIVE);
+        AppUser created = users.findByEmail(email).orElseThrow();
+        assertThat(created.getMobile()).isNull();
+    }
 
-        // Reuse must fail — otherwise a link forwarded or sitting in an inbox stays live forever.
-        assertThatThrownBy(() -> signup.verify(token))
+    @Test
+    @DisplayName("a phone number alone is enough — the case the whole change exists for")
+    void phoneOnlyIsAccepted() {
+        // Most of this client's customers have no email address at all. Before this, the office
+        // had to invent one for them.
+        String mobile = "077" + (1000000 + RANDOM_SUFFIX.incrementAndGet());
+        signup.register("Phone Only", null, mobile, "correct-horse-battery", "127.0.0.12");
+
+        AppUser created = users.findByMobile("+9477" + mobile.substring(3)).orElseThrow();
+        assertThat(created.getEmail()).isNull();
+    }
+
+    @Test
+    @DisplayName("however the number is written, it is stored one way")
+    void phoneNumbersAreNormalised() {
+        int suffix = 1000000 + RANDOM_SUFFIX.incrementAndGet();
+        signup.register("Spaced Out", null, "077 " + suffix, "correct-horse-battery", "127.0.0.13");
+
+        // Registered with spaces and a trunk zero; found by the canonical form. If these two ever
+        // disagree, a customer who registered at the desk cannot log in and nothing says why.
+        assertThat(users.findByMobile("+9477" + suffix)).isPresent();
+    }
+
+    @Test
+    @DisplayName("neither an email nor a number is refused")
+    void anIdentifierIsRequired() {
+        assertThatThrownBy(
+                        () ->
+                                signup.register(
+                                        "Anonymous", null, null, "correct-horse-battery",
+                                        "127.0.0.14"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(
                         thrown ->
                                 assertThat(((ApiException) thrown).getCode())
-                                        .isEqualTo("VERIFICATION_LINK_INVALID"));
+                                        .isEqualTo("IDENTIFIER_REQUIRED"));
     }
 
     @Test
-    @DisplayName("P4-05 · a link older than 24 hours is refused")
-    void expiredLinkIsRefused() {
-        String email = "expired-" + UUID.randomUUID() + "@test.local";
-        signup.register("Expired Link", email, null, "correct-horse-battery", "127.0.0.2");
-        String token = captureLatestToken(email);
+    @DisplayName("a phone number identifies one account, so the second is refused")
+    void duplicatePhoneIsRejectedAtTheDesk() {
+        int suffix = 1000000 + RANDOM_SUFFIX.incrementAndGet();
+        String mobile = "077" + suffix;
+        signup.registerOnBehalf("First Holder", null, mobile, "correct-horse-battery");
 
-        UUID userId = users.findByEmail(email).orElseThrow().getId();
-        jdbc.update(
-                "UPDATE email_verification_token SET expires_at = now() - interval '1 hour'"
-                        + " WHERE user_id = ?",
-                userId);
-
-        assertThatThrownBy(() -> signup.verify(token))
+        assertThatThrownBy(
+                        () ->
+                                signup.registerOnBehalf(
+                                        "Second Holder", null, mobile, "correct-horse-battery"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(
                         thrown ->
                                 assertThat(((ApiException) thrown).getCode())
-                                        .isEqualTo("VERIFICATION_LINK_INVALID"));
+                                        .as("named precisely, so the clerk looks for the right record")
+                                        .isEqualTo("MOBILE_ALREADY_REGISTERED"));
     }
 
-    @Test
-    @DisplayName("resending invalidates the previous link")
-    void resendSupersedesTheOldLink() {
-        String email = "resend-" + UUID.randomUUID() + "@test.local";
-        signup.register("Resend Test", email, null, "correct-horse-battery", "127.0.0.3");
-        String first = captureLatestToken(email);
-
-        signup.resendVerification(email, "127.0.0.3");
-        String second = captureLatestToken(email);
-        assertThat(second).isNotEqualTo(first);
-
-        // Two live links to one account is one more than anybody needs.
-        assertThatThrownBy(() -> signup.verify(first)).isInstanceOf(ApiException.class);
-        assertThat(signup.verify(second).verified()).isTrue();
-    }
 
     @Test
     @DisplayName("signing up with an address already in use reveals nothing")
@@ -308,14 +334,4 @@ class SignupAndStagesTest {
     }
 
     /** Pulls the token out of the email body the sender was asked to deliver. */
-    private String captureLatestToken(String email) {
-        var bodyCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
-        org.mockito.Mockito.verify(notifications, org.mockito.Mockito.atLeastOnce())
-                .sendEmail(org.mockito.Mockito.eq(email), org.mockito.Mockito.anyString(), bodyCaptor.capture());
-
-        List<String> bodies = bodyCaptor.getAllValues();
-        var matcher = LINK.matcher(bodies.get(bodies.size() - 1));
-        assertThat(matcher.find()).as("the email must contain a verification link").isTrue();
-        return matcher.group(1);
-    }
 }
