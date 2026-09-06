@@ -62,9 +62,17 @@ export function ReviewQueuePage() {
 
       {approved && (
         <div className="mb-4 rounded border border-ok bg-oksoft px-4 py-3 text-sm text-ink">
-          {t('Approved. Business ID')}{' '}
-          <span className="font-mono font-semibold">{approved}</span>{' '}
-          {t('has been allocated and is now permanent.')}
+          <p>
+            {t('Approved. Business ID')}{' '}
+            <span className="font-mono text-base font-semibold">{approved}</span>{' '}
+            {t('has been allocated and is now permanent.')}
+          </p>
+          {/* The number is the point of the whole screen, and until now it was stated and left
+              there. Whoever is at the desk has to give it to somebody, and saying so is the
+              difference between a confirmation and an instruction. */}
+          <p className="mt-1 text-xs text-ink2">
+            {t('Give this ID to the five people they recruit — it is what each of them enters as their referrer.')}
+          </p>
         </div>
       )}
       {(claim.error || approve.error || release.error) && (
