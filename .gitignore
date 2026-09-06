@@ -13,8 +13,12 @@
 # ==============================================================================================
 
 # --- Secrets ----------------------------------------------------------------------------------
+# Every variant, not just the exact name. Editors leave .env.save, .env.bak, .env.swp and
+# .env.orig beside the file they were opened on, and each of those is the whole secret with a
+# different suffix — matching only `.env` publishes them the moment somebody runs `git add -A`.
 .env
-.env.local
+.env.*
+!.env.example
 *.pem
 *.key
 *.p12
