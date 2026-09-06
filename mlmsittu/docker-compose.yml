@@ -115,11 +115,17 @@ services:
       # where they are inert until a host exists — they describe what port 587 requires, not what
       # this server is, so repeating them per environment only created somewhere to forget them.
 
-      # Plain-HTTP bring-up only. Leave it out and the cookie is Secure, which is correct.
+      # Plain-HTTP bring-up only, and set from .env like everything else here.
       #
-      # Uncomment ONLY while reaching the server over http://<ip> with no TLS in front, and take it
-      # out again the hour a certificate is in place. See application-prod.properties.
-      #SESSION_COOKIE_SECURE: "false"
+      # This used to be a commented-out line to uncomment by hand, which meant editing a tracked
+      # file on the server — so the next `git pull` that touched this file conflicted, and the
+      # conflict markers made the compose file unparseable. Configuration that differs per machine
+      # belongs in .env, which is not tracked; a tracked file should never need local edits.
+      #
+      # Defaults to true. Set SESSION_COOKIE_SECURE=false in .env ONLY while reaching the server
+      # over http://<ip> with no TLS in front, and remove it the hour a certificate is in place —
+      # while it is false, any session cookie on the wire is readable by anything on the path.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
 
       # Where links inside emails point. Not optional, and not only a mail setting.
       #
