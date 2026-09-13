@@ -317,7 +317,7 @@ function Legend() {
       </span>
       <span className="flex items-center gap-1.5">
         <span className="h-3 w-5 rounded border border-brand-deep bg-brand" />
-        {t('all four complete')}
+        {t('all five complete')}
       </span>
       <span className="flex items-center gap-1.5">
         <span className="h-3 w-5 rounded border border-danger bg-panel" />

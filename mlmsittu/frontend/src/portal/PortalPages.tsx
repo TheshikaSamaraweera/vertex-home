@@ -277,7 +277,7 @@ export function PortalStages() {
                 <p className="text-xs text-ink2">
                   {stages?.bonusStageEligible
                     ? t('You are eligible. The office will be in touch about what it involves.')
-                    : t('Unlocks when all four levels are complete.')}
+                    : t('Unlocks when all five levels are complete.')}
                 </p>
               </div>
             </div>

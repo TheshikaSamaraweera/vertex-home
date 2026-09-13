@@ -23,7 +23,7 @@ import {
 } from '../components/ui';
 
 /**
- * Item packs earned by completing all four referral stages.
+ * Item packs earned by completing all five referral stages.
  *
  * This is the whole of what §0.2's mechanic grants: refer four people, and the pack you chose when
  * you registered becomes yours to collect. No money moves, and nothing is handed over
@@ -51,7 +51,7 @@ export function RewardsPage() {
     <>
       <PageHeader
         title={t('Reward packs')}
-        description={t('Customers who have completed all four referral stages, and the pack each one chose when they registered.')}
+        description={t('Customers who have completed all five referral stages, and the pack each one chose when they registered.')}
       />
 
       <div className="mb-5 flex gap-1 border-b border-rule">
@@ -88,7 +88,7 @@ export function RewardsPage() {
             }
             hint={
               tab === 'eligible'
-                ? t('A customer appears here the moment their fourth referral is approved.')
+                ? t('A customer appears here the moment their fifth referral is approved.')
                 : undefined
             }
           />

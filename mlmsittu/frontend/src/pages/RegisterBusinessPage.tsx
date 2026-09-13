@@ -451,7 +451,7 @@ export function uploadErrorCode(error: unknown): string | null {
 /**
  * Choosing the pack now, collecting it later.
  *
- * The choice is made at registration and settled at approval, and it is what completing all four
+ * The choice is made at registration and settled at approval, and it is what completing all five
  * referral stages entitles somebody to. That is worth saying on the form: a dropdown labelled
  * "item pack" with no explanation is a decision made blind.
  *
