@@ -19,6 +19,7 @@ import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ConflictException;
 import com.democode.mlmsittu.shared.error.NotFoundException;
 import com.democode.mlmsittu.shared.notify.NotificationSender;
+import com.democode.mlmsittu.shared.notify.Notifications;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -47,6 +48,7 @@ public class RewardAdminService {
     private static final Logger log = LoggerFactory.getLogger(RewardAdminService.class);
 
     private final RewardEntitlementRepository entitlements;
+    private final Notifications inApp;
     private final ItemSetCatalogue itemSets;
     private final ItemCatalogue items;
     private final LocationDirectory locations;
@@ -63,8 +65,10 @@ public class RewardAdminService {
             StockLedger ledger,
             ReferralHierarchy hierarchy,
             UserDirectory users,
-            NotificationSender notifications) {
+            NotificationSender notifications,
+            Notifications inApp) {
         this.entitlements = entitlements;
+        this.inApp = inApp;
         this.itemSets = itemSets;
         this.items = items;
         this.locations = locations;
@@ -283,6 +287,12 @@ public class RewardAdminService {
                             distributor portal.
                             """
                                     .formatted(pack.code(), pack.name(), store.name());
+                    inApp.raise(
+                            user.id(),
+                            Notifications.REWARD_ISSUED,
+                            "Your item pack has been issued",
+                            pack.name() + " is ready to collect from " + store.name() + ".",
+                            "/portal/stages");
                     try {
                         notifications.sendEmail(user.email(), "Your item pack has been issued", body);
                     } catch (RuntimeException failure) {

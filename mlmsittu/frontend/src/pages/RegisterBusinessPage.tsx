@@ -16,6 +16,7 @@ import {
   ErrorBanner,
   Field,
   Input,
+  Instructions,
   PageHeader,
   Select,
   Spinner,
@@ -30,6 +31,25 @@ import {
  * validation runs as the user types and the server is only asked once the ID is arithmetically
  * sound.
  */
+/**
+ * Loose on purpose.
+ *
+ * <p>A Sri Lankan NIC is twelve digits, or the older nine digits with a trailing V or X. This
+ * catches a transposed keystroke or a phone number typed in the wrong box, and says nothing about
+ * whether the number belongs to anybody — the reviewer has the card in front of them and is the
+ * only one who can answer that.
+ */
+function looksLikeNic(value: string): boolean {
+  const cleaned = value.replace(/[\s-]/g, '').toUpperCase();
+  return /^\d{12}$/.test(cleaned) || /^\d{9}[VX]$/.test(cleaned);
+}
+
+/** Digits, with the separators people write between them. Matches PhoneNumber on the server. */
+function looksLikePhone(value: string): boolean {
+  const cleaned = value.replace(/[\s.()\-/]/g, '').replace(/^\+/, '');
+  return /^\d{9,15}$/.test(cleaned);
+}
+
 export function RegisterBusinessPage() {
   const { t } = useTranslation();
   const { hasRole } = useAuth();
@@ -96,9 +116,12 @@ export function RegisterBusinessPage() {
       referrerLookup.data?.valid === true &&
       referrerLookup.data?.hasCapacity === true);
 
+  // Email OR phone, not email. This required an address until the identity change landed, which
+  // made the commonest case at the desk — a customer with no email at all — impossible to enter.
+  const accountHasIdentifier = account.email.trim() !== '' || account.mobile.trim() !== '';
   const accountReady =
     !forSomeoneElse ||
-    (account.fullName.trim() && account.email.trim() && account.password.length >= 12);
+    Boolean(account.fullName.trim() && accountHasIdentifier && account.password.length >= 12);
 
   const canSubmit =
     referrerUsable &&
@@ -298,19 +321,31 @@ export function RegisterBusinessPage() {
 
         <Card title={t('Your details')}>
           <div className="grid gap-4 p-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <Instructions title={t('Fields marked * must be filled in')}>
+                {t('The NIC number and the two photographs are what the reviewer checks. A registration missing any of them is sent back.')}
+              </Instructions>
+            </div>
             <Field
               label={t('NIC number')}
+              required
               hint={t('Stored encrypted. Never shown in full to anyone.')}
+              error={
+                nicNumber.trim() !== '' && !looksLikeNic(nicNumber)
+                  ? t('A NIC is 12 digits, or 9 digits followed by V.')
+                  : undefined
+              }
             >
               <Input
                 required
                 maxLength={20}
                 className="font-mono"
+                aria-invalid={nicNumber.trim() !== '' && !looksLikeNic(nicNumber)}
                 value={nicNumber}
                 onChange={(event) => setNicNumber(event.target.value)}
               />
             </Field>
-            <Field label={t('Address')}>
+            <Field label={t('Address')} required>
               <Input
                 required
                 maxLength={500}
@@ -340,7 +375,7 @@ export function RegisterBusinessPage() {
             subtitle={t('Created straight away and already verified — no email link for them to follow')}
           >
             <div className="grid gap-4 p-4 sm:grid-cols-2">
-              <Field label={t('Full name')}>
+              <Field label={t('Full name')} required>
                 <Input
                   required
                   value={account.fullName}
@@ -349,30 +384,60 @@ export function RegisterBusinessPage() {
                   }
                 />
               </Field>
+              <div className="sm:col-span-2">
+                <Instructions title={t('An email address or a phone number — at least one')}>
+                  {t('They sign in with whichever you enter. Most customers have no email address, and a phone number on its own is enough.')}
+                </Instructions>
+              </div>
               <Field
                 label={t('Email')}
-                hint={t('They sign in with this. No e-mail of their own? Enter the office address and one will be generated from it.')}
+                error={
+                  account.email.trim() !== '' && !account.email.includes('@')
+                    ? t('That does not look like an email address.')
+                    : undefined
+                }
               >
                 <Input
-                  required
                   type="email"
+                  aria-invalid={account.email.trim() !== '' && !account.email.includes('@')}
                   value={account.email}
                   onChange={(event) => setAccount({ ...account, email: event.target.value })}
+                  placeholder={t('Leave blank if they have none')}
                 />
               </Field>
-              <Field label={t('Mobile')}>
+              <Field
+                label={t('Phone number')}
+                hint={t('077 123 4567 or +94 77 123 4567 — both work')}
+                error={
+                  account.mobile.trim() !== '' && !looksLikePhone(account.mobile)
+                    ? t('Enter a phone number, like 077 123 4567.')
+                    : undefined
+                }
+              >
                 <Input
+                  type="tel"
+                  aria-invalid={account.mobile.trim() !== '' && !looksLikePhone(account.mobile)}
                   value={account.mobile}
                   onChange={(event) => setAccount({ ...account, mobile: event.target.value })}
+                  placeholder="077 123 4567"
                 />
               </Field>
               <Field
                 label={t('Temporary password')}
-                hint={t('At least 12 characters. Write it down for them — there is no self-service reset yet.')}
+                required
+                hint={t('At least 12 characters. Write it down for them — there is no self-service reset.')}
+                error={
+                  account.password !== '' && account.password.length < 12
+                    ? t('Too short — {{count}} of 12 characters.', {
+                        count: account.password.length,
+                      })
+                    : undefined
+                }
               >
                 <Input
                   required
                   minLength={12}
+                  aria-invalid={account.password !== '' && account.password.length < 12}
                   value={account.password}
                   onChange={(event) => setAccount({ ...account, password: event.target.value })}
                 />

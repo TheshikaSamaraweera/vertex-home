@@ -32,6 +32,7 @@ import {
   PortalStages,
 } from './portal/PortalPages';
 import { PortalRegistration } from './portal/PortalRegistration';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 /**
  * Two applications, one bundle.
@@ -118,6 +119,7 @@ export function App() {
             }
           />
           <Route path="/portal/registration" element={<PortalRegistration />} />
+          <Route path="/portal/notifications" element={<NotificationsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Routes>
@@ -147,6 +149,7 @@ export function App() {
         <Route path="/referral-cards/:batchId" element={<ReferralCardsPrintPage />} />
         <Route path="/my-registration" element={<RegisterBusinessPage />} />
         <Route path="/users" element={<UsersPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

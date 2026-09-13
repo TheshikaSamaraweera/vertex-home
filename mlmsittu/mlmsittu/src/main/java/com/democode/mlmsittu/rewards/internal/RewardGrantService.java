@@ -9,6 +9,7 @@ import com.democode.mlmsittu.rewards.api.RewardStatus;
 import com.democode.mlmsittu.rewards.internal.domain.RewardEntitlement;
 import com.democode.mlmsittu.rewards.internal.repo.RewardEntitlementRepository;
 import com.democode.mlmsittu.shared.notify.NotificationSender;
+import com.democode.mlmsittu.shared.notify.Notifications;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -38,18 +39,21 @@ public class RewardGrantService implements RewardGrants, RewardStatus {
     private final UserDirectory users;
     private final LocationDirectory locations;
     private final NotificationSender notifications;
+    private final Notifications inApp;
 
     public RewardGrantService(
             RewardEntitlementRepository entitlements,
             ItemSetCatalogue itemSets,
             UserDirectory users,
             LocationDirectory locations,
-            NotificationSender notifications) {
+            NotificationSender notifications,
+            Notifications inApp) {
         this.entitlements = entitlements;
         this.itemSets = itemSets;
         this.users = users;
         this.locations = locations;
         this.notifications = notifications;
+        this.inApp = inApp;
     }
 
     /**
@@ -148,7 +152,7 @@ public class RewardGrantService implements RewardGrants, RewardStatus {
 
         String body =
                 """
-                A distributor has completed all four referral stages and is now eligible for their
+                A distributor has completed all five referral stages and is now eligible for their
                 item pack.
 
                 Pack : %s
@@ -163,6 +167,14 @@ public class RewardGrantService implements RewardGrants, RewardStatus {
             } catch (RuntimeException failure) {
                 log.warn("Could not notify {} about a reward entitlement", admin.email(), failure);
             }
+            // In-app as well as by email. An administrator who has the screen open should not
+            // learn this from a mailbox, and several of them have no reason to watch one.
+            inApp.raise(
+                    admin.id(),
+                    Notifications.REWARD_READY,
+                    "An item pack is ready to issue",
+                    packName + " — no stock has moved yet.",
+                    "/rewards");
         }
 
         log.info(

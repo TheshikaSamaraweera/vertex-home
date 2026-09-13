@@ -46,22 +46,72 @@ export function Field({
   label,
   hint,
   error,
+  required,
   children,
 }: {
   label: string;
   hint?: string;
   error?: string;
+  /** Marks the field as required, which draws the red asterisk. */
+  required?: boolean;
   children: ReactNode;
 }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-semibold tracking-wide text-ink2 uppercase">{label}</span>
+      <span className="text-xs font-semibold tracking-wide text-ink2 uppercase">
+        {label}
+        {required && (
+          // Marked on the label rather than left to the browser's own validation, which says
+          // nothing until the form is submitted. Somebody filling in a long form should be able
+          // to see what they must answer before they start.
+          //
+          // aria-hidden because the asterisk is a visual convention, not something a screen reader
+          // should read as "star" — the input's own `required` attribute is what it announces.
+          <span aria-hidden className="ml-0.5 text-danger">
+            *
+          </span>
+        )}
+      </span>
       {children}
       {hint && !error && <span className="text-xs text-ink3">{hint}</span>}
       {/* Field errors carry the backend's machine code so a tester can match it to the API
           contract without opening devtools. */}
-      {error && <span className="text-xs text-danger">{error}</span>}
+      {error && (
+        <span role="alert" className="flex items-start gap-1 text-xs text-danger">
+          <span aria-hidden>⚠</span>
+          <span>{error}</span>
+        </span>
+      )}
     </label>
+  );
+}
+
+/**
+ * The red line down the left of a block of instructions.
+ *
+ * <p>For the rules somebody has to follow to fill a section in — what a Business ID looks like,
+ * what an upload must be, which of two fields is required. A paragraph of grey text above a form
+ * is read by nobody; the same words against a coloured rule are read because they look like they
+ * are worth reading.
+ *
+ * <p>Not for errors. An error is about what just happened and belongs on the field that caused it;
+ * this is about what to do, and it is there before anything has gone wrong.
+ */
+export function Instructions({
+  title,
+  children,
+  tone = 'danger',
+}: {
+  title?: string;
+  children: ReactNode;
+  tone?: 'danger' | 'brand';
+}) {
+  const line = tone === 'danger' ? 'border-l-danger' : 'border-l-brand';
+  return (
+    <div className={`border-l-4 bg-panel2 px-4 py-3 ${line}`}>
+      {title && <p className="text-sm font-semibold text-ink">{title}</p>}
+      <div className={`text-xs text-ink2 ${title ? 'mt-1' : ''}`}>{children}</div>
+    </div>
   );
 }
 
@@ -73,13 +123,25 @@ const inputClass =
   'focus:border-brand focus:ring-2 focus:ring-brandsoft focus:outline-none ' +
   'disabled:bg-panel2 disabled:text-ink3';
 
+/**
+ * Red border and red focus ring when a field is wrong.
+ *
+ * <p>Applied through `aria-invalid` rather than a prop, so the thing that tells a screen reader
+ * the field is wrong is the same thing that colours it. The two cannot drift apart, and marking a
+ * field red without marking it invalid — which is the usual way this is written — leaves anybody
+ * not looking at the colour with no idea anything is wrong.
+ */
+const invalidClass =
+  'aria-[invalid=true]:border-danger aria-[invalid=true]:focus:border-danger ' +
+  'aria-[invalid=true]:focus:ring-dangersoft';
+
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(inputClass, className)} {...props} />;
+  return <input className={cx(inputClass, invalidClass, className)} {...props} />;
 }
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select className={cx(inputClass, className)} {...props}>
+    <select className={cx(inputClass, invalidClass, className)} {...props}>
       {children}
     </select>
   );

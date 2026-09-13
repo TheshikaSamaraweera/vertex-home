@@ -163,7 +163,14 @@ export function ReviewQueuePage() {
                       onClick={() =>
                         selectedId &&
                         approve.mutate(selectedId, {
-                          onSuccess: (result) => setApproved(result.businessId),
+                          onSuccess: (result) => {
+                            setApproved(result.businessId);
+                            // Clear the selection. The record has left the queue, so leaving it
+                            // selected left the panel showing a decided registration with Claim
+                            // and Approve still on it — the detail query still had it cached, and
+                            // only a page reload cleared it.
+                            setSelectedId(null);
+                          },
                         })
                       }
                     >
@@ -253,7 +260,14 @@ export function ReviewQueuePage() {
           onSubmit={(reason, note, allowResubmit) =>
             reject.mutate(
               { id: selectedId, reason, note, allowResubmit },
-              { onSuccess: () => setRejecting(false) },
+              {
+                onSuccess: () => {
+                  setRejecting(false);
+                  // Same reason as approval: decided is decided, and the record is gone from the
+                  // queue whether it was rejected outright or sent back for changes.
+                  setSelectedId(null);
+                },
+              },
             )
           }
         />

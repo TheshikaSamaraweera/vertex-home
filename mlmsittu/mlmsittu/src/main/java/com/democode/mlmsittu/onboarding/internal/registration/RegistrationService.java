@@ -5,6 +5,7 @@ import com.democode.mlmsittu.hierarchy.api.ReferralHierarchy;
 import com.democode.mlmsittu.onboarding.internal.nic.NicProtection;
 import com.democode.mlmsittu.onboarding.internal.registration.RegistrationRepository.RegistrationRow;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
+import com.democode.mlmsittu.shared.notify.Notifications;
 import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ApiException;
 import com.democode.mlmsittu.shared.error.ConflictException;
@@ -46,16 +47,19 @@ public class RegistrationService {
     private final ReferralHierarchy distributors;
     private final NicProtection nic;
     private final JdbcTemplate jdbc;
+    private final Notifications notifications;
 
     public RegistrationService(
             RegistrationRepository registrations,
             ReferralHierarchy distributors,
             NicProtection nic,
-            JdbcTemplate jdbc) {
+            JdbcTemplate jdbc,
+            Notifications notifications) {
         this.registrations = registrations;
         this.distributors = distributors;
         this.nic = nic;
         this.jdbc = jdbc;
+        this.notifications = notifications;
     }
 
     public record SubmissionRequest(
@@ -271,6 +275,25 @@ public class RegistrationService {
                 Map.of("status", row.status()),
                 Map.of("status", "approved", "businessId", businessId));
 
+        // The applicant, who has been waiting and has no other way to find out. For a customer
+        // with no email address — most of them — this is the only channel that reaches them.
+        notifications.raise(
+                row.userId(),
+                Notifications.REGISTRATION_APPROVED,
+                "Your registration has been approved",
+                "Your Business ID is " + businessId + ". Give it to anyone you refer.",
+                "/portal");
+
+        // And their referrer, whose referral count just moved and who may now be owed a pack.
+        if (row.referrerDistributorId() != null) {
+            notifications.raise(
+                    distributors.get(row.referrerDistributorId()).userId(),
+                    Notifications.REFERRAL_JOINED,
+                    "Somebody you referred has joined",
+                    "They have been approved and now count towards your stages.",
+                    "/portal/referrals");
+        }
+
         return new ApprovalResult(registrationId, distributorId, businessId);
     }
 
@@ -305,6 +328,18 @@ public class RegistrationService {
                 registrationId,
                 Map.of("status", row.status()),
                 Map.of("status", target, "reason", reason));
+
+        // Two different messages, because they mean different things to the person waiting: one
+        // is "fix this and send it back", the other is "this is over". A single "rejected" would
+        // leave somebody who could still join believing they could not.
+        notifications.raise(
+                row.userId(),
+                Notifications.REGISTRATION_REJECTED,
+                allowResubmit
+                        ? "Your registration needs changes"
+                        : "Your registration was not accepted",
+                note == null || note.isBlank() ? reason : note,
+                "/portal/registration");
 
         return registrations.findById(registrationId).orElseThrow(this::notFound);
     }

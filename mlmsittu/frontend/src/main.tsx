@@ -6,6 +6,7 @@ import './i18n';
 import './styles.css';
 import { App } from './App';
 import { AuthProvider } from './auth/AuthContext';
+import { ToastProvider } from './components/Toasts';
 import { ApiError } from './api/client';
 
 const queryClient = new QueryClient({
@@ -30,7 +31,11 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          {/* Inside AuthProvider: a toast is only ever raised by something that needs a session,
+              and outside it the bell's hooks would have nothing to talk to. */}
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

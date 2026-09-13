@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { NotificationBell } from '../components/NotificationBell';
 import { useAuth } from '../auth/AuthContext';
 import { usePortalMe } from '../api/portal';
 import { Badge, Button, ErrorBanner, Spinner } from '../components/ui';
@@ -46,6 +47,7 @@ export function PortalShell() {
           </div>
 
           <div className="ml-auto flex items-center gap-3">
+            <NotificationBell historyPath="/portal/notifications" />
             <div className="text-right">
               <p className="truncate text-xs font-semibold text-ink">{user?.fullName}</p>
               {/* The Business ID is the distributor's identity in this business, so it sits in

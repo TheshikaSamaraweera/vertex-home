@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
-import { Button, ErrorBanner, Field, Input } from '../components/ui';
+import { Button, ErrorBanner, Field, Input, Instructions } from '../components/ui';
 
 /**
  * Account creation.
@@ -65,7 +65,7 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
         <div className="rounded-lg border border-rule bg-panel p-5">
           {!done && (
             <form onSubmit={submit} className="flex flex-col gap-4">
-              <Field label={t('Full name')} error={fieldErrors.fullName}>
+              <Field label={t('Full name')} required error={fieldErrors.fullName}>
                 <Input
                   required
                   autoFocus
@@ -74,9 +74,9 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
                 />
               </Field>
 
-              <p className="text-xs text-ink3">
-                {t('Give an email address or a phone number. Either one is enough, and you can give both.')}
-              </p>
+              <Instructions title={t('An email address or a phone number — at least one')}>
+                {t('You sign in with whichever you enter. If you have no email address, a phone number on its own is enough.')}
+              </Instructions>
 
               <Field label={t('Email')} error={fieldErrors.email}>
                 <Input
@@ -100,13 +100,19 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
 
               <Field
                 label={t('Password')}
+                required
                 hint={t('At least 10 characters. Longer beats complicated.')}
-                error={fieldErrors.password}
+                error={
+                  password !== '' && password.length < 10
+                    ? t('Too short — {{count}} of 10 characters.', { count: password.length })
+                    : fieldErrors.password
+                }
               >
                 <Input
                   type="password"
                   required
                   minLength={10}
+                  aria-invalid={password !== '' && password.length < 10}
                   autoComplete="new-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}

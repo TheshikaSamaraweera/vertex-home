@@ -103,7 +103,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
         <div className="rounded-lg border border-rule bg-panel p-5">
           {stage.name === 'password' && (
             <form onSubmit={submitPassword} className="flex flex-col gap-4">
-              <Field label={t('Email or phone number')} error={fieldErrors.identifier}>
+              <Field label={t('Email or phone number')} required error={fieldErrors.identifier}>
                 <Input
                   type="text"
                   autoComplete="username"
@@ -114,7 +114,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
                   placeholder={t('you@example.lk  or  077 123 4567')}
                 />
               </Field>
-              <Field label={t('Password')} error={fieldErrors.password}>
+              <Field label={t('Password')} required error={fieldErrors.password}>
                 <Input
                   type="password"
                   autoComplete="current-password"

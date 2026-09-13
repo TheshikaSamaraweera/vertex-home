@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { NotificationBell } from './NotificationBell';
 import { ROLE_LABELS, useAuth } from '../auth/AuthContext';
 import type { Role } from '../api/types';
 import { useRewardsWaiting } from '../api/queries';
@@ -202,6 +203,12 @@ export function AppShell() {
         </nav>
 
         <main className="min-w-0 px-5 py-7 sm:px-8">
+          {/* The bell sits above the content rather than in the dark rail: it belongs to whatever
+              screen you are on, it needs a panel that opens downward into space, and the rail
+              scrolls away on a narrow window. */}
+          <div className="mb-4 flex justify-end">
+            <NotificationBell historyPath="/notifications" />
+          </div>
           <Outlet />
         </main>
       </div>
