@@ -33,7 +33,8 @@ export function Button({ variant = 'secondary', size = 'md', className, ...props
   // which on a green button over a green-tinted ground reads as a rendering fault.
   const variants = {
     primary: 'bg-brand text-brandink shadow-sm hover:bg-branddeep',
-    secondary: 'bg-panel text-ink border border-rule hover:border-brand hover:text-brand',
+    secondary:
+      'bg-panel text-ink border border-rulestrong hover:border-brand hover:bg-brandsoft hover:text-brand',
     danger: 'bg-dangersoft text-danger border border-danger hover:bg-danger hover:text-panel',
     ghost: 'text-ink2 hover:text-brand hover:bg-brandsoft',
   };
@@ -116,7 +117,7 @@ export function Instructions({
 }
 
 const inputClass =
-  'w-full rounded-md border border-rule bg-panel px-3 py-2 text-sm text-ink ' +
+  'w-full rounded-md border border-rulestrong bg-panel px-3 py-2 text-sm text-ink ' +
   'transition-colors placeholder:text-ink3 ' +
   // A ring as well as a border: a 1px colour change alone is easy to miss, and this is a
   // data-entry app where knowing which field has focus matters more than it looks.
@@ -163,11 +164,14 @@ export function Card({
   className?: string;
 }) {
   return (
+    // 2px in the heavier green, where the inside stays on the light rule. The outline of a card
+    // is the thing worth drawing firmly; every divider within it at the same weight would turn
+    // the page into a stack of boxes and none of them would read as a container any more.
     <section
-      className={cx('rounded-xl border border-rule bg-panel shadow-card', className)}
+      className={cx('rounded-xl border-2 border-rulestrong bg-panel shadow-card', className)}
     >
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-5 py-3.5">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-rulestrong bg-panel2/50 px-5 py-3.5">
           <div>
             {title && <h2 className="text-sm font-semibold text-ink">{title}</h2>}
             {subtitle && <p className="mt-0.5 text-xs text-ink3">{subtitle}</p>}
@@ -190,7 +194,9 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-rule pb-4">
+    // A 2px brand underline rather than a hairline. It is the first thing on every page and
+    // the only mark that says where the header ends and the work begins.
+    <header className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b-2 border-brand/35 pb-4">
       <div>
         <h1 className="text-[22px] leading-tight font-bold tracking-tight text-ink">{title}</h1>
         {description && <p className="mt-1.5 max-w-2xl text-sm text-ink2">{description}</p>}
@@ -208,7 +214,18 @@ export function TableWrap({ children }: { children: ReactNode }) {
 }
 
 export function Table({ children }: { children: ReactNode }) {
-  return <table className="w-full min-w-[36rem] border-collapse text-sm">{children}</table>;
+  return (
+    // The row hover is set here, on a descendant selector, rather than on a Tr component every
+    // table would have to adopt. Twenty pages build their own rows; one of them would have been
+    // missed, and a table where hovering does nothing reads as broken rather than as plain.
+    //
+    // It earns its place on a wide table: it is what keeps the eye on one record while it travels
+    // from the first column to the last. Without it, reading a figure at the right-hand edge and
+    // knowing whose figure it is are two separate acts.
+    <table className="w-full min-w-[36rem] border-collapse text-sm [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-brandsoft/60">
+      {children}
+    </table>
+  );
 }
 
 export function Th({
@@ -221,7 +238,13 @@ export function Th({
   return (
     <th
       className={cx(
-        'border-b border-rule bg-panel2 px-3 py-2.5 text-[10px] font-semibold tracking-wider text-ink2 uppercase',
+        // Bold, a shade darker, and sitting on a 2px brand underline.
+        //
+        // Column headings label everything below them and were set lighter than the data they
+        // describe, which is the hierarchy upside down. The thick rule under the head is what
+        // separates labels from values — without it a header row is just the first row with
+        // different words in it, and on a long table you lose track of which column is which.
+        'border-b-2 border-brand/60 bg-panel2 px-3 py-2.5 text-[10.5px] font-bold tracking-wider text-ink uppercase',
         align === 'right' ? 'text-right' : 'text-left',
       )}
     >
@@ -242,6 +265,8 @@ export function Td({
   return (
     <td
       className={cx(
+        // Deliberately still 1px. Row dividers at the header's weight would be a cage, and the
+        // eye needs somewhere quiet to read the numbers.
         'border-b border-rule px-3 py-2.5 text-ink2',
         align === 'right' ? 'nums text-right' : '',
         className,
@@ -269,7 +294,7 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
   return (
     <span
       className={cx(
-        'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
+        'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
         toneClasses[tone],
       )}
     >
@@ -471,7 +496,7 @@ export function Modal({
     >
       <div
         className={cx(
-          'w-full rounded-xl border border-rule bg-panel shadow-float',
+          'w-full rounded-xl border-2 border-rulestrong bg-panel shadow-float',
           wide ? 'max-w-3xl' : 'max-w-lg',
         )}
         onClick={(event) => event.stopPropagation()}

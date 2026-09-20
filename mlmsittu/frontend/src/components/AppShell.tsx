@@ -123,9 +123,11 @@ export function AppShell() {
           <div className="mb-7 flex items-center gap-3 px-2">
             {/* The one place the brand runs at full strength while at rest, so the eye has a
                 fixed anchor at the top of the rail instead of having to find one. */}
+            {/* White on green, where it used to be green on pale. Full-strength brand on a
+                brand-coloured rail would have disappeared into it. */}
             <span
               aria-hidden
-              className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-brand text-[15px] font-bold text-brandink"
+              className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-white text-[15px] font-bold text-brand shadow-sm"
             >
               MS
             </span>
@@ -143,25 +145,38 @@ export function AppShell() {
                 {/* 11px in real ink, where it used to be 9.5px of the palest grey in the
                     palette. These labels organise everything below them and were the hardest
                     thing on the rail to read, which is exactly backwards. */}
-                <p className="mb-2 px-3 text-[11px] font-bold tracking-[0.06em] text-navink3 uppercase">
+                {/* The group label. Bold and wider-tracked, because it names everything
+                    beneath it and a heading that is quieter than its own contents inverts the
+                    hierarchy it exists to express. */}
+                <p className="mb-1.5 px-3 text-[11px] font-bold tracking-[0.1em] text-navink3 uppercase">
                   {section.heading}
                 </p>
-                <ul className="flex flex-col gap-0.5">
+                {/* Indented, with a rule down the left.
+                    
+                    Indentation alone leaves it to the eye to infer the grouping from a few pixels
+                    of gap. The rule makes it a fact: everything to the right of this line belongs
+                    to the heading above it, and where a group ends is visible rather than
+                    deduced. */}
+                <ul className="ml-3 flex flex-col gap-0.5 border-l border-white/15 pl-2">
                   {section.items.map((item) => (
                     <li key={item.to}>
                       <NavLink
                         to={item.to}
                         end={item.to === '/'}
                         className={({ isActive }) =>
-                          // 40px tall and 14.5px type. The old 13px in a 28px row was cramped to
-                          // read and fiddly to hit.
-                          'relative flex items-center gap-2 rounded-lg py-2.5 pr-3 pl-3.5 text-[14.5px] transition-colors ' +
+                          'relative flex items-center gap-2 rounded-lg py-2.5 pr-3 pl-3 text-[14.5px] transition-colors duration-150 ' +
                           (isActive
-                            ? // The brand at full strength, not a wash of it. The old active state
-                              // was a pale tint on a pale panel and took a moment to find; this
-                              // one is unmistakable from across the desk.
-                              'bg-brand font-semibold text-brandink shadow-sm'
-                            : 'font-medium text-navink2 hover:bg-navraised hover:text-navink')
+                            ? // White block, green text: the inverse of everything around it, and
+                              // the brightest thing on the rail. On a dark surface this is the
+                              // strongest mark available — a tinted fill would have to compete
+                              // with the green it sits on.
+                              'bg-white font-bold text-brand shadow-sm'
+                            : // Three distinct states, not two. Resting text is deliberately
+                              // dimmer than white so the active item is found by brightness
+                              // before it is read; hover lifts the row to a lighter green and
+                              // the text to full white, so it is clear what is about to be
+                              // clicked without it pretending to be selected.
+                              'font-medium text-navink2 hover:bg-navraised hover:text-navink')
                         }
                       >
                         <span className="truncate">{item.label}</span>
@@ -174,27 +189,30 @@ export function AppShell() {
             ))}
           </div>
 
+          {/* The user card is lifted out of the rail rather than dropped on top of it. A white
+              card here would be the brightest block on the sidebar and would compete with the
+              active nav item, which is the one thing that should win. */}
           {user && (
-            <div className="mt-7 rounded-xl border border-navedge bg-panel p-3.5">
-              <p className="truncate text-[13.5px] font-semibold text-ink">{user.fullName}</p>
-              <p className="truncate text-[11.5px] text-ink3">{user.email}</p>
+            <div className="mt-7 rounded-xl border border-white/15 bg-white/10 p-3.5">
+              <p className="truncate text-[13.5px] font-semibold text-navink">{user.fullName}</p>
+              <p className="truncate text-[11.5px] text-navink3">{user.email ?? user.mobile}</p>
               <div className="mt-2.5 flex flex-wrap gap-1">
                 {(user.roles ?? []).map((role) => (
                   <span
                     key={role}
-                    className="rounded-full border border-brand/25 bg-brandsoft px-2 py-0.5 text-[10.5px] font-medium text-brand"
+                    className="rounded-full border border-white/25 bg-white/15 px-2 py-0.5 text-[10.5px] font-semibold text-navink"
                   >
                     {ROLE_LABELS[role as Role] ?? role}
                   </span>
                 ))}
               </div>
               {/* Not the shared Button: every variant it offers is drawn for a light surface, and
-                  a white-bordered control on the dark rail reads as a mistake. One button styled
+                  a white-bordered control on the green rail reads as a mistake. One button styled
                   where it lives beats a fifth variant that exists for one caller. */}
               <button
                 type="button"
                 onClick={() => void signOut()}
-                className="mt-3 w-full rounded-md border border-rule py-1.5 text-xs font-medium text-ink2 transition-colors hover:border-brand hover:bg-brandsoft hover:text-brand"
+                className="mt-3 w-full rounded-md border border-white/30 py-1.5 text-xs font-semibold text-navink2 transition-colors hover:border-white hover:bg-white hover:text-brand"
               >
                 {t('Sign out')}
               </button>

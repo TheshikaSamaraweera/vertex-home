@@ -65,7 +65,7 @@ export function QrCode({
   if (failed) {
     return (
       <div
-        className="flex items-center justify-center rounded-lg border border-rule bg-panel2 p-4 text-center text-xs text-ink3"
+        className="flex items-center justify-center rounded-lg border-2 border-rulestrong bg-panel2 p-4 text-center text-xs text-ink3"
         style={{ width: size, height: size }}
       >
         {t('Could not draw the QR code. Type the setup key instead.')}
@@ -76,7 +76,7 @@ export function QrCode({
   if (!src) {
     return (
       <div
-        className="animate-pulse rounded-lg border border-rule bg-panel2"
+        className="animate-pulse rounded-lg border-2 border-rulestrong bg-panel2"
         style={{ width: size, height: size }}
       />
     );

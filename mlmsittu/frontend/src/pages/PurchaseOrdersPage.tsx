@@ -545,7 +545,7 @@ function SendModal({
         </p>
 
         {address ? (
-          <div className="rounded-lg border border-rule bg-panel2 p-3">
+          <div className="rounded-lg border-2 border-rulestrong bg-panel2 p-3">
             <p className="text-xs text-ink3">{t('Going to')}</p>
             <p className="text-sm font-semibold text-ink">{address}</p>
             <p className="mt-1 text-xs text-ink3">

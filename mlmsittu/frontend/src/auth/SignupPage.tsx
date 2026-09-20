@@ -62,7 +62,7 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
           <p className="mt-1 text-sm text-ink2">{t('Create your account')}</p>
         </div>
 
-        <div className="rounded-lg border border-rule bg-panel p-5">
+        <div className="rounded-lg border-2 border-rulestrong bg-panel p-5">
           {!done && (
             <form onSubmit={submit} className="flex flex-col gap-4">
               <Field label={t('Full name')} required error={fieldErrors.fullName}>

@@ -35,7 +35,15 @@
   --c-ink: #14221a;
   --c-ink-2: #47584e;
   --c-ink-3: #78887e;
-  --c-rule: #d1ded4;
+  --c-rule: #c6dbcc;
+
+  /* The heavier rule, for the edge of a card and the underline of a table head.
+     
+     A second weight rather than one border used everywhere. Drawing every line at 2px turns a
+     table into graph paper and a form into a stack of boxes — the eye stops reading any of them
+     as structure because they all shout equally. This is the outline of a thing; --c-rule stays
+     the line *inside* it. */
+  --c-rule-strong: #8cbb9f;
 
   /* Brand. Buttons, links, active navigation, focus rings, chart emphasis. */
   --c-brand: #146b3a;
@@ -53,21 +61,25 @@
 
   /* Navigation rail.
      
-     A tinted surface, not another sheet of white. The sidebar used to be --c-panel sitting on
-     --c-ground: two near-whites with almost no figure/ground separation, so the rail read as an
-     absence rather than a region. The hierarchy was inverted too — the section headings, the
-     labels that organise the whole application, were the faintest marks on the screen at 9.5px of
-     pale grey.
+     A solid deep green, not a tint. It was a pale green sitting on a pale ground, which gave the
+     rail almost no figure/ground separation — it read as an absence where the page happened to
+     stop rather than as a region of its own. Filling it makes the shape of the application
+     legible from across a desk, and gives the active item somewhere to be bright against.
      
-     The fix is contrast and weight rather than darkness: a distinctly tinted ground, headings in
-     real ink instead of the lightest grey, and an active item filled with the brand rather than
-     hinted at with a wash of it. */
-  --c-nav: #e4eee7;
-  --c-nav-raised: #d3e5d9;
-  --c-nav-edge: #b6d3c0;
-  --c-nav-ink: #0f2419;
-  --c-nav-ink-2: #3c5145;
-  --c-nav-ink-3: #5d7266;
+     The active state inverts: white block, green text. On a dark rail that is the strongest mark
+     available, and it costs nothing — where a coloured fill on a coloured rail has to fight the
+     surface it sits on.
+     
+     Contrast is not incidental here. This is a rail somebody looks at all day: white on this
+     green is 9.8:1, the resting label 7.3:1, and the section headings 4.7:1 — all past WCAG AA,
+     with the resting state deliberately dimmer than the active one so the current page is found
+     by brightness before it is found by reading. */
+  --c-nav: #0e4e2a;
+  --c-nav-raised: #17673a;
+  --c-nav-edge: #093a1f;
+  --c-nav-ink: #ffffff;
+  --c-nav-ink-2: #cfe3d6;
+  --c-nav-ink-3: #a8d4ba;
 
   /* Elevation. Two steps only: resting cards, and things that float above them. */
   --elev-card: 0 1px 2px rgba(20, 34, 26, 0.05), 0 1px 3px rgba(20, 34, 26, 0.04);
@@ -84,6 +96,7 @@
   --color-ink2: var(--c-ink-2);
   --color-ink3: var(--c-ink-3);
   --color-rule: var(--c-rule);
+  --color-rulestrong: var(--c-rule-strong);
   --color-nav: var(--c-nav);
   --color-navraised: var(--c-nav-raised);
   --color-navedge: var(--c-nav-edge);

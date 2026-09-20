@@ -494,7 +494,7 @@ function DocumentPeek({
       aria-modal="true"
     >
       <div
-        className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-xl border border-rule bg-panel p-5 shadow-float"
+        className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-xl border-2 border-rulestrong bg-panel p-5 shadow-float"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">

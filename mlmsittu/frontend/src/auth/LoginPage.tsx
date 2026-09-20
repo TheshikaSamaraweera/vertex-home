@@ -100,7 +100,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
           <p className="mt-1 text-sm text-ink2">{t('Distribution and inventory platform')}</p>
         </div>
 
-        <div className="rounded-lg border border-rule bg-panel p-5">
+        <div className="rounded-lg border-2 border-rulestrong bg-panel p-5">
           {stage.name === 'password' && (
             <form onSubmit={submitPassword} className="flex flex-col gap-4">
               <Field label={t('Email or phone number')} required error={fieldErrors.identifier}>

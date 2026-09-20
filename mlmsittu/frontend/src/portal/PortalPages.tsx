@@ -129,7 +129,7 @@ function StatCard({
   mono?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-rule bg-panel p-4 shadow-card">
+    <div className="rounded-xl border-2 border-rulestrong bg-panel p-4 shadow-card">
       <p className="text-[10px] font-semibold tracking-wider text-ink3 uppercase">{label}</p>
       <p
         className={

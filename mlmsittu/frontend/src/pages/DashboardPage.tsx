@@ -174,7 +174,7 @@ function Stat({
     </>
   );
 
-  const frame = 'rounded-lg border border-rule bg-panel p-4';
+  const frame = 'rounded-lg border-2 border-rulestrong bg-panel p-4';
 
   if (!to) {
     return <div className={frame}>{body}</div>;

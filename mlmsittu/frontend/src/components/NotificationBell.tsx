@@ -94,7 +94,7 @@ export function NotificationBell({ historyPath }: { historyPath: string }) {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-rule bg-panel shadow-xl">
+        <div className="absolute right-0 z-40 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-lg border-2 border-rulestrong bg-panel shadow-xl">
           <div className="flex items-center justify-between border-b border-rule px-4 py-2.5">
             <p className="text-sm font-semibold text-ink">{t('Notifications')}</p>
             {unread > 0 && (

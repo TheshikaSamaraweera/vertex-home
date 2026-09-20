@@ -144,7 +144,7 @@ export function ReferralTree({
       </div>
 
       <div
-        className="overflow-auto rounded-lg border border-rule bg-panel2"
+        className="overflow-auto rounded-lg border-2 border-rulestrong bg-panel2"
         style={{ maxHeight: '70vh' }}
       >
         <svg

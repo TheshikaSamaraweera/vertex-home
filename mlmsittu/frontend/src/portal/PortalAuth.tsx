@@ -43,7 +43,7 @@ function PortalFrame({
           </div>
         </div>
 
-        <div className="rounded-xl border border-rule bg-panel p-5 shadow-card">{children}</div>
+        <div className="rounded-xl border-2 border-rulestrong bg-panel p-5 shadow-card">{children}</div>
 
         <p className="mt-5 text-center text-xs text-ink3">
           {t('Staff member?')}{' '}

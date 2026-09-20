@@ -113,7 +113,7 @@ export function RequireActive({ children }: { children: React.ReactNode }) {
   if (me.data?.access === 'ACTIVE') return <>{children}</>;
 
   return (
-    <div className="rounded-xl border border-rule bg-panel p-6 shadow-card">
+    <div className="rounded-xl border-2 border-rulestrong bg-panel p-6 shadow-card">
       <Badge tone="warn">{t('Not available yet')}</Badge>
       <p className="mt-3 text-sm text-ink2">
         {t('This opens once your business registration has been approved.')}
