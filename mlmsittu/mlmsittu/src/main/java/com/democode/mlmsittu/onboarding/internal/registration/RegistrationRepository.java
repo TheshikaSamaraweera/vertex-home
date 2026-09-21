@@ -185,7 +185,15 @@ public class RegistrationRepository {
                 registrationId);
     }
 
-    public void markReviewed(
+/** Records which referral card this registration was admitted on. */
+    public void attachCard(UUID registrationId, UUID cardId) {
+        jdbc.update(
+                "UPDATE registration SET referral_card_id = ? WHERE id = ?",
+                cardId,
+                registrationId);
+    }
+
+        public void markReviewed(
             UUID registrationId, String status, UUID reviewerId, String reason, String note) {
         jdbc.update(
                 """

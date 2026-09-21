@@ -10,6 +10,7 @@ import com.democode.mlmsittu.identity.internal.domain.UserStatus;
 import com.democode.mlmsittu.identity.internal.repo.AppUserRepository;
 import com.democode.mlmsittu.onboarding.internal.registration.RegistrationService;
 import com.democode.mlmsittu.onboarding.internal.registration.RegistrationService.SubmissionRequest;
+import com.democode.mlmsittu.onboarding.internal.registration.ReferralCardService;
 import com.democode.mlmsittu.portal.api.PortalAccess;
 import com.democode.mlmsittu.hierarchy.api.StageProgress;
 import com.democode.mlmsittu.portal.api.PortalView;
@@ -42,6 +43,7 @@ import org.springframework.test.context.ActiveProfiles;
 class PortalAccessTest {
 
     @Autowired private PortalService portal;
+    @Autowired private ReferralCardService cards;
     @Autowired private RegistrationService registrations;
     @Autowired private DistributorService distributors;
     @Autowired private AppUserRepository users;
@@ -276,6 +278,14 @@ class PortalAccessTest {
         var nic = vault.store(smallJpeg(), "image/jpeg", "nic", applicant);
         var slip = vault.store(smallJpeg(), "image/jpeg", "bank_slip", applicant);
 
+        // A real card, issued by the referrer. Registration requires one that exists, is unspent
+        // and belongs to the parent named — there is no way in without it, which is the point.
+        String cardNumber =
+                cards.issue(referrerDistributorId, null, 1, null, applicant)
+                        .cards()
+                        .getFirst()
+                        .code();
+
         return registrations.submit(
                 applicant,
                 new SubmissionRequest(
@@ -283,6 +293,7 @@ class PortalAccessTest {
                         nic.id(),
                         slip.id(),
                         referrerBusinessId,
+                        cardNumber,
                         "12 Galle Road, Colombo 03",
                         "Commercial Bank",
                         "Colombo",

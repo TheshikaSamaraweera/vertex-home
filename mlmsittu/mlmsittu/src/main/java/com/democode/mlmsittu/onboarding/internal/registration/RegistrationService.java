@@ -48,18 +48,21 @@ public class RegistrationService {
     private final NicProtection nic;
     private final JdbcTemplate jdbc;
     private final Notifications notifications;
+    private final ReferralCardService cards;
 
     public RegistrationService(
             RegistrationRepository registrations,
             ReferralHierarchy distributors,
             NicProtection nic,
             JdbcTemplate jdbc,
-            Notifications notifications) {
+            Notifications notifications,
+            ReferralCardService cards) {
         this.registrations = registrations;
         this.distributors = distributors;
         this.nic = nic;
         this.jdbc = jdbc;
         this.notifications = notifications;
+        this.cards = cards;
     }
 
     public record SubmissionRequest(
@@ -67,6 +70,7 @@ public class RegistrationService {
             UUID nicDocumentId,
             UUID slipDocumentId,
             String referrerBusinessId,
+            String cardNumber,
             String fullAddress,
             String bankName,
             String bankBranch,
@@ -91,9 +95,22 @@ public class RegistrationService {
                 request.referrerBusinessId() == null || request.referrerBusinessId().isBlank();
 
         DistributorNode referrer = null;
+        ReferralCardService.CardClaim card = null;
+
         if (!isRoot) {
             // Shape, existence and active status, each a distinct error.
             referrer = distributors.resolveReferrer(request.referrerBusinessId());
+
+            // A card is how somebody gets in. They bought it from the customer above them, and
+            // the number on it is what proves that — so it is required, claimed under a row lock,
+            // and checked against the Business ID they typed.
+            if (request.cardNumber() == null || request.cardNumber().isBlank()) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "CARD_NUMBER_REQUIRED",
+                        "Enter the number printed on your referral card.");
+            }
+            card = cards.claim(request.cardNumber(), request.referrerBusinessId());
 
             // Advisory only — capacity is consumed at approval under a row lock, not here.
             // Checking now still saves an applicant completing a form that cannot be approved.
@@ -140,6 +157,14 @@ public class RegistrationService {
         // A root's pending row has no referrer, which is what makes it a root: attachToReferrer
         // sees a null parent at approval, allocates a root identifier and gives it a path with a
         // single segment.
+        // Spend the card now the registration exists to attach it to. Released again if this
+        // registration is ever rejected — a refusal over a blurred photograph must not cost
+        // somebody the card they paid for.
+        if (card != null) {
+            cards.markRedeemed(card.cardId(), userId, registrationId);
+            registrations.attachCard(registrationId, card.cardId());
+        }
+
         distributors.createPending(userId, isRoot ? null : referrer.id());
 
         registrations.recordEvent(registrationId, "draft", "submitted", userId, null, null);
@@ -332,6 +357,10 @@ public class RegistrationService {
         // Two different messages, because they mean different things to the person waiting: one
         // is "fix this and send it back", the other is "this is over". A single "rejected" would
         // leave somebody who could still join believing they could not.
+        // The card goes back. Whether they may try again or not, they paid for it, and a
+        // rejected registration is not a spent card.
+        cards.release(registrationId);
+
         notifications.raise(
                 row.userId(),
                 Notifications.REGISTRATION_REJECTED,

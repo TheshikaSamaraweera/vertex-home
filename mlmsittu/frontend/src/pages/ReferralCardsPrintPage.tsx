@@ -101,7 +101,7 @@ export function ReferralCardsPrintPage() {
           <pre key={card.id} className="dm-card">
 {renderCard({
   cardNumber: card.cardNumber ?? 0,
-  total: 5,
+  total: cards.length,
   code: card.code ?? '',
   parentName: data.parentName ?? '',
   parentBusinessId: data.parentBusinessId ?? '',
@@ -126,9 +126,9 @@ const WIDTH = 64;
  * of CSS. It also makes the whole card inspectable in one place.
  */
 function renderCard(card: {
-  /** The seat under the parent, 1-5. Also the last digit of the child ID. */
+  /** Which card this is within its batch — card 2 of 3. Not a seat: see the print page javadoc. */
   cardNumber: number;
-  /** Seats in total, not cards in this batch. */
+  /** Cards in this batch. */
   total: number;
   code: string;
   parentName: string;
@@ -141,24 +141,29 @@ function renderCard(card: {
   const thin = '-'.repeat(WIDTH);
 
   // Label column fixed at 11 so every value starts in the same place down the card. Wide enough
-  // for "PARENT ID" and "CHILD ID" to sit above one another and still line up.
+  // for "PARENT ID" and "CARD No." to sit above one another and still line up.
   const field = (label: string, value: string) => ` ${label.padEnd(11)}${value}`;
 
   const lines: string[] = [
     rule,
-    // The seat, not a position in the batch. A batch printed when seats 1 and 2 are already
-    // filled contains seats 3, 4 and 5 — and "card 1 of 3" would contradict the ID printed below.
-    spread(' MLM SITTU  -  REFERRAL CARD', `SEAT ${card.cardNumber} OF ${card.total} `),
+    spread(' MLM SITTU  -  REFERRAL CARD', `CARD ${card.cardNumber} OF ${card.total} `),
     rule,
     '',
-    // Parent first, then the child. Two identifiers on one small card is exactly where a person
-    // in a hurry picks the wrong one, so neither is labelled just "ID".
+    // Parent first, then the number. These are the two things typed at registration and they are
+    // the only two things on the card that matter.
     field('PARENT', truncate(card.parentName, WIDTH - 13)),
     field('PARENT ID', card.parentBusinessId),
     '',
-    field('CHILD ID', card.code),
+    // Set apart and given its own line, because it is the thing somebody paid for and the thing
+    // they will read down a phone to whoever is filling the form in for them.
+    thin,
+    field('CARD No.', card.code),
+    thin,
   ];
 
+  // The pack, when the batch names one. Printed from the price stored with the batch, not from
+  // the catalogue: this is paper somebody is holding, and it must not change under them because
+  // a price was edited afterwards.
   if (card.packName) {
     lines.push('');
     lines.push(field('PACK', truncate(card.packName, WIDTH - 13)));
@@ -172,14 +177,12 @@ function renderCard(card: {
     thin,
     ' TO JOIN',
     '',
-    // The instruction is the whole point of the card. Somebody who has never seen the system
-    // needs to know what to type and where, without asking the person who handed it over.
     '   1. Go to the customer portal and create an account.',
-    '   2. Enter the PARENT ID above when it asks who',
-    '      referred you.',
+    '   2. Enter the PARENT ID and the CARD No. above.',
     '   3. Upload your NIC and the payment slip.',
-    '   4. Give the CHILD ID above to the office, so they',
-    '      know which card you were given.',
+    '',
+    ' This card can be used once. Keep it until your',
+    ' registration is approved.',
     '',
     thin,
     spread(` Issued ${card.issued}`, 'Keep this card '),

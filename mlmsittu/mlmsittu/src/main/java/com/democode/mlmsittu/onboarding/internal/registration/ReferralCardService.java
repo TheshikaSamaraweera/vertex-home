@@ -3,6 +3,8 @@ package com.democode.mlmsittu.onboarding.internal.registration;
 import com.democode.mlmsittu.catalogue.api.ItemSetCatalogue;
 import com.democode.mlmsittu.catalogue.api.ItemSetRef;
 import com.democode.mlmsittu.shared.businessid.PositionalId;
+import org.springframework.dao.DuplicateKeyException;
+import com.democode.mlmsittu.shared.businessid.CardNumber;
 import com.democode.mlmsittu.shared.error.NotFoundException;
 import org.springframework.http.HttpStatus;
 import com.democode.mlmsittu.shared.error.ApiException;
@@ -23,17 +25,32 @@ import org.springframework.transaction.annotation.Transactional;
  * and hands them over; the customer gives one to each person they recruit. The card carries the
  * parent's Business ID, the pack on offer, and a code identifying that individual card.
  *
- * <h2>What a card is not</h2>
+ * <h2>A card is a bearer token</h2>
  *
- * <p>It is not a credential and it is not redeemed. Registration asks for the referrer's Business
- * ID and nothing else, exactly as it did before this class existed — the applicant never types a
- * card code, and no endpoint accepts one. The code exists so an administrator can say which
- * physical cards were printed, for whom, and by whom.
+ * <p>Cards are sold. The buyer pays the customer who was given them, types the number at
+ * registration, and joins the network underneath that customer. So whoever holds the paper can
+ * claim a place — which is what makes the number worth protecting and worth spending exactly once.
  *
- * <p>That distinction is worth holding on to. If cards ever <em>are</em> made redeemable, the code
- * becomes a bearer token: whoever holds the paper can join the network, and it would need rate
- * limiting, expiry and single-use enforcement. None of that is here, because none of it is needed
- * for a printed reference.
+ * <p>Three things follow, and all three are enforced rather than assumed:
+ *
+ * <ul>
+ *   <li><b>The number is unguessable.</b> Drawn at random by {@link CardNumber}, not derived from
+ *       the parent. It used to read {@code 123} for the third card under parent {@code 12}, which
+ *       told anybody holding one card the numbers of the other four.
+ *   <li><b>It is redeemed once.</b> Claimed under a row lock at submission and released if the
+ *       registration is rejected, so two people cannot spend the same card and a refused applicant
+ *       does not lose theirs.
+ *   <li><b>It must match the parent the applicant names.</b> A card resold outside the intended
+ *       upline is refused, and a mistyped Business ID is caught rather than silently attaching
+ *       somebody to the wrong person.
+ * </ul>
+ *
+ * <h2>What a card no longer promises</h2>
+ *
+ * <p>A particular Business ID. It used to print the identifier that seat was destined for, which
+ * was a promise the system could not keep: seats are consumed in the order registrations are
+ * approved, not the order cards were sold, so the third card sold can easily become seat 1. The
+ * card now says which parent it belongs to and nothing about where under them the buyer lands.
  */
 @Service
 public class ReferralCardService {
@@ -130,39 +147,40 @@ public class ReferralCardService {
 
         String parentId = businessIds.get(0);
 
-        // Only seats nobody occupies.
+        // How many places are genuinely still open under this parent.
         //
-        // A card's child ID is parent + seat, so a card for an occupied seat names an identifier
-        // that already belongs to somebody. Printing five regardless would hand the customer paper
-        // promising an ID another person is already using — and there would be no way to honour it.
-        List<String> takenChildIds =
-                jdbc.queryForList(
+        // Two things consume one: a child already approved, and a card already printed and not
+        // yet redeemed. Counting only the first would let an administrator print five more cards
+        // for somebody who already has five out, and the sixth buyer would pay for a card that
+        // can never be honoured.
+        Integer occupied =
+                jdbc.queryForObject(
                         """
-                        SELECT business_id FROM distributor
-                         WHERE referred_by = ? AND business_id IS NOT NULL
+                        SELECT (SELECT count(*) FROM distributor
+                                 WHERE referred_by = ? AND business_id IS NOT NULL)
+                             + (SELECT count(*) FROM referral_card c
+                                  JOIN referral_card_batch b ON b.id = c.batch_id
+                                 WHERE b.distributor_id = ? AND c.redeemed_at IS NULL)
                         """,
-                        String.class,
+                        Integer.class,
+                        distributorId,
                         distributorId);
 
-        List<Integer> freeSeats = new ArrayList<>();
-        for (int seat = 1; seat <= PositionalId.SEATS; seat++) {
-            if (!takenChildIds.contains(PositionalId.child(parentId, seat))) {
-                freeSeats.add(seat);
-            }
-        }
+        int free = PositionalId.SEATS - (occupied == null ? 0 : occupied);
 
-        if (freeSeats.isEmpty()) {
+        if (free <= 0) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "NO_FREE_SEATS",
                     "All "
                             + PositionalId.SEATS
-                            + " referral places under this customer are already filled.");
+                            + " referral places under this customer are taken or already have a"
+                            + " card out for them.");
         }
 
         // Asking for more than are free is not an error worth refusing — the honest answer is to
-        // print the ones that exist.
-        List<Integer> seats = freeSeats.subList(0, Math.min(cards, freeSeats.size()));
+        // print the ones that can actually be sold.
+        int toPrint = Math.min(cards, free);
 
         ItemSetRef pack =
                 itemSetId == null ? null : itemSets.findById(itemSetId).orElseThrow(
@@ -184,32 +202,155 @@ public class ReferralCardService {
                         issuedBy,
                         note == null || note.isBlank() ? null : note.trim());
 
-        for (int seat : seats) {
-            insertCard(batchId, parentId, seat);
+        for (int position = 1; position <= toPrint; position++) {
+            insertCard(batchId, position);
         }
 
         return findBatch(batchId).orElseThrow();
     }
 
     /**
-     * Inserts one card.
+     * Inserts one card, with a number nobody can guess.
      *
-     * <p>The code is the identifier the child will receive: the parent's Business ID with the seat
-     * number appended, so the card for seat 3 under parent {@code 12} reads {@code 123}. Nothing is
-     * drawn at random, and nothing can collide — the value is a function of the parent and the seat.
+     * <p>Retried on collision rather than trusted. Eight characters from a 31-character alphabet
+     * makes a clash vanishingly unlikely, and "vanishingly unlikely" is not "impossible" — the
+     * unique index is what guarantees it, and this is what turns the guarantee into a second draw
+     * instead of a failed print run.
      *
-     * <p>{@code card_number} holds the seat, not a position within the batch. A batch printed when
-     * seats 1 and 2 are already filled contains cards numbered 3, 4 and 5.
-     *
-     * <p>Which means reprinting a batch produces the same five identifiers, deliberately. Card 3
-     * for parent 12 is always 123, whether it was printed today or last year.
+     * <p>{@code card_number} is now only the card's position within its batch: card 1 of 3. It
+     * used to be the seat the buyer would occupy, which the card no longer promises.
      */
-    private void insertCard(UUID batchId, String parentBusinessId, int seat) {
+    private void insertCard(UUID batchId, int positionInBatch) {
+        for (int attempt = 0; attempt < 20; attempt++) {
+            try {
+                jdbc.update(
+                        "INSERT INTO referral_card (batch_id, code, card_number) VALUES (?, ?, ?)",
+                        batchId,
+                        CardNumber.generate(),
+                        positionInBatch);
+                return;
+            } catch (DuplicateKeyException collision) {
+                // Draw again.
+            }
+        }
+        throw new ApiException(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "CARD_NUMBER_ALLOCATION_FAILED",
+                "Could not allocate a card number. Try again.");
+    }
+
+    // ------------------------------------------------------------------ redeeming
+
+    /** A card, resolved far enough to decide whether it may be spent. */
+    public record CardClaim(UUID cardId, UUID distributorId, String parentBusinessId) {}
+
+    /**
+     * Claims a card for a registration, or explains precisely why it cannot be.
+     *
+     * <p>{@code FOR UPDATE} on the card row. Two people typing the same number at the same instant
+     * is not a theoretical race here — a card number is a thing that gets shared, photographed and
+     * forwarded, and the second person must be told it is spent rather than both being let in.
+     *
+     * <p>Every refusal is a distinct code, because they mean different things to the person at the
+     * desk: a number that does not exist is a typo, a number belonging to somebody else is a card
+     * sold outside its upline, and a spent one is a card that has already been used. Collapsing
+     * them into "invalid card" would leave an administrator guessing which.
+     */
+    @Transactional
+    public CardClaim claim(String rawCardNumber, String parentBusinessId) {
+        String normalised = CardNumber.normalise(rawCardNumber);
+
+        if (!CardNumber.isValid(normalised)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_CARD_NUMBER",
+                    "That is not a card number. It is eight characters, like K7M2-P4X9.");
+        }
+
+        List<CardRow> found =
+                jdbc.query(
+                        """
+                        SELECT c.id,
+                               c.redeemed_at IS NOT NULL AS spent,
+                               b.distributor_id,
+                               d.business_id
+                          FROM referral_card c
+                          JOIN referral_card_batch b ON b.id = c.batch_id
+                          JOIN distributor d         ON d.id = b.distributor_id
+                         WHERE upper(c.code) = ?
+                           FOR UPDATE OF c
+                        """,
+                        (rs, row) ->
+                                new CardRow(
+                                        rs.getObject("id", UUID.class),
+                                        rs.getBoolean("spent"),
+                                        rs.getObject("distributor_id", UUID.class),
+                                        rs.getString("business_id")),
+                        normalised);
+
+        if (found.isEmpty()) {
+            throw new NotFoundException(
+                    "CARD_NOT_FOUND", "No card has that number. Check it against the card.");
+        }
+
+        CardRow card = found.get(0);
+
+        if (card.spent()) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "CARD_ALREADY_USED",
+                    "That card has already been used to register somebody.");
+        }
+
+        // The card and the Business ID must agree. Checking both is what catches a card resold
+        // outside its upline, and a mistyped parent ID that would otherwise attach this person to
+        // somebody they have never met.
+        String normalisedParent = PositionalId.normalise(parentBusinessId);
+        if (!normalisedParent.equals(card.parentBusinessId())) {
+            ApiException mismatch =
+                    new ApiException(
+                            HttpStatus.BAD_REQUEST,
+                            "CARD_PARENT_MISMATCH",
+                            "That card was not issued by the customer whose ID you entered.");
+            mismatch.with("cardParentBusinessId", card.parentBusinessId());
+            throw mismatch;
+        }
+
+        return new CardClaim(card.id(), card.distributorId(), card.parentBusinessId());
+    }
+
+    private record CardRow(UUID id, boolean spent, UUID distributorId, String parentBusinessId) {}
+
+    /** Marks a claimed card spent, once the registration it belongs to exists. */
+    @Transactional
+    public void markRedeemed(UUID cardId, UUID userId, UUID registrationId) {
         jdbc.update(
-                "INSERT INTO referral_card (batch_id, code, card_number) VALUES (?, ?, ?)",
-                batchId,
-                PositionalId.child(parentBusinessId, seat),
-                seat);
+                """
+                UPDATE referral_card
+                   SET redeemed_at = now(), redeemed_by = ?, registration_id = ?
+                 WHERE id = ? AND redeemed_at IS NULL
+                """,
+                userId,
+                registrationId,
+                cardId);
+    }
+
+    /**
+     * Hands a card back.
+     *
+     * <p>A registration refused for a blurred NIC photograph must not cost somebody the card they
+     * paid for. Called when a registration is rejected or sent back for changes — the card returns
+     * to unspent and the same number works on the next attempt.
+     */
+    @Transactional
+    public void release(UUID registrationId) {
+        jdbc.update(
+                """
+                UPDATE referral_card
+                   SET redeemed_at = NULL, redeemed_by = NULL, registration_id = NULL
+                 WHERE registration_id = ?
+                """,
+                registrationId);
     }
 
     // ------------------------------------------------------------------ reading
@@ -276,7 +417,9 @@ public class ReferralCardService {
                         (rs, row) ->
                                 new ReferralCard(
                                         rs.getObject("id", UUID.class),
-                                        rs.getString("code"),
+                                        // Hyphenated here and nowhere else: this is the one place
+                                        // the number is on its way to a human.
+                                        CardNumber.format(rs.getString("code")),
                                         rs.getInt("card_number")),
                         batchId);
 

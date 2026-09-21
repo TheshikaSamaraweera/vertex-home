@@ -44,6 +44,18 @@ function looksLikeNic(value: string): boolean {
   return /^\d{12}$/.test(cleaned) || /^\d{9}[VX]$/.test(cleaned);
 }
 
+/**
+ * Eight characters from the card alphabet, however they were typed.
+ *
+ * <p>Matches CardNumber on the server, including the deliberate absence of O, 0, I, 1 and L —
+ * these numbers are read aloud down a phone, and those are the characters people confuse.
+ */
+function looksLikeCardNumber(value: string): boolean {
+  return /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{8}$/.test(
+    value.replace(/[^A-Za-z0-9]/g, '').toUpperCase(),
+  );
+}
+
 /** Digits, with the separators people write between them. Matches PhoneNumber on the server. */
 function looksLikePhone(value: string): boolean {
   const cleaned = value.replace(/[\s.()\-/]/g, '').replace(/^\+/, '');
@@ -60,6 +72,7 @@ export function RegisterBusinessPage() {
   const canRegisterOthers = hasRole('ADMIN');
 
   const [referrerInput, setReferrerInput] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
   const [nicNumber, setNicNumber] = useState('');
   const [fullAddress, setFullAddress] = useState('');
   const [bankName, setBankName] = useState('');
@@ -123,8 +136,13 @@ export function RegisterBusinessPage() {
     !forSomeoneElse ||
     Boolean(account.fullName.trim() && accountHasIdentifier && account.password.length >= 12);
 
+  // A card is how an ordinary applicant gets in, so it is required unless this is a root — and a
+  // root bought nothing from anybody.
+  const cardUsable = registeringARoot || looksLikeCardNumber(cardNumber);
+
   const canSubmit =
     referrerUsable &&
+    cardUsable &&
     nicNumber.trim() &&
     fullAddress.trim() &&
     nicFile &&
@@ -147,6 +165,7 @@ export function RegisterBusinessPage() {
         nicDocumentId,
         slipDocumentId,
         referrerBusinessId: referrerState.status === 'valid' ? referrerState.normalised : '',
+        cardNumber: cardNumber.trim() || undefined,
         fullAddress,
         bankName,
         bankBranch,
@@ -277,6 +296,31 @@ export function RegisterBusinessPage() {
                 onChange={(event) => setReferrerInput(event.target.value)}
               />
             </Field>
+
+            {!registeringARoot && (
+              <div className="mt-4">
+                <Field
+                  label={t('Card number')}
+                  required
+                  hint={t('The eight characters printed on your card, like K7M2-P4X9')}
+                  error={
+                    cardNumber.trim() !== '' && !looksLikeCardNumber(cardNumber)
+                      ? t('A card number is eight characters, like K7M2-P4X9.')
+                      : undefined
+                  }
+                >
+                  <Input
+                    required
+                    className="font-mono tracking-widest uppercase"
+                    placeholder="K7M2-P4X9"
+                    maxLength={20}
+                    aria-invalid={cardNumber.trim() !== '' && !looksLikeCardNumber(cardNumber)}
+                    value={cardNumber}
+                    onChange={(event) => setCardNumber(event.target.value)}
+                  />
+                </Field>
+              </div>
+            )}
 
             {registeringARoot && (
               <div className="mt-2 rounded border border-rule bg-panel2 px-3 py-2 text-xs">

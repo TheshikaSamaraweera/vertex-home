@@ -144,6 +144,10 @@ public class OnboardingController {
             @NotNull(message = "REQUIRED") UUID nicDocumentId,
             @NotNull(message = "REQUIRED") UUID slipDocumentId,
             @NotBlank(message = "REQUIRED") String referrerBusinessId,
+            // Required on the public form: an ordinary applicant got in by buying a card, and the
+            // number on it is what proves it. The admin form below leaves it optional, because an
+            // administrator may also be registering a root, who bought nothing from anybody.
+            @NotBlank(message = "REQUIRED") @Size(max = 32) String cardNumber,
             @NotBlank(message = "REQUIRED") @Size(max = 500) String fullAddress,
             @Size(max = 255) String bankName,
             @Size(max = 255) String bankBranch,
@@ -183,6 +187,7 @@ public class OnboardingController {
                                 body.nicDocumentId(),
                                 body.slipDocumentId(),
                                 body.referrerBusinessId(),
+                                body.cardNumber(),
                                 body.fullAddress(),
                                 body.bankName(),
                                 body.bankBranch(),
@@ -228,6 +233,7 @@ public class OnboardingController {
                                 body.nicDocumentId(),
                                 body.slipDocumentId(),
                                 body.referrerBusinessId(),
+                                body.cardNumber(),
                                 body.fullAddress(),
                                 body.bankName(),
                                 body.bankBranch(),
@@ -252,6 +258,7 @@ public class OnboardingController {
             @NotNull(message = "REQUIRED") UUID nicDocumentId,
             @NotNull(message = "REQUIRED") UUID slipDocumentId,
             @Size(max = 64) String referrerBusinessId,
+            @Size(max = 32) String cardNumber,
             @Size(max = 500) String fullAddress,
             @Size(max = 255) String bankName,
             @Size(max = 255) String bankBranch,

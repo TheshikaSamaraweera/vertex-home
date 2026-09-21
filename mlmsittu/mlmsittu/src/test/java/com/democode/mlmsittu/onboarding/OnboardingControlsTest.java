@@ -2,6 +2,7 @@ package com.democode.mlmsittu.onboarding;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import com.democode.mlmsittu.hierarchy.internal.DistributorService;
 import com.democode.mlmsittu.identity.internal.domain.AppUser;
@@ -10,7 +11,10 @@ import com.democode.mlmsittu.identity.internal.repo.AppUserRepository;
 import com.democode.mlmsittu.onboarding.internal.nic.NicProtection;
 import com.democode.mlmsittu.onboarding.internal.registration.RegistrationService;
 import com.democode.mlmsittu.onboarding.internal.registration.RegistrationService.SubmissionRequest;
+import com.democode.mlmsittu.hierarchy.api.ReferralHierarchy;
+import com.democode.mlmsittu.onboarding.internal.registration.ReferralCardService;
 import com.democode.mlmsittu.shared.error.ApiException;
+import com.democode.mlmsittu.shared.error.NotFoundException;
 import com.democode.mlmsittu.shared.storage.api.DocumentVault;
 import com.democode.mlmsittu.shared.storage.internal.UploadSanitiser;
 import java.awt.Color;
@@ -40,6 +44,8 @@ class OnboardingControlsTest {
     @Autowired private AppUserRepository users;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private ReferralCardService cards;
+    @Autowired private ReferralHierarchy hierarchy;
 
     // ==============================================================================
     // Uploads
@@ -358,9 +364,150 @@ class OnboardingControlsTest {
             new java.util.concurrent.atomic.AtomicLong(
                     new java.security.SecureRandom().nextInt(100_000_000));
 
-    private UUID submitFor(UUID applicant, String nicNumber, String referrerBusinessId) {
+    /**
+     * Issues a real card under {@code referrerBusinessId} and registers against it.
+     *
+     * <p>Not a fabricated number. A registration now needs a card that exists, is unspent and
+     * belongs to the named parent, and a fixture that bypassed that would test a path nobody can
+     * reach — every applicant arrives holding a card somebody printed for them.
+     */
+@Test
+    @DisplayName("a card is spent once — the second person to type it is refused")
+    void aCardCannotBeUsedTwice() {
+        Scenario first = approvedReferrer();
+        String card = issueCardFor(first.referrerBusinessId());
+
+        UUID buyer = newUser("first-buyer");
+        submitWithCard(buyer, uniqueNic(), first.referrerBusinessId(), card);
+
+        // Somebody who photographed the card, or was forwarded the number.
+        UUID opportunist = newUser("second-buyer");
+        assertThatThrownBy(
+                        () ->
+                                submitWithCard(
+                                        opportunist,
+                                        uniqueNic(),
+                                        first.referrerBusinessId(),
+                                        card))
+                .isInstanceOf(ApiException.class)
+                .satisfies(
+                        thrown ->
+                                assertThat(((ApiException) thrown).getCode())
+                                        .isEqualTo("CARD_ALREADY_USED"));
+    }
+
+    @Test
+    @DisplayName("a card issued by somebody else is refused, however valid it is")
+    void aCardMustMatchTheParentNamed() {
+        Scenario mine = approvedReferrer();
+        Scenario theirs = approvedReferrer();
+        String theirCard = issueCardFor(theirs.referrerBusinessId());
+
+        UUID buyer = newUser("wrong-upline");
+        assertThatThrownBy(
+                        () ->
+                                submitWithCard(
+                                        buyer, uniqueNic(), mine.referrerBusinessId(), theirCard))
+                .isInstanceOf(ApiException.class)
+                .satisfies(
+                        thrown ->
+                                assertThat(((ApiException) thrown).getCode())
+                                        .as("a card resold outside its upline, or a mistyped ID")
+                                        .isEqualTo("CARD_PARENT_MISMATCH"));
+    }
+
+    @Test
+    @DisplayName("a number nobody printed is refused")
+    void anInventedCardIsRefused() {
+        Scenario scenario = approvedReferrer();
+        UUID buyer = newUser("inventor");
+
+        assertThatThrownBy(
+                        () ->
+                                submitWithCard(
+                                        buyer,
+                                        uniqueNic(),
+                                        scenario.referrerBusinessId(),
+                                        "ZZZZ-9999"))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("registering without a card is refused")
+    void aCardIsRequired() {
+        Scenario scenario = approvedReferrer();
+        UUID buyer = newUser("no-card");
+
+        assertThatThrownBy(
+                        () ->
+                                submitWithCard(
+                                        buyer, uniqueNic(), scenario.referrerBusinessId(), null))
+                .isInstanceOf(ApiException.class)
+                .satisfies(
+                        thrown ->
+                                assertThat(((ApiException) thrown).getCode())
+                                        .isEqualTo("CARD_NUMBER_REQUIRED"));
+    }
+
+    @Test
+    @DisplayName("a rejected registration hands the card back")
+    void rejectionReleasesTheCard() {
+        Scenario scenario = approvedReferrer();
+        String card = issueCardFor(scenario.referrerBusinessId());
+
+        UUID buyer = newUser("rejected-buyer");
+        UUID registrationId =
+                submitWithCard(buyer, uniqueNic(), scenario.referrerBusinessId(), card);
+
+        UUID reviewer = newUser("card-reviewer");
+        registrations.claim(registrationId, reviewer);
+        registrations.reject(registrationId, reviewer, "documents_unreadable", null, true);
+
+        // They paid for it. A refusal over a blurred photograph must not cost them the card, so
+        // the same number works on the next attempt.
+        UUID secondAttempt = newUser("second-attempt");
+        assertThatCode(
+                        () ->
+                                submitWithCard(
+                                        secondAttempt,
+                                        uniqueNic(),
+                                        scenario.referrerBusinessId(),
+                                        card))
+                .doesNotThrowAnyException();
+    }
+
+    /** A referrer who exists, is approved, and can therefore have cards printed for them. */
+    private Scenario approvedReferrer() {
+        UUID referrerUser = newUser("card-referrer");
+        UUID referrerDistributor = distributors.createPending(referrerUser, null);
+        String businessId = distributors.attachToReferrer(referrerDistributor, null);
+        return new Scenario(referrerUser, null, businessId);
+    }
+
+    private UUID submitWithCard(
+            UUID applicant, String nicNumber, String referrerBusinessId, String cardNumber) {
         var nicDoc = documents.store(smallJpeg(), "image/jpeg", "nic", applicant);
         var slipDoc = documents.store(smallJpeg(), "image/jpeg", "bank_slip", applicant);
+        return registrations.submit(
+                applicant,
+                new SubmissionRequest(
+                        nicNumber,
+                        nicDoc.id(),
+                        slipDoc.id(),
+                        referrerBusinessId,
+                        cardNumber,
+                        "12 Galle Road, Colombo 03",
+                        "Commercial Bank",
+                        "Colombo",
+                        "1234567890",
+                        null));
+    }
+
+        private UUID submitFor(UUID applicant, String nicNumber, String referrerBusinessId) {
+        var nicDoc = documents.store(smallJpeg(), "image/jpeg", "nic", applicant);
+        var slipDoc = documents.store(smallJpeg(), "image/jpeg", "bank_slip", applicant);
+
+        String cardNumber = referrerBusinessId == null ? null : issueCardFor(referrerBusinessId);
 
         return registrations.submit(
                 applicant,
@@ -369,11 +516,19 @@ class OnboardingControlsTest {
                         nicDoc.id(),
                         slipDoc.id(),
                         referrerBusinessId,
+                        cardNumber,
                         "12 Galle Road, Colombo 03",
                         "Commercial Bank",
                         "Colombo",
                         "1234567890",
                         null));
+    }
+
+    /** One card for the customer with this Business ID, and the number printed on it. */
+    private String issueCardFor(String referrerBusinessId) {
+        UUID distributorId = hierarchy.findByBusinessId(referrerBusinessId).orElseThrow().id();
+        UUID issuer = newUser("card-issuer");
+        return cards.issue(distributorId, null, 1, null, issuer).cards().getFirst().code();
     }
 
     private UUID newUser(String prefix) {
