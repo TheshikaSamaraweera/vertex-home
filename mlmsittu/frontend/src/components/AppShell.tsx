@@ -66,6 +66,7 @@ export function AppShell() {
     {
       heading: t('Sales'),
       items: [
+        { to: '/announcements', label: t('Announcements'), roles: ['ADMIN'] },
         { to: '/hierarchy', label: t('Referral hierarchy'), roles: ['ADMIN'] },
         { to: '/rewards', label: t('Reward packs'), roles: ['ADMIN'], badge: 'rewards' },
       ],

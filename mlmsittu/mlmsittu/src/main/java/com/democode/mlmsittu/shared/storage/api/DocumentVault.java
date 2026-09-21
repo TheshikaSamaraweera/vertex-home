@@ -51,4 +51,16 @@ public interface DocumentVault {
     long tokenTtlSeconds();
 
     Optional<StoredDocument> find(UUID documentId);
+
+    /**
+     * Reads a document that is meant to be public, without a token and without logging an access.
+     *
+     * <p>Only for documents whose kind says they are public — announcement pictures. The kind is
+     * checked here rather than trusted from the caller, so this can never become a second, quieter
+     * way to fetch a NIC scan: a document of the wrong kind is refused however it is asked for.
+     *
+     * @param requiredKind the kind the document must carry
+     * @throws com.democode.mlmsittu.shared.error.ApiException if it does not
+     */
+    ServedDocument readPublic(UUID documentId, String requiredKind);
 }

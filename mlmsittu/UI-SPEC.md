@@ -278,6 +278,13 @@ all five would promise an ID somebody already holds.
 
 ### Administration
 
+**`/announcements` Announcements** · `ADMIN`
+Write a notice with a topic, sub-topic, rich text (bold, italic, underline, highlight, headings,
+lists) and an optional picture. **Save and send are separate** — a draft reaches nobody until
+"Send to everyone", and each announcement is only ever sent once. Live notices appear at the top
+of every customer's portal home page until taken down or until their optional end date. The
+composer previews with the same component the portal renders, so the preview cannot drift.
+
 **`/users` Users and roles** · `SUPER_ADMIN`
 **Staff accounts only** — customers are deliberately excluded; they belong on the Customers screen,
 where their registration, referrer and stages are visible. Create staff accounts and replace their
@@ -369,6 +376,16 @@ it.
 change the paper somebody is holding.
 
 **Reward packs are goods, not money.** An admin issues them; stock drops. There is no clawback.
+
+**Announcement bodies are structure, not HTML.** A typed block document — heading, paragraph,
+list, image, with bold/italic/underline/highlight marks. The renderer walks it and emits elements;
+there is no `dangerouslySetInnerHTML` anywhere in the path and there must never be. Unknown blocks
+render as nothing. The server refuses block types outside its allowlist, links included. Adding a
+formatting button means changing three places — editor, server allowlist, renderer — which is
+deliberate friction on the part that decides what lands in every customer's browser.
+
+**Announcement images are the only documents served without a token.** The endpoint checks the
+document *kind*, so a NIC scan can never be fetched through it.
 
 **Money is LKR**, `14,2` precision, and every price displayed with two decimals.
 

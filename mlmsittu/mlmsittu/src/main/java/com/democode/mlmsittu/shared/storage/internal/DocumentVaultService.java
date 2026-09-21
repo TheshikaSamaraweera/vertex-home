@@ -12,6 +12,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -138,7 +139,30 @@ public class DocumentVaultService implements DocumentVault {
         return new ServedDocument(storage.get(document.objectKey()), document.contentType());
     }
 
-    // ------------------------------------------------------------------ helpers
+@Override
+    @Transactional(readOnly = true)
+    public ServedDocument readPublic(UUID documentId, String requiredKind) {
+        List<String> kinds =
+                jdbc.queryForList(
+                        "SELECT kind FROM stored_document WHERE id = ?", String.class, documentId);
+
+        if (kinds.isEmpty() || !requiredKind.equals(kinds.get(0))) {
+            // One answer for "no such document" and "wrong kind", deliberately. Distinguishing
+            // them would confirm that a given id exists, which is the first half of finding out
+            // whose NIC it is.
+            throw new ApiException(
+                    HttpStatus.NOT_FOUND, "DOCUMENT_NOT_FOUND", "No such image.");
+        }
+
+        StoredDocument document = find(documentId).orElseThrow(this::notFound);
+
+        // No access log. Every other read here writes one because every other document is
+        // somebody's identity paper; this is a picture on a notice board, and a row per view
+        // would bury the accesses that matter under the ones that do not.
+        return new ServedDocument(storage.get(document.objectKey()), document.contentType());
+    }
+
+        // ------------------------------------------------------------------ helpers
 
     @Override
     @Transactional(readOnly = true)

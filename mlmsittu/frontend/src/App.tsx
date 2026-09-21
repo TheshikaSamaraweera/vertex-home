@@ -33,6 +33,7 @@ import {
 } from './portal/PortalPages';
 import { PortalRegistration } from './portal/PortalRegistration';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { AnnouncementsPage } from './pages/AnnouncementsPage';
 
 /**
  * Two applications, one bundle.
@@ -150,6 +151,7 @@ export function App() {
         <Route path="/my-registration" element={<RegisterBusinessPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/announcements" element={<AnnouncementsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

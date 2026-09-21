@@ -14,6 +14,8 @@ import {
   Td,
   Th,
 } from '../components/ui';
+import { useLiveAnnouncements } from '../api/announcements';
+import { AnnouncementCard } from '../pages/AnnouncementsPage';
 import { REFERRAL_STAGES } from '../lib/stages';
 
 /**
@@ -22,6 +24,25 @@ import { REFERRAL_STAGES } from '../lib/stages';
  * Every one of them reads the same `/portal/me` response, which is served behind the gate — so
  * none of these components can accidentally show something the server would have withheld.
  */
+
+/**
+ * What the office is saying, newest first.
+ *
+ * <p>Renders nothing at all when there is nothing to say — an empty "no announcements" panel is a
+ * permanent hole in the page in exchange for information nobody needed.
+ */
+function Announcements() {
+  const { data } = useLiveAnnouncements();
+  if (!data || data.length === 0) return null;
+
+  return (
+    <div className="mb-6 flex flex-col gap-4">
+      {data.map((announcement) => (
+        <AnnouncementCard key={announcement.id} announcement={announcement} />
+      ))}
+    </div>
+  );
+}
 
 // ================================================================== dashboard
 
@@ -57,6 +78,10 @@ export function PortalDashboard() {
         title={t('Welcome, {{name}}', { name: me.data?.fullName ?? '' })}
         description={t('Your account at a glance.')}
       />
+
+      {/* Above the figures, deliberately. This is the one part of the page somebody else chose to
+          put there, and it is time-limited — the stats are still true tomorrow. */}
+      <Announcements />
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
