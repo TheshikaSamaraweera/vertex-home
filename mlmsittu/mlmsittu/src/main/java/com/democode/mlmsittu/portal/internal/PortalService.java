@@ -6,6 +6,7 @@ import com.democode.mlmsittu.rewards.api.RewardStatus;
 import com.democode.mlmsittu.identity.api.UserDirectory;
 import com.democode.mlmsittu.onboarding.api.RegistrationDirectory;
 import com.democode.mlmsittu.portal.api.PortalAccess;
+import java.time.Instant;
 import com.democode.mlmsittu.portal.api.PortalView;
 import com.democode.mlmsittu.shared.error.ForbiddenException;
 import com.democode.mlmsittu.shared.error.NotFoundException;
@@ -111,6 +112,14 @@ public class PortalService {
             Optional<DistributorNode> distributor) {
 
         if (distributor.isPresent() && "active".equals(distributor.get().status())) {
+            // Checked here rather than by a job that flips a status column. An expiry is a date
+            // passing, not an event anybody performs, and a nightly sweep that marked people
+            // expired would be wrong for the hours between midnight and whenever it ran — and
+            // wrong again for as long as it was ever switched off.
+            Instant expiresAt = distributor.get().expiresAt();
+            if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
+                return PortalAccess.EXPIRED;
+            }
             return PortalAccess.ACTIVE;
         }
         if (registration.isEmpty()) {

@@ -112,11 +112,20 @@ export function RequireActive({ children }: { children: React.ReactNode }) {
   if (me.isLoading) return <Spinner />;
   if (me.data?.access === 'ACTIVE') return <>{children}</>;
 
+  // Expired is not the same as never admitted, and saying "this opens once your registration has
+  // been approved" to somebody whose registration was approved months ago is both wrong and
+  // insulting. They need to know their time ran out and that nothing was lost.
+  const expired = me.data?.access === 'EXPIRED';
+
   return (
     <div className="rounded-xl border-2 border-rulestrong bg-panel p-6 shadow-card">
-      <Badge tone="warn">{t('Not available yet')}</Badge>
+      <Badge tone={expired ? 'danger' : 'warn'}>
+        {expired ? t('Membership ended') : t('Not available yet')}
+      </Badge>
       <p className="mt-3 text-sm text-ink2">
-        {t('This opens once your business registration has been approved.')}
+        {expired
+          ? t('Contact the office to renew. Your Business ID, your place and your referrals are all kept — everything reopens the moment it is extended.')
+          : t('This opens once your business registration has been approved.')}
       </p>
       <NavLink to="/portal/registration">
         <Button variant="primary" size="sm" className="mt-4">

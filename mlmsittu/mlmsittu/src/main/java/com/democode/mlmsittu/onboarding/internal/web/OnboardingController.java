@@ -27,6 +27,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -445,6 +448,60 @@ public class OnboardingController {
     }
 
     public record IssueCardsRequest(UUID itemSetId, Integer count, @Size(max = 255) String note) {}
+
+    /**
+     * Extends one customer's membership.
+     *
+     * <p>{@code ADMIN}, which {@code SUPER_ADMIN} implies. Deliberately not a staff role: this is
+     * the lever that decides whether somebody who has stopped paying can still use the portal, and
+     * it belongs with the people who decide that.
+     *
+     * <p>Defaults to the configured period, so the common case — somebody renewing for another
+     * term — is a button rather than a form asking how many days.
+     */
+    @PostMapping("/admin/distributors/{id}/extend")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ExtensionResponse extendMembership(
+            @PathVariable UUID id, @RequestBody(required = false) ExtendRequest body) {
+        int days =
+                body == null || body.days() == null
+                        ? distributors.membershipPeriodDays()
+                        : body.days();
+        return new ExtensionResponse(distributors.extendMembership(id, days), days);
+    }
+
+    public record ExtendRequest(Integer days) {}
+
+    public record ExtensionResponse(java.time.Instant expiresAt, int daysAdded) {}
+
+    /**
+     * The membership period, and setting it.
+     *
+     * <p>Reading it is open to any administrator because the extend screen needs to show what the
+     * default button will do. Changing it is {@code SUPER_ADMIN} only — it is the rule everybody
+     * else's extensions are measured against.
+     */
+    @GetMapping("/admin/membership-period")
+    @PreAuthorize("hasRole('ADMIN')")
+    public MembershipPeriodResponse membershipPeriod() {
+        return new MembershipPeriodResponse(distributors.membershipPeriodDays());
+    }
+
+    @PutMapping("/admin/membership-period")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public MembershipPeriodResponse setMembershipPeriod(
+            @Valid @RequestBody MembershipPeriodRequest body) {
+        distributors.setMembershipPeriodDays(body.days(), currentUser.requireId());
+        return new MembershipPeriodResponse(distributors.membershipPeriodDays());
+    }
+
+    public record MembershipPeriodRequest(
+            @NotNull(message = "REQUIRED")
+                    @Min(value = 1, message = "AT_LEAST_ONE_DAY")
+                    @Max(value = 3650, message = "AT_MOST_TEN_YEARS")
+                    Integer days) {}
+
+    public record MembershipPeriodResponse(int days) {}
 
     /** Every batch printed for a customer, newest first. */
     @GetMapping("/admin/distributors/{id}/referral-cards")

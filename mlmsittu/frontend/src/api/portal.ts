@@ -72,6 +72,10 @@ export const ACCESS_COPY: Record<PortalAccess, { title: string; body: string }> 
     title: 'Something needs correcting',
     body: 'The reviewer has asked for a change. Their comments are below — fix it and submit again.',
   },
+  EXPIRED: {
+    title: 'Your membership has ended',
+    body: 'Contact the office to renew it. Your Business ID, your place and your referrals are all kept — nothing is lost, and everything reopens the moment it is extended.',
+  },
   REJECTED: {
     title: 'Your registration was not accepted',
     body: 'The reason is below. Contact the office if you think this is wrong.',

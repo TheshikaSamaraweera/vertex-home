@@ -51,7 +51,9 @@ public class DistributorDirectoryService {
             boolean bonusEligible,
             Instant joinedAt,
             Instant registeredAt,
-            Instant approvedAt) {}
+            Instant approvedAt,
+            /** When the membership lapses. Null for anybody not yet approved. */
+            Instant expiresAt) {}
 
     /**
      * @param search matched against name, e-mail and Business ID
@@ -79,7 +81,8 @@ public class DistributorDirectoryService {
                        COALESCE(sp.bonus_stage_eligible, false) AS bonus_eligible,
                        u.created_at        AS joined_at,
                        reg.submitted_at    AS registered_at,
-                       d.approved_at
+                       d.approved_at,
+                       d.expires_at
                 FROM app_user u
                 JOIN user_role ur ON ur.user_id = u.id
                 JOIN app_role r   ON r.id = ur.role_id AND r.code = 'DISTRIBUTOR'
@@ -117,7 +120,8 @@ public class DistributorDirectoryService {
                                 rs.getBoolean("bonus_eligible"),
                                 instant(rs.getTimestamp("joined_at")),
                                 instant(rs.getTimestamp("registered_at")),
-                                instant(rs.getTimestamp("approved_at"))),
+                                instant(rs.getTimestamp("approved_at")),
+                                instant(rs.getTimestamp("expires_at"))),
                 includeApplicants,
                 term, term, term, term);
     }

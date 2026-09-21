@@ -1,6 +1,7 @@
 package com.democode.mlmsittu.hierarchy.internal;
 
 import com.democode.mlmsittu.hierarchy.api.DistributorNode;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,7 +46,7 @@ public class HierarchyRepository {
     private static final String SELECT_NODE =
             """
             SELECT d.id, d.business_id, d.user_id, u.full_name, d.referred_by,
-                   d.path::text AS path_text, d.status, d.direct_child_count, d.approved_at,
+                   d.path::text AS path_text, d.status, d.direct_child_count, d.approved_at, d.expires_at,
                    COALESCE(p.stages_completed, 0)         AS stages_completed,
                    COALESCE(p.bonus_stage_eligible, false) AS bonus_stage_eligible,
                    d.item_set_id
@@ -77,6 +78,9 @@ public class HierarchyRepository {
                     rs.getTimestamp("approved_at") == null
                             ? null
                             : rs.getTimestamp("approved_at").toInstant(),
+                    rs.getTimestamp("expires_at") == null
+                            ? null
+                            : rs.getTimestamp("expires_at").toInstant(),
                     rs.getInt("stages_completed"),
                     rs.getBoolean("bonus_stage_eligible"),
                     rs.getObject("item_set_id", UUID.class));
@@ -292,17 +296,81 @@ public class HierarchyRepository {
         return found.isEmpty() ? null : found.get(0);
     }
 
-    /** Sets the identity allocated at approval. Path and Business ID are assigned exactly once. */
-    public void activate(UUID distributorId, String businessId, String path) {
+    /**
+     * Sets the identity allocated at approval. Path and Business ID are assigned exactly once.
+     *
+     * <p>The expiry is computed here, from {@code now()} and the configured period, in the same
+     * statement. Counting it in Java and passing a timestamp would put the clock on the
+     * application server rather than the database, and the two do drift.
+     */
+    public void activate(UUID distributorId, String businessId, String path, int periodDays) {
         jdbc.update(
                 """
                 UPDATE distributor
                 SET business_id = ?, path = CAST(? AS ltree), status = 'active',
-                    approved_at = now(), updated_at = now()
+                    approved_at = now(),
+                    expires_at = now() + (? * INTERVAL '1 day'),
+                    updated_at = now()
                 WHERE id = ?
                 """,
                 businessId,
                 path,
+                periodDays,
+                distributorId);
+    }
+
+    /** The configured membership period in days, or the default when the row is missing. */
+    public int membershipPeriodDays() {
+        List<Integer> found =
+                jdbc.queryForList(
+                        "SELECT value::INTEGER FROM system_config WHERE key = 'membership.period_days'",
+                        Integer.class);
+        return found.isEmpty() ? DEFAULT_MEMBERSHIP_DAYS : found.get(0);
+    }
+
+/** Writes the period, recording who changed it. */
+    public void setMembershipPeriodDays(int days, UUID actorId) {
+        jdbc.update(
+                """
+                INSERT INTO system_config (key, value, description, updated_by, updated_at)
+                VALUES ('membership.period_days', ?, 'How long a membership lasts, in days.', ?, now())
+                ON CONFLICT (key)
+                DO UPDATE SET value = EXCLUDED.value,
+                              updated_by = EXCLUDED.updated_by,
+                              updated_at = now()
+                """,
+                String.valueOf(days),
+                actorId);
+    }
+
+        /** Two months, used only when V29's row has been deleted. */
+    private static final int DEFAULT_MEMBERSHIP_DAYS = 60;
+
+    /**
+     * Pushes somebody's expiry out by {@code days}.
+     *
+     * <p>Measured from today when the date has already passed, and from the existing date when it
+     * has not. Extending an expired customer by two months gives them two months from now — they
+     * are not charged for time they could not use, and the arithmetic is the one a person at a
+     * desk would do out loud.
+     *
+     * @return the new expiry
+     */
+    public Instant extendMembership(UUID distributorId, int days) {
+        return jdbc.queryForObject(
+                """
+                UPDATE distributor
+                   SET expires_at = GREATEST(COALESCE(expires_at, now()), now())
+                                  + (? * INTERVAL '1 day'),
+                       -- Cleared so the reminder sweep treats the new period as its own. Without
+                       -- this, somebody extended after a warning would never be warned again.
+                       expiry_reminded_at = NULL,
+                       updated_at = now()
+                 WHERE id = ?
+                RETURNING expires_at
+                """,
+                Instant.class,
+                days,
                 distributorId);
     }
 

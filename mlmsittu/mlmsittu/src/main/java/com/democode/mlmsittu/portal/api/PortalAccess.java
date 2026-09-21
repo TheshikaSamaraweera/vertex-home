@@ -23,5 +23,19 @@ public enum PortalAccess {
     REJECTED,
 
     /** Approved, placed in the tree, holding a Business ID. The portal opens. */
-    ACTIVE
+    ACTIVE,
+
+    /**
+     * Approved once, but the membership period has run out.
+     *
+     * <p>Distinct from {@link #REJECTED}, and the difference matters to the person reading it:
+     * rejected means they were never admitted, expired means they were and their time is up. One
+     * is answered by applying again, the other by renewing.
+     *
+     * <p>Nothing in the tree changes. They keep their Business ID and still count as their
+     * referrer's referral — a lapsed membership is between this person and the business, and
+     * letting it reach into somebody else's stage count would make one missed payment a third
+     * party's problem. Only the portal closes.
+     */
+    EXPIRED
 }

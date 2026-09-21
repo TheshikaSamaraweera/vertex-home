@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type PagedResponse } from '../api/client';
 import type { components } from '../api/schema';
 import {
@@ -12,6 +12,7 @@ import {
 } from '../api/onboarding';
 import { useItemSets } from '../api/queries';
 import { useAuth } from '../auth/AuthContext';
+import { expiryStatus } from '../lib/expiry';
 import { REFERRAL_STAGES, stageIndexes } from '../lib/stages';
 import {
   Badge,
@@ -116,6 +117,7 @@ export function DistributorsPage() {
                   <Th>{t('Referred by')}</Th>
                   <Th align="right">{t('Places used')}</Th>
                   <Th>{t('Joined')}</Th>
+                  <Th>{t('Expires')}</Th>
                   <Th>{''}</Th>
                 </tr>
               </thead>
@@ -164,6 +166,9 @@ export function DistributorsPage() {
                       {row.joinedAt ? new Date(row.joinedAt).toLocaleDateString() : '—'}
                     </Td>
                     <Td>
+                      <ExpiryCell expiresAt={row.expiresAt} />
+                    </Td>
+                    <Td>
                       <div className="flex justify-end">
                         {/* Only an approved distributor has a profile — an applicant has a
                             registration, which lives in the review queue. */}
@@ -197,6 +202,97 @@ export function DistributorsPage() {
  * the shape and the label names the level. The names describe progression and promise nothing:
  * what a completed stage is *worth* is still undefined, and the backend grants no entitlement.
  */
+/**
+ * When this membership ends, coloured by how close that is.
+ *
+ * <p>Colour is never the only signal — the label says "5d left" or "12d overdue" in words, so the
+ * row is readable to somebody who cannot distinguish amber from red, and in a photocopy of the
+ * screen. A badge that is only a colour is a badge that means nothing to a third of the reasons
+ * somebody prints one.
+ */
+/**
+ * The expiry, with the button that moves it.
+ *
+ * <p>Extending is one click for the common case — somebody renewing for another term — because
+ * that is what almost every extension is. The number of days is the configured period, so a
+ * super admin changing the rule changes what this button does without anybody being told twice.
+ */
+function MembershipRow({
+  distributorId,
+  expiresAt,
+}: {
+  distributorId?: string;
+  expiresAt?: string | null;
+}) {
+  const { t } = useTranslation();
+  const { hasRole } = useAuth();
+  const queryClient = useQueryClient();
+  const status = expiryStatus(expiresAt);
+
+  const period = useQuery({
+    queryKey: ['membership-period'],
+    queryFn: () => api.get<{ days: number }>('/api/v1/admin/membership-period'),
+    enabled: hasRole('ADMIN'),
+  });
+
+  const extend = useMutation({
+    mutationFn: () =>
+      api.post(`/api/v1/admin/distributors/${distributorId}/extend`, {}),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['distributors'] });
+      void queryClient.invalidateQueries({ queryKey: ['distributor'] });
+    },
+  });
+
+  if (!distributorId) return null;
+
+  return (
+    <div className="flex items-center justify-between gap-3 border-b border-rule px-5 py-2.5 last:border-b-0">
+      <span className="text-xs font-semibold tracking-wide text-ink2 uppercase">
+        {t('Membership')}
+      </span>
+      <span className="flex items-center gap-3">
+        {status.band === 'none' ? (
+          <span className="text-sm text-ink3">{t('Not approved yet')}</span>
+        ) : (
+          <>
+            <span className="text-sm text-ink">
+              {new Date(expiresAt!).toLocaleDateString()}
+            </span>
+            <span
+              className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap ${status.classes}`}
+            >
+              {status.label}
+            </span>
+            {hasRole('ADMIN') && (
+              <Button size="sm" onClick={() => extend.mutate()} disabled={extend.isPending}>
+                {extend.isPending
+                  ? t('Extending…')
+                  : t('Extend {{days}} days', { days: period.data?.days ?? 60 })}
+              </Button>
+            )}
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function ExpiryCell({ expiresAt }: { expiresAt?: string | null }) {
+  const status = expiryStatus(expiresAt);
+  if (status.band === 'none') {
+    return <span className="text-xs text-ink3">—</span>;
+  }
+  return (
+    <span
+      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] whitespace-nowrap ${status.classes}`}
+      title={new Date(expiresAt!).toLocaleString()}
+    >
+      {status.label}
+    </span>
+  );
+}
+
 function LevelCell({ row }: { row: DistributorRow }) {
   const { t } = useTranslation();
 
@@ -271,6 +367,10 @@ export function DistributorProfilePage() {
           <dl className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2">
             <Row label={t('Business ID')} value={data?.distributor?.businessId} mono />
             <Row label={t('Status')} value={data?.distributor?.status} />
+            <MembershipRow
+              distributorId={data?.distributor?.id}
+              expiresAt={data?.distributor?.expiresAt}
+            />
             <Row label={t('Email')} value={account?.email} />
             <Row label={t('Mobile')} value={account?.mobile ?? '—'} />
             <Row

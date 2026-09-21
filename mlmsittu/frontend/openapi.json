@@ -557,6 +557,54 @@
         }
       }
     },
+    "/api/v1/admin/membership-period": {
+      "get": {
+        "tags": [
+          "onboarding-controller"
+        ],
+        "operationId": "membershipPeriod",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipPeriodResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "onboarding-controller"
+        ],
+        "operationId": "setMembershipPeriod",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MembershipPeriodRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipPeriodResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/suppliers": {
       "get": {
         "tags": [
@@ -1348,6 +1396,57 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "notification-controller"
+        ],
+        "operationId": "markRead",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "tags": [
+          "notification-controller"
+        ],
+        "operationId": "markAllRead",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
                 }
               }
             }
@@ -2503,6 +2602,46 @@
         }
       }
     },
+    "/api/v1/admin/distributors/{id}/extend": {
+      "post": {
+        "tags": [
+          "onboarding-controller"
+        ],
+        "operationId": "extendMembership",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtendRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtensionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/stock": {
       "get": {
         "tags": [
@@ -3436,6 +3575,58 @@
         }
       }
     },
+    "/api/v1/notifications": {
+      "get": {
+        "tags": [
+          "notification-controller"
+        ],
+        "operationId": "list_3",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/stream": {
+      "get": {
+        "tags": [
+          "notification-controller"
+        ],
+        "operationId": "stream",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseEmitter"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/item-sets/{id}/availability": {
       "get": {
         "tags": [
@@ -3933,7 +4124,7 @@
         "tags": [
           "reward-controller"
         ],
-        "operationId": "list_3",
+        "operationId": "list_4",
         "parameters": [
           {
             "name": "status",
@@ -4785,6 +4976,29 @@
           }
         }
       },
+      "MembershipPeriodRequest": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "format": "int32",
+            "maximum": 3650,
+            "minimum": 1
+          }
+        },
+        "required": [
+          "days"
+        ]
+      },
+      "MembershipPeriodResponse": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "ScanResult": {
         "type": "object",
         "properties": {
@@ -5258,6 +5472,11 @@
             "type": "string",
             "minLength": 1
           },
+          "cardNumber": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 0
+          },
           "fullAddress": {
             "type": "string",
             "maxLength": 500,
@@ -5284,6 +5503,7 @@
           }
         },
         "required": [
+          "cardNumber",
           "fullAddress",
           "nicDocumentId",
           "nicNumber",
@@ -5456,6 +5676,50 @@
         "required": [
           "reason"
         ]
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "link": {
+            "type": "string"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "NotificationListResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Notification"
+            }
+          },
+          "unreadCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
       },
       "CreateItemRequest": {
         "type": "object",
@@ -6123,7 +6387,13 @@
           },
           "referrerBusinessId": {
             "type": "string",
-            "minLength": 1
+            "maxLength": 64,
+            "minLength": 0
+          },
+          "cardNumber": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 0
           },
           "fullAddress": {
             "type": "string",
@@ -6153,7 +6423,6 @@
         "required": [
           "nicDocumentId",
           "nicNumber",
-          "referrerBusinessId",
           "slipDocumentId",
           "userId"
         ]
@@ -6383,6 +6652,28 @@
             "items": {
               "$ref": "#/components/schemas/ReferralCard"
             }
+          }
+        }
+      },
+      "ExtendRequest": {
+        "type": "object",
+        "properties": {
+          "days": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ExtensionResponse": {
+        "type": "object",
+        "properties": {
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "daysAdded": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -7049,6 +7340,10 @@
             "type": "string",
             "format": "date-time"
           },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
           "stagesCompleted": {
             "type": "integer",
             "format": "int32"
@@ -7086,7 +7381,8 @@
               "PENDING_REVIEW",
               "CHANGES_REQUESTED",
               "REJECTED",
-              "ACTIVE"
+              "ACTIVE",
+              "EXPIRED"
             ]
           },
           "userId": {
@@ -7253,6 +7549,15 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SseEmitter": {
+        "type": "object",
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
@@ -7761,6 +8066,10 @@
             "format": "date-time"
           },
           "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
             "type": "string",
             "format": "date-time"
           }

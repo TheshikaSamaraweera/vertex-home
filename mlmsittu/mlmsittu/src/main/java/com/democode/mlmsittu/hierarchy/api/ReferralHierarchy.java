@@ -37,6 +37,29 @@ public interface ReferralHierarchy {
     /** Creates the pending row recorded at submission, before any slot is consumed. */
     UUID createPending(UUID userId, UUID referredBy);
 
+    // ------------------------------------------------------------------ membership
+
+    /**
+     * Pushes one customer's expiry out by {@code days}, and returns the new date.
+     *
+     * <p>Measured from today when the date has already passed, from the existing date when it has
+     * not — so extending somebody three weeks overdue gives them the full period from now rather
+     * than three weeks of it retroactively.
+     */
+    java.time.Instant extendMembership(UUID distributorId, int days);
+
+    /** How long a new membership lasts, in days. */
+    int membershipPeriodDays();
+
+    /**
+     * Sets that period.
+     *
+     * <p>Affects approvals from this moment on. It deliberately does not move anybody's existing
+     * expiry: a date somebody has been told, and may have paid against, is not something a
+     * settings change should silently rewrite.
+     */
+    void setMembershipPeriodDays(int days, UUID actorId);
+
     /**
      * Places an approved distributor in the tree and allocates its Business ID.
      *

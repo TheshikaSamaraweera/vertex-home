@@ -132,6 +132,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/membership-period": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["membershipPeriod"];
+        put: operations["setMembershipPeriod"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/suppliers": {
         parameters: {
             query?: never;
@@ -462,6 +478,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["rejectPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markRead"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["markAllRead"];
         delete?: never;
         options?: never;
         head?: never;
@@ -926,6 +974,22 @@ export interface paths {
         get: operations["referralCardBatches"];
         put?: never;
         post: operations["issueReferralCards"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/distributors/{id}/extend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["extendMembership"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1428,6 +1492,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/item-sets/{id}/availability": {
         parameters: {
             query?: never;
@@ -1691,7 +1787,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2011,6 +2107,14 @@ export interface components {
             /** Format: date-time */
             createdAt?: string;
         };
+        MembershipPeriodRequest: {
+            /** Format: int32 */
+            days: number;
+        };
+        MembershipPeriodResponse: {
+            /** Format: int32 */
+            days?: number;
+        };
         ScanResult: {
             /** Format: int32 */
             itemsScanned?: number;
@@ -2200,6 +2304,7 @@ export interface components {
             /** Format: uuid */
             slipDocumentId: string;
             referrerBusinessId: string;
+            cardNumber: string;
             fullAddress: string;
             bankName?: string;
             bankBranch?: string;
@@ -2265,6 +2370,23 @@ export interface components {
         };
         RejectPaymentRequest: {
             reason: string;
+        };
+        Notification: {
+            /** Format: uuid */
+            id?: string;
+            kind?: string;
+            title?: string;
+            body?: string;
+            link?: string;
+            /** Format: date-time */
+            readAt?: string;
+            /** Format: date-time */
+            createdAt?: string;
+        };
+        NotificationListResponse: {
+            data?: components["schemas"]["Notification"][];
+            /** Format: int32 */
+            unreadCount?: number;
         };
         CreateItemRequest: {
             sku: string;
@@ -2478,7 +2600,8 @@ export interface components {
             nicDocumentId: string;
             /** Format: uuid */
             slipDocumentId: string;
-            referrerBusinessId: string;
+            referrerBusinessId?: string;
+            cardNumber?: string;
             fullAddress?: string;
             bankName?: string;
             bankBranch?: string;
@@ -2576,6 +2699,16 @@ export interface components {
             /** Format: int32 */
             referralsUsed?: number;
             cards?: components["schemas"]["ReferralCard"][];
+        };
+        ExtendRequest: {
+            /** Format: int32 */
+            days?: number;
+        };
+        ExtensionResponse: {
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: int32 */
+            daysAdded?: number;
         };
         PagedResponseSupplierResponse: {
             data?: components["schemas"]["SupplierResponse"][];
@@ -2822,6 +2955,8 @@ export interface components {
             depth?: number;
             /** Format: date-time */
             approvedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
             /** Format: int32 */
             stagesCompleted?: number;
             bonusEligible?: boolean;
@@ -2834,7 +2969,7 @@ export interface components {
         };
         PortalView: {
             /** @enum {string} */
-            access?: "REGISTRATION_REQUIRED" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "REJECTED" | "ACTIVE";
+            access?: "REGISTRATION_REQUIRED" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "REJECTED" | "ACTIVE" | "EXPIRED";
             /** Format: uuid */
             userId?: string;
             fullName?: string;
@@ -2900,6 +3035,10 @@ export interface components {
             comment?: string;
             /** Format: date-time */
             at?: string;
+        };
+        SseEmitter: {
+            /** Format: int64 */
+            timeout?: number;
         };
         PagedResponseLocationResponse: {
             data?: components["schemas"]["LocationResponse"][];
@@ -3083,6 +3222,8 @@ export interface components {
             registeredAt?: string;
             /** Format: date-time */
             approvedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
         };
         PagedResponseDistributorRow: {
             data?: components["schemas"]["DistributorRow"][];
@@ -3477,6 +3618,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["UserSummary"];
+                };
+            };
+        };
+    };
+    membershipPeriod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MembershipPeriodResponse"];
+                };
+            };
+        };
+    };
+    setMembershipPeriod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipPeriodRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MembershipPeriodResponse"];
                 };
             };
         };
@@ -4070,6 +4255,48 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["PaymentResponse"];
+                };
+            };
+        };
+    };
+    markRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["NotificationListResponse"];
+                };
+            };
+        };
+    };
+    markAllRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["NotificationListResponse"];
                 };
             };
         };
@@ -4942,6 +5169,32 @@ export interface operations {
             };
         };
     };
+    extendMembership: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExtendRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ExtensionResponse"];
+                };
+            };
+        };
+    };
     listStock: {
         parameters: {
             query?: {
@@ -5622,6 +5875,48 @@ export interface operations {
             };
         };
     };
+    list_3: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["NotificationListResponse"];
+                };
+            };
+        };
+    };
+    stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["SseEmitter"];
+                };
+            };
+        };
+    };
     setAvailability: {
         parameters: {
             query?: {
@@ -5973,7 +6268,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: {
                 status?: string;

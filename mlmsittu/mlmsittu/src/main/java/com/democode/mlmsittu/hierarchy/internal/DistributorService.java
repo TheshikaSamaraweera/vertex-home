@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
+import java.time.Instant;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -95,7 +96,63 @@ public class DistributorService implements ReferralHierarchy {
                                         "No active distributor has that ID."));
     }
 
-    @Transactional(readOnly = true)
+/**
+     * Pushes one person's expiry out.
+     *
+     * <p>Per person rather than in bulk, and audited: this is somebody renewing, and "who extended
+     * this customer, when, and by how long" is a question that gets asked about money.
+     */
+@Transactional(readOnly = true)
+    @Override
+    public int membershipPeriodDays() {
+        return hierarchy.membershipPeriodDays();
+    }
+
+    @Transactional
+    @Override
+    @Audited(action = "MEMBERSHIP_PERIOD_CHANGED", entityType = "system_config", auditFailures = true)
+    public void setMembershipPeriodDays(int days, UUID actorId) {
+        if (days < 1 || days > 3650) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_PERIOD",
+                    "A membership period is between 1 and 3650 days.");
+        }
+        int previous = hierarchy.membershipPeriodDays();
+        hierarchy.setMembershipPeriodDays(days, actorId);
+        AuditContext.record(
+                null,
+                Map.of("days", String.valueOf(previous)),
+                Map.of("days", String.valueOf(days)));
+    }
+
+        @Transactional
+    @Override
+    @Audited(action = "MEMBERSHIP_EXTENDED", entityType = "distributor", auditFailures = true)
+    public Instant extendMembership(UUID distributorId, int days) {
+        if (days < 1 || days > 3650) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_EXTENSION",
+                    "An extension is between 1 and 3650 days.");
+        }
+        DistributorNode node = hierarchy.findById(distributorId).orElseThrow(this::notFound);
+        if (node.businessId() == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "NOT_APPROVED",
+                    "This customer has not been approved yet, so there is nothing to extend.");
+        }
+
+        AuditContext.record(
+                distributorId,
+                Map.of("expiresAt", String.valueOf(node.expiresAt())),
+                Map.of("days", String.valueOf(days)));
+
+        return hierarchy.extendMembership(distributorId, days);
+    }
+
+        @Transactional(readOnly = true)
     @Override
     public List<DistributorNode> downline(UUID rootId, int depth) {
         DistributorNode root = hierarchy.findById(rootId).orElseThrow(this::notFound);
@@ -244,7 +301,9 @@ public class DistributorService implements ReferralHierarchy {
         String path = parentPath == null ? segment : parentPath + "." + segment;
 
         try {
-            hierarchy.activate(distributorId, businessId, path);
+            // The period is read now, not baked in, so an administrator changing it affects
+            // approvals from that moment. It deliberately does not move anybody's existing date.
+            hierarchy.activate(distributorId, businessId, path, hierarchy.membershipPeriodDays());
             // Every distributor has four stages of their own, including a root with no referrer.
             // Creating the row at activation means "how far along are they" always has an answer,
             // rather than being absent until their first referral arrives.

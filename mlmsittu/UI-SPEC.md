@@ -301,6 +301,7 @@ The portal has five states, and until the last one there is **exactly one screen
 | `PENDING_REVIEW` | Submitted, waiting. Read-only, with a step trail. Nothing to do. |
 | `CHANGES_REQUESTED` | Rejected with the door open. Reviewer's comments, and the form again. |
 | `REJECTED` | Final. |
+| `EXPIRED` | Was approved; the membership period ran out. Portal closed until an admin extends them. Their Business ID, place and referrals are all kept. |
 | `ACTIVE` | Approved. All five screens appear at once. |
 
 Navigation is derived from this, not from roles — before approval it collapses to a single link.
@@ -333,6 +334,19 @@ Each of these is enforced by the server. An interface that implies otherwise cre
 user cannot understand.
 
 **Five seats, permanently.** Not raisable. A vacated seat is never refilled.
+
+**A card number is a bearer token.** Eight characters, drawn at random, unguessable, spent once,
+and checked against the parent Business ID the applicant also types. It is required at
+registration and is **not** the Business ID pattern — the card no longer promises a particular ID,
+because seats are consumed in approval order, not sale order. A rejected registration hands the
+card back.
+
+**Membership expires.** Counted from approval, default 60 days, set by a super admin and
+extendable per person by an admin. Expiry closes the portal and touches nothing else — the tree,
+the Business ID and the referrer's stage count are all unaffected, so extending restores
+everything. Extending somebody already overdue counts from today. Show it colour-coded on the
+customer list and profile, and **never by colour alone** — the label says "5d left" or
+"12d overdue" in words.
 
 **Business IDs are allocated at approval and are permanent.** Never editable, anywhere.
 
@@ -439,7 +453,7 @@ Every state a badge might need to render.
 | Reward | `eligible`, `issued`, `cancelled` |
 | Reorder alert | `open`, `cleared` |
 | User account | `unverified`, `active`, `suspended`, `deleted` |
-| Portal access | `REGISTRATION_REQUIRED`, `PENDING_REVIEW`, `CHANGES_REQUESTED`, `REJECTED`, `ACTIVE` |
+| Portal access | `REGISTRATION_REQUIRED`, `PENDING_REVIEW`, `CHANGES_REQUESTED`, `REJECTED`, `EXPIRED`, `ACTIVE` |
 
 ---
 

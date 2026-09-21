@@ -22,6 +22,13 @@ public record DistributorNode(
         int directChildCount,
         int depth,
         Instant approvedAt,
+        /**
+         * When this membership lapses, or null for somebody not yet approved.
+         *
+         * <p>Only the portal reads it. Expiry closes that door and touches nothing else — the
+         * Business ID, the place in the tree and the referrer's stage count are all unaffected.
+         */
+        Instant expiresAt,
         int stagesCompleted,
         boolean bonusEligible,
         UUID itemSetId) {}
