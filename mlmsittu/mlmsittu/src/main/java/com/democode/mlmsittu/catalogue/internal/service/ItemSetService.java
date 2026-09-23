@@ -77,6 +77,7 @@ public class ItemSetService implements ItemSetCatalogue {
             String name,
             String description,
             BigDecimal setPrice,
+            UUID imageId,
             List<ComponentRequest> components) {
 
         ItemSet set = new ItemSet();
@@ -84,6 +85,7 @@ public class ItemSetService implements ItemSetCatalogue {
         set.setName(name.trim());
         set.setDescription(description);
         set.setSetPrice(setPrice);
+        set.setImageId(imageId);
         set.setLines(buildLines(components));
 
         try {
@@ -106,6 +108,7 @@ public class ItemSetService implements ItemSetCatalogue {
             String name,
             String description,
             BigDecimal setPrice,
+            UUID imageId,
             List<ComponentRequest> components) {
 
         ItemSet set = require(id);
@@ -117,6 +120,7 @@ public class ItemSetService implements ItemSetCatalogue {
         set.setName(name.trim());
         set.setDescription(description);
         set.setSetPrice(setPrice);
+        set.setImageId(imageId);
 
         // The flush in the middle is load-bearing, and its absence was a real bug: editing a set
         // while keeping any of its items threw a duplicate-key violation on uq_item_set_line.

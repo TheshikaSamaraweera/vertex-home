@@ -36,7 +36,9 @@ const EMPTY_BODY = JSON.stringify({ type: 'doc', content: [{ type: 'paragraph' }
  *
  * <p>Two states a notice can be in and one it drifts into: draft, live, and ended. Drafts exist
  * because an administrator writing a long notice over two sittings should not be broadcasting the
- * half-finished version in between — which is why saving and sending are separate buttons.
+ * half-finished version in between — which is why saving and publishing are separate buttons, and
+ * why saving never publishes. Publish sits on every card, enabled only while the notice is still a
+ * draft: each announcement goes out once.
  */
 export function AnnouncementsPage() {
   const { t } = useTranslation();
@@ -44,6 +46,7 @@ export function AnnouncementsPage() {
   const announcements = useAllAnnouncements();
 
   const [editing, setEditing] = useState<Announcement | 'new' | null>(null);
+  const [confirmingPublish, setConfirmingPublish] = useState<Announcement | null>(null);
 
   const publish = usePublishAnnouncement();
   const withdraw = useWithdrawAnnouncement();
@@ -111,16 +114,19 @@ export function AnnouncementsPage() {
                     <Button size="sm" onClick={() => setEditing(item)}>
                       {t('Edit')}
                     </Button>
-                    {state === 'draft' && (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={() => publish.mutate(item.id)}
-                        disabled={publish.isPending}
-                      >
-                        {t('Send to everyone')}
-                      </Button>
-                    )}
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => setConfirmingPublish(item)}
+                      disabled={state !== 'draft' || publish.isPending}
+                      title={
+                        state === 'draft'
+                          ? t('Send it to every customer')
+                          : t('Already published — each announcement is sent once')
+                      }
+                    >
+                      {state === 'draft' ? t('Publish') : t('Published')}
+                    </Button>
                     {state === 'live' && (
                       <Button size="sm" onClick={() => withdraw.mutate(item.id)}>
                         {t('Take down')}
@@ -141,6 +147,37 @@ export function AnnouncementsPage() {
             );
           })}
         </div>
+      )}
+
+      {confirmingPublish && (
+        <Modal title={t('Publish this announcement?')} onClose={() => setConfirmingPublish(null)}>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-ink2">
+              {t('“{{title}}” will appear on every customer’s home page, and each of them is notified.', {
+                title: confirmingPublish.title,
+              })}
+            </p>
+            <p className="text-xs text-ink3">
+              {t('This cannot be undone and it is only sent once. You can still edit the wording afterwards, or take it down.')}
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setConfirmingPublish(null)}>
+                {t('Cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={publish.isPending}
+                onClick={() =>
+                  publish.mutate(confirmingPublish.id, {
+                    onSettled: () => setConfirmingPublish(null),
+                  })
+                }
+              >
+                {publish.isPending ? t('Publishing…') : t('Publish')}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {editing && (
@@ -175,6 +212,7 @@ function AnnouncementEditor({
   const [uploadError, setUploadError] = useState<unknown>(null);
 
   const mutation = existing ? update : create;
+  const state = existing ? announcementState(existing) : 'draft';
 
   async function pickImage(file: File | undefined) {
     if (!file) return;
@@ -213,9 +251,19 @@ function AnnouncementEditor({
       wide
     >
       <div className="flex flex-col gap-4">
-        <Instructions title={t('This goes to every customer')}>
-          {t('Saving keeps it as a draft. Nothing reaches anybody until you press Send to everyone, and each announcement is only ever sent once.')}
-        </Instructions>
+        {state === 'draft' ? (
+          <Instructions title={t('This goes to every customer')}>
+            {t('Saving keeps it as a draft. Nothing reaches anybody until you press Publish on the announcement, and each announcement is only ever sent once.')}
+          </Instructions>
+        ) : state === 'live' ? (
+          <Instructions title={t('This announcement is live')}>
+            {t('Saving does not send it again, but customers see your changes as soon as you save.')}
+          </Instructions>
+        ) : (
+          <Instructions title={t('This announcement has been taken down')}>
+            {t('You can correct the wording for the record. Saving will not put it back up.')}
+          </Instructions>
+        )}
 
         <Field label={t('Topic')} required>
           <Input
@@ -262,7 +310,7 @@ function AnnouncementEditor({
                   alt=""
                   className="h-14 w-24 rounded border-2 border-rulestrong object-cover"
                 />
-                <Button size="sm" variant="ghost" onClick={() => setImageId(null)}>
+                <Button size="sm" variant="danger" onClick={() => setImageId(null)}>
                   {t('Remove')}
                 </Button>
               </div>
@@ -272,10 +320,17 @@ function AnnouncementEditor({
 
         <Field
           label={t('Take down on')}
-          hint={t('Optional. Leave blank to keep it up until you take it down yourself.')}
+          hint={
+            state === 'ended'
+              ? t('Already taken down — the date is kept as a record.')
+              : t('Optional. Leave blank to keep it up until you take it down yourself.')
+          }
         >
           <Input
             type="date"
+            // The server keeps a taken-down notice down whatever is sent; disabling the field says
+            // so before anybody tries.
+            disabled={state === 'ended'}
             value={expiresAt}
             onChange={(event) => setExpiresAt(event.target.value)}
           />

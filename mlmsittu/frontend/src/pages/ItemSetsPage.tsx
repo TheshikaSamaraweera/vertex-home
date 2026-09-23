@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { ItemPicker } from '../components/ItemPicker';
 import { useTranslation } from 'react-i18next';
 import {
+  itemSetImageUrl,
+  uploadItemSetImage,
   useCreateItemSet,
   useDeleteItemSet,
   useItems,
@@ -21,6 +23,7 @@ import {
   Modal,
   money,
   PageHeader,
+  Select,
   Spinner,
 } from '../components/ui';
 import { useAuth } from '../auth/AuthContext';
@@ -45,6 +48,25 @@ export function ItemSetsPage() {
   const [confirmingDelete, setConfirmingDelete] = useState<SetAvailability | null>(null);
 
   const contended = (availability.data ?? []).filter((set) => set.contended);
+
+  // Filtered here rather than on the server: every set is already on screen for the availability
+  // figures, and there are tens of them, not thousands.
+  const [search, setSearch] = useState('');
+  const [show, setShow] = useState<'all' | 'available' | 'out' | 'shared'>('all');
+  const needle = search.trim().toLowerCase();
+  const shown = (availability.data ?? []).filter((set) => {
+    if (
+      needle &&
+      !(set.name ?? '').toLowerCase().includes(needle) &&
+      !(set.code ?? '').toLowerCase().includes(needle)
+    ) {
+      return false;
+    }
+    if (show === 'available') return (set.availableSets ?? 0) > 0;
+    if (show === 'out') return (set.availableSets ?? 0) === 0;
+    if (show === 'shared') return Boolean(set.contended);
+    return true;
+  });
 
   return (
     <>
@@ -71,17 +93,57 @@ export function ItemSetsPage() {
         </div>
       )}
 
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Input
+          className="w-64"
+          type="search"
+          aria-label={t('Search sets')}
+          placeholder={t('Search by set name or code…')}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+        <Select
+          className="w-48"
+          aria-label={t('Availability')}
+          value={show}
+          onChange={(event) => setShow(event.target.value as typeof show)}
+        >
+          <option value="all">{t('All sets')}</option>
+          <option value="available">{t('Can be made now')}</option>
+          <option value="out">{t('Cannot be made')}</option>
+          <option value="shared">{t('Shares components')}</option>
+        </Select>
+        {(search || show !== 'all') && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setSearch('');
+              setShow('all');
+            }}
+          >
+            {t('Clear filters')}
+          </Button>
+        )}
+      </div>
+
       {availability.isLoading ? (
         <Spinner />
       ) : availability.error ? (
         <ErrorBanner error={availability.error} onRetry={() => void availability.refetch()} />
-      ) : (availability.data ?? []).length === 0 ? (
+      ) : shown.length === 0 ? (
         <Card>
-          <EmptyState message={t('No item sets yet.')} />
+          <EmptyState
+            message={
+              (availability.data ?? []).length === 0
+                ? t('No item sets yet.')
+                : t('No sets match these filters.')
+            }
+          />
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {(availability.data ?? []).map((set) => (
+          {shown.map((set) => (
             <SetCard
               key={set.setId}
               set={set}
@@ -152,6 +214,15 @@ function SetCard({
         )
       }
     >
+      {set.imageId && (
+        <img
+          src={itemSetImageUrl(set.imageId)}
+          alt=""
+          // Fixed height, cover: cards of different heights read as broken in a grid, and nobody
+          // should have to crop a photo before uploading it.
+          className="h-40 w-full border-b border-rule object-cover"
+        />
+      )}
       <div className="flex items-end justify-between gap-3 px-4 pt-4">
         <div>
           <p className="text-[10px] font-semibold tracking-wider text-ink3 uppercase">
@@ -261,6 +332,24 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
   const [setPrice, setSetPrice] = useState(
     existing?.setPrice != null ? String(existing.setPrice) : '',
   );
+  // Prefilled for the same reason as the price: the form sends the whole set, so a field that
+  // started empty would delete the picture on every edit.
+  const [imageId, setImageId] = useState<string | null>(existing?.imageId ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<unknown>(null);
+
+  async function pickImage(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      setImageId(await uploadItemSetImage(file));
+    } catch (caught) {
+      setUploadError(caught);
+    } finally {
+      setUploading(false);
+    }
+  }
   const [components, setComponents] = useState<Array<{ itemId: string; quantity: string }>>(
     // Editing starts from what the set already contains, which the availability feed carries.
     existing
@@ -276,6 +365,7 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
   const body = {
     name,
     setPrice: Number(setPrice),
+    imageId,
     components: usable.map((component) => ({
       itemId: component.itemId,
       quantity: Number(component.quantity),
@@ -324,6 +414,31 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
             />
           </Field>
         </div>
+
+        <Field label={t('Picture')} hint={t('Optional. JPEG or PNG, up to 10 MB.')}>
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="file"
+              accept="image/jpeg,image/png"
+              onChange={(event) => void pickImage(event.target.files?.[0])}
+              className="w-full rounded border-2 border-rulestrong bg-panel px-3 py-2 text-sm text-ink2 file:mr-3 file:rounded file:border-0 file:bg-brandsoft file:px-3 file:py-1 file:text-brand"
+            />
+            {uploading && <span className="text-xs text-ink3">{t('Uploading…')}</span>}
+            {imageId && !uploading && (
+              <div className="flex items-center gap-2">
+                <img
+                  src={itemSetImageUrl(imageId)}
+                  alt=""
+                  className="h-14 w-24 rounded border-2 border-rulestrong object-cover"
+                />
+                <Button type="button" size="sm" variant="danger" onClick={() => setImageId(null)}>
+                  {t('Remove')}
+                </Button>
+              </div>
+            )}
+          </div>
+        </Field>
+        {uploadError != null && <ErrorBanner error={uploadError} />}
 
         <div>
           <p className="mb-1 text-xs font-semibold tracking-wide text-ink2 uppercase">
@@ -379,7 +494,7 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
                 />
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="danger"
                   onClick={() => setComponents(components.filter((_, i) => i !== index))}
                   aria-label={t('Remove this item')}
                 >
@@ -414,7 +529,7 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
           <Button
             type="submit"
             variant="primary"
-            disabled={mutation.isPending || usable.length === 0}
+            disabled={mutation.isPending || usable.length === 0 || uploading}
           >
             {mutation.isPending
               ? t('Saving…')

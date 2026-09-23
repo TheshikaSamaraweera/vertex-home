@@ -5,6 +5,7 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -35,6 +36,52 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, UUID> {
 
     @Query("select o from SalesOrder o where o.status = :status order by o.createdAt")
     List<SalesOrder> findByStatus(@Param("status") String status);
+
+    /**
+     * The newest orders, optionally of one status — the first page of the sales screen.
+     *
+     * <p>Ordered by {@code (created_at, id)} descending: two orders placed in the same microsecond
+     * are still in a total order, so a page boundary between them is exact. {@code search} matches
+     * the order number or the buyer's name. Both filters are the empty string for "any", because a
+     * null string in a native query cannot be typed.
+     */
+    @Query(
+            value =
+                    """
+                    SELECT * FROM sales_order
+                     WHERE (:status = '' OR status = :status)
+                       AND (:search = ''
+                            OR lower(order_number) LIKE '%' || lower(:search) || '%'
+                            OR customer_id IN (
+                                SELECT c.id FROM customer c
+                                 WHERE lower(c.name) LIKE '%' || lower(:search) || '%'))
+                     ORDER BY created_at DESC, id DESC
+                    """,
+            nativeQuery = true)
+    List<SalesOrder> firstPage(
+            @Param("status") String status, @Param("search") String search, Pageable pageable);
+
+    /** Everything strictly older than {@code (createdAt, id)}, in the same order. */
+    @Query(
+            value =
+                    """
+                    SELECT * FROM sales_order
+                     WHERE (:status = '' OR status = :status)
+                       AND (:search = ''
+                            OR lower(order_number) LIKE '%' || lower(:search) || '%'
+                            OR customer_id IN (
+                                SELECT c.id FROM customer c
+                                 WHERE lower(c.name) LIKE '%' || lower(:search) || '%'))
+                       AND (created_at, id) < (CAST(:createdAt AS timestamptz), CAST(:id AS uuid))
+                     ORDER BY created_at DESC, id DESC
+                    """,
+            nativeQuery = true)
+    List<SalesOrder> pageBefore(
+            @Param("status") String status,
+            @Param("search") String search,
+            @Param("createdAt") String createdAt,
+            @Param("id") UUID id,
+            Pageable pageable);
 
     /**
      * Document numbering from a sequence. A rolled-back order leaves a gap in order numbers, which

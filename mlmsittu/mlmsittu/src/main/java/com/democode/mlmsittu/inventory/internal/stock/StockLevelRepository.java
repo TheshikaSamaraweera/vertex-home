@@ -1,6 +1,7 @@
 package com.democode.mlmsittu.inventory.internal.stock;
 
 import jakarta.persistence.LockModeType;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,9 +42,21 @@ interface StockLevelRepository extends JpaRepository<StockLevel, StockLevelId> {
             nativeQuery = true)
     void ensureRowExists(@Param("itemId") UUID itemId, @Param("locationId") UUID locationId);
 
+    @Modifying
+    @Query(
+            value =
+                    "DELETE FROM stock_level"
+                            + " WHERE item_id = :itemId AND on_hand = 0 AND reserved = 0",
+            nativeQuery = true)
+    int deleteEmptyForItem(@Param("itemId") UUID itemId);
+
     @Query("select s from StockLevel s where s.locationId = :locationId order by s.itemId")
     List<StockLevel> findAtLocation(@Param("locationId") UUID locationId);
 
     @Query("select s from StockLevel s order by s.itemId, s.locationId")
     List<StockLevel> findAllOrdered();
+
+    @Query(
+            "select s from StockLevel s where s.itemId in :itemIds order by s.itemId, s.locationId")
+    List<StockLevel> findForItems(@Param("itemIds") Collection<UUID> itemIds);
 }

@@ -48,6 +48,10 @@ public class ItemSet {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    /** A picture in the document vault, of kind {@code item_set}. Optional. */
+    @Column(name = "image_id")
+    private UUID imageId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -70,6 +74,6 @@ public class ItemSet {
     }
 
     public ItemSetRef toRef() {
-        return new ItemSetRef(id, code, name, setPrice, active, componentMap());
+        return new ItemSetRef(id, code, name, setPrice, active, imageId, componentMap());
     }
 }

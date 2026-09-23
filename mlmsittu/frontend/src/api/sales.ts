@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type PagedResponse } from './client';
+import { page, pagedOptions } from './queries';
 import type { components } from './schema';
 
 type Schemas = components['schemas'];
@@ -47,6 +48,14 @@ export const useCustomers = (search?: string, includeInactive = false) =>
     queryFn: () => list<Customer>('/api/v1/customers', { search, includeInactive }),
   });
 
+/** One page of customers by name, searched on the server by name or code. */
+export const useCustomersPage = (search: string, includeInactive: boolean, cursor?: string) =>
+  useQuery({
+    queryKey: [...salesKeys.customers, 'page', search, includeInactive, cursor ?? 'first'],
+    queryFn: () => page<Customer>('/api/v1/customers', cursor, { search, includeInactive }),
+    ...pagedOptions,
+  });
+
 export const useCustomer = (id: string | null) =>
   useQuery({
     queryKey: [...salesKeys.customers, id],
@@ -54,10 +63,18 @@ export const useCustomer = (id: string | null) =>
     enabled: Boolean(id),
   });
 
-export const useSalesOrders = (status?: string) =>
+/**
+ * One page of orders, newest first. Each row arrives with `customerName` filled in, so the screen
+ * does not have to load every customer to label a page of fifty orders.
+ */
+export const useSalesOrdersPage = (
+  filters: { status: string; search: string },
+  cursor?: string,
+) =>
   useQuery({
-    queryKey: [...salesKeys.orders, status ?? 'all'],
-    queryFn: () => list<SalesOrder>('/api/v1/sales-orders', { status }),
+    queryKey: [...salesKeys.orders, 'page', filters, cursor ?? 'first'],
+    queryFn: () => page<SalesOrder>('/api/v1/sales-orders', cursor, filters),
+    ...pagedOptions,
   });
 
 export const useSalesOrder = (id: string | null) =>
@@ -88,8 +105,13 @@ export const usePayments = (status?: string) =>
     queryFn: () => list<Payment>('/api/v1/payments', { status }),
   });
 
-export const useInvoices = () =>
-  useQuery({ queryKey: salesKeys.invoices, queryFn: () => list<Invoice>('/api/v1/invoices') });
+/** One page of the invoice register, newest first. */
+export const useInvoicesPage = (search: string, cursor?: string) =>
+  useQuery({
+    queryKey: [...salesKeys.invoices, 'page', search, cursor ?? 'first'],
+    queryFn: () => page<Invoice>('/api/v1/invoices', cursor, { search }),
+    ...pagedOptions,
+  });
 
 // ---------------------------------------------------------------- mutations
 

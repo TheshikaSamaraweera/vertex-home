@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
 import type { LoginResponse, UserSummary } from '../api/types';
-import { Button, ErrorBanner, Field, Input } from '../components/ui';
+import { Button, ErrorBanner, Field, Input, PasswordInput } from '../components/ui';
 import { QrCode } from '../components/QrCode';
 import { useAuth } from './AuthContext';
 
@@ -115,8 +115,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
                 />
               </Field>
               <Field label={t('Password')} required error={fieldErrors.password}>
-                <Input
-                  type="password"
+                <PasswordInput
                   autoComplete="current-password"
                   required
                   value={password}

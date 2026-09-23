@@ -78,7 +78,7 @@ export interface paths {
         get: operations["getItem"];
         put: operations["updateItem"];
         post?: never;
-        delete?: never;
+        delete: operations["deleteItem"];
         options?: never;
         head?: never;
         patch?: never;
@@ -143,6 +143,22 @@ export interface paths {
         put: operations["setMembershipPeriod"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/announcements/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["one"];
+        put: operations["update_1"];
+        post?: never;
+        delete: operations["delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -660,6 +676,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/item-sets/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/goods-receipts": {
         parameters: {
             query?: never;
@@ -990,6 +1022,70 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["extendMembership"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["all"];
+        put?: never;
+        post: operations["create_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/announcements/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["withdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/announcements/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/announcements/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadImage_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1540,6 +1636,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/item-sets/image/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["image"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/item-sets/availability": {
         parameters: {
             query?: never;
@@ -1756,6 +1868,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["me_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["live"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/image/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["image_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2045,6 +2189,8 @@ export interface components {
             name: string;
             description?: string;
             setPrice: number;
+            /** Format: uuid */
+            imageId?: string;
             components: components["schemas"]["ComponentRequest"][];
         };
         ComponentResponse: {
@@ -2061,6 +2207,8 @@ export interface components {
             description?: string;
             setPrice?: number;
             active?: boolean;
+            /** Format: uuid */
+            imageId?: string;
             components?: components["schemas"]["ComponentResponse"][];
         };
         UpdateCustomerRequest: {
@@ -2114,6 +2262,31 @@ export interface components {
         MembershipPeriodResponse: {
             /** Format: int32 */
             days?: number;
+        };
+        AnnouncementRequest: {
+            title: string;
+            subtitle?: string;
+            body: string;
+            /** Format: uuid */
+            imageId?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+        };
+        Announcement: {
+            /** Format: uuid */
+            id?: string;
+            title?: string;
+            subtitle?: string;
+            body?: string;
+            /** Format: uuid */
+            imageId?: string;
+            /** Format: date-time */
+            publishedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            authorName?: string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         ScanResult: {
             /** Format: int32 */
@@ -2227,6 +2400,7 @@ export interface components {
             /** Format: date-time */
             cancelledAt?: string;
             lines?: components["schemas"]["SalesOrderLineResponse"][];
+            customerName?: string;
         };
         FulfilmentResponse: {
             order?: components["schemas"]["SalesOrderResponse"];
@@ -2410,7 +2584,17 @@ export interface components {
             name: string;
             description?: string;
             setPrice: number;
+            /** Format: uuid */
+            imageId?: string;
             components: components["schemas"]["ComponentRequest"][];
+        };
+        StoredDocument: {
+            /** Format: uuid */
+            id?: string;
+            objectKey?: string;
+            contentType?: string;
+            /** Format: int64 */
+            byteSize?: number;
         };
         CreateGoodsReceiptRequest: {
             /** Format: uuid */
@@ -3104,6 +3288,8 @@ export interface components {
             name?: string;
             setPrice?: number;
             /** Format: uuid */
+            imageId?: string;
+            /** Format: uuid */
             locationId?: string;
             /** Format: int32 */
             availableSets?: number;
@@ -3180,6 +3366,10 @@ export interface components {
         };
         PagedResponseCategoryResponse: {
             data?: components["schemas"]["CategoryResponse"][];
+            nextCursor?: string;
+        };
+        PagedResponseAnnouncement: {
+            data?: components["schemas"]["Announcement"][];
             nextCursor?: string;
         };
         PagedResponseUserSummary: {
@@ -3480,6 +3670,26 @@ export interface operations {
             };
         };
     };
+    deleteItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get: {
         parameters: {
             query?: never;
@@ -3666,6 +3876,74 @@ export interface operations {
             };
         };
     };
+    one: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Announcement"];
+                };
+            };
+        };
+    };
+    update_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Announcement"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listSuppliers: {
         parameters: {
             query?: {
@@ -3825,6 +4103,9 @@ export interface operations {
             query?: {
                 customerId?: string;
                 status?: string;
+                search?: string;
+                cursor?: string;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -4031,7 +4312,13 @@ export interface operations {
     };
     listPurchaseOrders: {
         parameters: {
-            query?: never;
+            query?: {
+                status?: string;
+                supplierId?: string;
+                search?: string;
+                cursor?: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4393,6 +4680,8 @@ export interface operations {
         parameters: {
             query?: {
                 includeInactive?: boolean;
+                search?: string;
+                categoryId?: string;
                 cursor?: string;
                 limit?: number;
             };
@@ -4571,9 +4860,42 @@ export interface operations {
             };
         };
     };
-    listGoodsReceipts: {
+    uploadImage: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["StoredDocument"];
+                };
+            };
+        };
+    };
+    listGoodsReceipts: {
+        parameters: {
+            query?: {
+                source?: string;
+                supplierId?: string;
+                search?: string;
+                cursor?: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4673,6 +4995,8 @@ export interface operations {
             query?: {
                 search?: string;
                 includeInactive?: boolean;
+                cursor?: string;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -5195,10 +5519,126 @@ export interface operations {
             };
         };
     };
+    all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponseAnnouncement"];
+                };
+            };
+        };
+    };
+    create_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnouncementRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Announcement"];
+                };
+            };
+        };
+    };
+    withdraw: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Announcement"];
+                };
+            };
+        };
+    };
+    publish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Announcement"];
+                };
+            };
+        };
+    };
+    uploadImage_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["StoredDocument"];
+                };
+            };
+        };
+    };
     listStock: {
         parameters: {
             query?: {
                 locationId?: string;
+                itemId?: string[];
             };
             header?: never;
             path?: never;
@@ -5266,7 +5706,12 @@ export interface operations {
     };
     listStockByItem: {
         parameters: {
-            query?: never;
+            query?: {
+                search?: string;
+                categoryId?: string;
+                cursor?: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5941,6 +6386,28 @@ export interface operations {
             };
         };
     };
+    image: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
     allSetAvailability: {
         parameters: {
             query?: {
@@ -5966,7 +6433,11 @@ export interface operations {
     };
     listInvoices: {
         parameters: {
-            query?: never;
+            query?: {
+                search?: string;
+                cursor?: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6242,6 +6713,48 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["UserSummary"];
+                };
+            };
+        };
+    };
+    live: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponseAnnouncement"];
+                };
+            };
+        };
+    };
+    image_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

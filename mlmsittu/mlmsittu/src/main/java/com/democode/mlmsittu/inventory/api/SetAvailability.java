@@ -19,6 +19,8 @@ public record SetAvailability(
         String name,
         /** The set's own price, so a screen showing sets need not fetch each one to display it. */
         java.math.BigDecimal setPrice,
+        /** The set's picture, or null. Carried here because the sets screen reads this feed. */
+        UUID imageId,
         UUID locationId,
         int availableSets,
         boolean contended,

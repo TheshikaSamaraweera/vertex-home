@@ -107,7 +107,9 @@ public class HierarchyRepository {
                         """,
                 mapper(rootDepth),
                 rootPath,
-                rootDepth + maxDepth);
+                // Long arithmetic: "every level" arrives as a very large depth, and adding the
+                // root's own depth to it must not overflow into a negative bound.
+                (int) Math.min((long) rootDepth + maxDepth, Integer.MAX_VALUE));
     }
 
     /** The upline, root first. {@code @>} is containment in the other direction. */

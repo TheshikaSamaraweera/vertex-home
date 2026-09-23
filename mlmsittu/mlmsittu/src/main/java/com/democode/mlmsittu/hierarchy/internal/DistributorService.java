@@ -195,7 +195,7 @@ public class DistributorService implements ReferralHierarchy {
      * caller can assemble the shape itself, and a flat list survives a node whose parent falls
      * outside the returned set without needing a special case.
      *
-     * <p>{@code depth} is measured from each root, and the caller is expected to have capped it.
+     * <p>{@code depth} is measured from each root.
      */
     @Transactional(readOnly = true)
     @Override

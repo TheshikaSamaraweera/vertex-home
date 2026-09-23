@@ -10,6 +10,7 @@ import com.democode.mlmsittu.commerce.internal.repo.PurchaseOrderRepository;
 import com.democode.mlmsittu.identity.api.UserDirectory;
 import com.democode.mlmsittu.inventory.api.LocationDirectory;
 import com.democode.mlmsittu.inventory.api.LocationDirectory.LocationRef;
+import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
 import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ApiException;
@@ -25,6 +26,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -280,6 +283,28 @@ public class PurchaseOrderService {
     @Transactional(readOnly = true)
     public List<PurchaseOrder> list() {
         return orders.findAllOrdered();
+    }
+
+    /**
+     * One page of orders, newest first.
+     *
+     * @param status null or blank for any
+     * @param supplierId null for any
+     * @param search part of a PO number; null or blank for any
+     * @param before null for the first page
+     * @param limit rows to fetch — one more than the page shows, to learn whether more follow
+     */
+    @Transactional(readOnly = true)
+    public List<PurchaseOrder> page(
+            String status, UUID supplierId, String search, Cursor before, int limit) {
+        String dbStatus = status == null ? "" : status.trim();
+        String supplier = supplierId == null ? "" : supplierId.toString();
+        String term = search == null ? "" : search.trim();
+        Pageable window = PageRequest.of(0, limit);
+        return before == null
+                ? orders.firstPage(dbStatus, supplier, term, window)
+                : orders.pageBefore(
+                        dbStatus, supplier, term, before.sortKey(), before.id(), window);
     }
 
     /**

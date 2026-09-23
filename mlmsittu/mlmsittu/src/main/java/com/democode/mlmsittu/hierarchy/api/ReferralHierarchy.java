@@ -99,8 +99,8 @@ public interface ReferralHierarchy {
      * because a picture cannot be assembled a level at a time without redrawing itself on every
      * click.
      *
-     * @param depth levels below each root, and the caller is expected to have capped it — an
-     *     uncapped walk of a large network is exactly what §6.4 forbids
+     * @param depth levels below each root. Passing a very large number walks the whole network;
+     *     it is one indexed query, and the admin tree view asks for exactly that
      */
     List<DistributorNode> forest(int depth);
 }

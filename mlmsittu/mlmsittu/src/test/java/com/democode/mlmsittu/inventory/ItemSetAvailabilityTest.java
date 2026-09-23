@@ -1,6 +1,7 @@
 package com.democode.mlmsittu.inventory;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.democode.mlmsittu.catalogue.internal.domain.Item;
 import com.democode.mlmsittu.catalogue.internal.repo.ItemRepository;
@@ -16,9 +17,14 @@ import com.democode.mlmsittu.inventory.api.StockPosting;
 import com.democode.mlmsittu.inventory.internal.service.AvailabilityService;
 import com.democode.mlmsittu.inventory.internal.stock.ReservationService;
 import com.democode.mlmsittu.inventory.api.ReservationRequestLine;
+import com.democode.mlmsittu.shared.error.ApiException;
+import com.democode.mlmsittu.shared.storage.api.DocumentVault;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +47,7 @@ class ItemSetAvailabilityTest {
     @Autowired private AppUserRepository users;
     @Autowired private LocationDirectory locations;
     @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private DocumentVault vault;
 
     private UUID locationId;
     private UUID actorId;
@@ -160,6 +167,7 @@ class ItemSetAvailabilityTest {
                         "Availability fixture",
                         null,
                         BigDecimal.TEN,
+                        null,
                         components)
                 .getId();
     }
@@ -209,6 +217,7 @@ class ItemSetAvailabilityTest {
                         "Editable set",
                         null,
                         new java.math.BigDecimal("500.00"),
+                        null,
                         List.of(
                                 new ComponentRequest(kept, 2),
                                 new ComponentRequest(dropped, 1)));
@@ -222,6 +231,7 @@ class ItemSetAvailabilityTest {
                         "Edited set",
                         "now with a description",
                         new java.math.BigDecimal("650.00"),
+                        null,
                         List.of(new ComponentRequest(kept, 5)));
 
         assertThat(edited.getName()).isEqualTo("Edited set");
@@ -243,6 +253,7 @@ class ItemSetAvailabilityTest {
                         "Priced set",
                         null,
                         new java.math.BigDecimal("1250.00"),
+                        null,
                         List.of(new ComponentRequest(component, 1)));
 
         // The screens read sets from the availability feed, so a price missing there is a price
@@ -251,5 +262,53 @@ class ItemSetAvailabilityTest {
                 .filteredOn(row -> row.setId().equals(set.getId()))
                 .singleElement()
                 .satisfies(row -> assertThat(row.setPrice()).isEqualByComparingTo("1250.00"));
+    }
+
+    @Test
+    @DisplayName("a set picture is kept, reaches the availability feed, and is served only as one")
+    void setPictureIsCarriedThrough() {
+        UUID component = newItemWithStock(10);
+        UUID picture = vault.store(smallJpeg(), "image/jpeg", "item_set", actorId).id();
+
+        var set =
+                sets.create(
+                        "PIC-" + UUID.randomUUID().toString().substring(0, 8),
+                        "Pictured set",
+                        null,
+                        new java.math.BigDecimal("900.00"),
+                        picture,
+                        List.of(new ComponentRequest(component, 1)));
+
+        assertThat(availability.availabilityOfAll(null, true))
+                .filteredOn(row -> row.setId().equals(set.getId()))
+                .singleElement()
+                .satisfies(row -> assertThat(row.imageId()).isEqualTo(picture));
+        assertThat(vault.readPublic(picture, "item_set").content()).isNotEmpty();
+
+        // The kind check is what makes a token-free endpoint safe: asked for as another kind of
+        // public picture, it is not found.
+        assertThatThrownBy(() -> vault.readPublic(picture, "announcement"))
+                .isInstanceOf(ApiException.class);
+
+        // Clearing it on an edit clears it.
+        sets.update(
+                set.getId(),
+                "Pictured set",
+                null,
+                new java.math.BigDecimal("900.00"),
+                null,
+                List.of(new ComponentRequest(component, 1)));
+        assertThat(sets.get(set.getId()).getImageId()).isNull();
+    }
+
+    private static byte[] smallJpeg() {
+        try {
+            BufferedImage image = new BufferedImage(24, 24, BufferedImage.TYPE_INT_RGB);
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(image, "jpg", out);
+            return out.toByteArray();
+        } catch (java.io.IOException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
 }

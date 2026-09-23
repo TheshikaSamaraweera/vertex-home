@@ -45,7 +45,27 @@ export function RewardsPage() {
   const [viewing, setViewing] = useState<RewardEntitlement | null>(null);
 
   const source = tab === 'eligible' ? waiting : issued;
-  const rows = source.data ?? [];
+
+  // Search and pack apply to whichever tab is open, so switching tabs keeps the question asked.
+  const [search, setSearch] = useState('');
+  const [packId, setPackId] = useState('');
+  const needle = search.trim().toLowerCase();
+  const all = source.data ?? [];
+  const packs = [
+    ...new Map(
+      [...(waiting.data ?? []), ...(issued.data ?? [])]
+        .filter((row) => row.itemSetId)
+        .map((row) => [row.itemSetId!, row.itemSetName ?? row.itemSetCode ?? ''] as const),
+    ),
+  ].sort((a, b) => a[1].localeCompare(b[1]));
+  const rows = all.filter(
+    (row) =>
+      (!needle ||
+        [row.distributorName, row.businessId, row.distributorEmail, row.distributorMobile].some(
+          (field) => (field ?? '').toLowerCase().includes(needle),
+        )) &&
+      (!packId || row.itemSetId === packId),
+  );
 
   return (
     <>
@@ -74,6 +94,31 @@ export function RewardsPage() {
             ? t('No stock has moved for any of these.')
             : t('Stock left a store when each of these was issued.')
         }
+        actions={
+          <>
+            <Input
+              className="w-56"
+              type="search"
+              aria-label={t('Search rewards')}
+              placeholder={t('Name, business ID or phone…')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Select
+              className="w-44"
+              aria-label={t('Pack')}
+              value={packId}
+              onChange={(event) => setPackId(event.target.value)}
+            >
+              <option value="">{t('All packs')}</option>
+              {packs.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </>
+        }
       >
         {source.isLoading ? (
           <Spinner />
@@ -84,10 +129,14 @@ export function RewardsPage() {
         ) : rows.length === 0 ? (
           <EmptyState
             message={
-              tab === 'eligible' ? t('Nobody is waiting for a pack.') : t('No packs issued yet.')
+              all.length > 0
+                ? t('Nobody here matches these filters.')
+                : tab === 'eligible'
+                  ? t('Nobody is waiting for a pack.')
+                  : t('No packs issued yet.')
             }
             hint={
-              tab === 'eligible'
+              all.length === 0 && tab === 'eligible'
                 ? t('A customer appears here the moment their fifth referral is approved.')
                 : undefined
             }

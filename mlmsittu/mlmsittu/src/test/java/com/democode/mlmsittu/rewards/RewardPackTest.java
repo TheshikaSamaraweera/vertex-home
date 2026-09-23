@@ -312,6 +312,7 @@ class RewardPackTest {
                         "Reward pack",
                         null,
                         new BigDecimal("500.00"),
+                        null,
                         components.entrySet().stream()
                                 .map(
                                         entry ->

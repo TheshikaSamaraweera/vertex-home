@@ -7,9 +7,12 @@ import {
   Badge,
   Button,
   Card,
+  EmptyState,
   ErrorBanner,
+  Input,
   Modal,
   PageHeader,
+  Select,
   Spinner,
   Table,
   TableWrap,
@@ -29,6 +32,23 @@ export function UsersPage() {
   const users = useUsers();
   const [editing, setEditing] = useState<UserSummary | null>(null);
 
+  // Staff accounts number in the tens, all already loaded, so filtering happens here.
+  const [search, setSearch] = useState('');
+  const [role, setRole] = useState('');
+  const [status, setStatus] = useState('');
+  const needle = search.trim().toLowerCase();
+  const shown = (users.data ?? []).filter(
+    (user) =>
+      (!needle ||
+        (user.fullName ?? '').toLowerCase().includes(needle) ||
+        (user.email ?? '').toLowerCase().includes(needle)) &&
+      (!role || (user.roles ?? []).includes(role)) &&
+      (!status || user.status === status),
+  );
+  const statuses = [...new Set((users.data ?? []).map((user) => user.status ?? ''))].filter(
+    Boolean,
+  );
+
   return (
     <>
       <PageHeader
@@ -36,13 +56,56 @@ export function UsersPage() {
         description={t('Every change here is written to the audit log with the before and after role sets.')}
       />
 
-      <Card title={t('Accounts')}>
+      <Card
+        title={t('Accounts')}
+        subtitle={t('{{count}} shown', { count: shown.length })}
+        actions={
+          <>
+            <Input
+              className="w-56"
+              type="search"
+              aria-label={t('Search users')}
+              placeholder={t('Name or email…')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Select
+              className="w-44"
+              aria-label={t('Role')}
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+            >
+              <option value="">{t('All roles')}</option>
+              {ROLES.map((code) => (
+                <option key={code} value={code}>
+                  {ROLE_LABELS[code] ?? code}
+                </option>
+              ))}
+            </Select>
+            <Select
+              className="w-36"
+              aria-label={t('Status')}
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+            >
+              <option value="">{t('All statuses')}</option>
+              {statuses.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </Select>
+          </>
+        }
+      >
         {users.isLoading ? (
           <Spinner />
         ) : users.error ? (
           <div className="p-4">
             <ErrorBanner error={users.error} onRetry={() => void users.refetch()} />
           </div>
+        ) : shown.length === 0 ? (
+          <EmptyState message={t('No accounts match these filters.')} />
         ) : (
           <TableWrap>
             <Table>
@@ -57,7 +120,7 @@ export function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {(users.data ?? []).map((user) => (
+                {shown.map((user) => (
                   <tr key={user.id} className="hover:bg-panel2">
                     <Td>
                       <span className="text-ink">{user.fullName}</span>

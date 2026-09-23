@@ -3,16 +3,20 @@ package com.democode.mlmsittu.commerce.internal.service;
 import com.democode.mlmsittu.commerce.internal.domain.Customer;
 import com.democode.mlmsittu.commerce.internal.repo.CustomerRepository;
 import com.democode.mlmsittu.hierarchy.api.ReferralHierarchy;
+import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
 import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ConflictException;
 import com.democode.mlmsittu.shared.error.NotFoundException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -93,6 +97,35 @@ public class CustomerService {
             return customers.findAllOrdered(includeInactive);
         }
         return customers.search(search.trim(), includeInactive);
+    }
+
+    /**
+     * One page of customers by name.
+     *
+     * @param search matched against name and code; null or blank for no filter
+     * @param after null for the first page
+     * @param limit rows to fetch — one more than the page shows, to learn whether more follow
+     */
+    @Transactional(readOnly = true)
+    public List<Customer> page(String search, boolean includeInactive, Cursor after, int limit) {
+        String term = search == null ? "" : search.trim();
+        Pageable window = PageRequest.of(0, limit);
+        return after == null
+                ? customers.firstPage(term, includeInactive, window)
+                : customers.pageAfter(term, includeInactive, after.sortKey(), after.id(), window);
+    }
+
+    /**
+     * Names by id, for labelling a page of orders without loading every customer to do it.
+     * Customers that do not exist are simply absent.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> namesOf(Collection<UUID> ids) {
+        Map<UUID, String> names = new HashMap<>();
+        customers
+                .findAllById(ids)
+                .forEach(customer -> names.put(customer.getId(), customer.getName()));
+        return names;
     }
 
     @Transactional(readOnly = true)

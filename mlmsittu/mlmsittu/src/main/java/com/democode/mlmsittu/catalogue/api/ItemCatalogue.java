@@ -1,5 +1,6 @@
 package com.democode.mlmsittu.catalogue.api;
 
+import com.democode.mlmsittu.shared.api.Cursor;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -22,4 +23,16 @@ public interface ItemCatalogue {
 
     /** Every item, active or not. Reorder scanning and reconciliation need the full set. */
     List<ItemRef> findAll();
+
+    /**
+     * One page of every item, active or not, ordered by name then id — the stock screen pages
+     * through the catalogue and attaches levels to each page.
+     *
+     * @param search matched against name and SKU; null or blank for no filter
+     * @param categoryId null for every category
+     * @param after null for the first page, otherwise the cursor of the last row already shown
+     * @param limit how many rows to fetch — callers ask for one more than they show, to learn
+     *     whether another page exists
+     */
+    List<ItemRef> page(String search, UUID categoryId, Cursor after, int limit);
 }

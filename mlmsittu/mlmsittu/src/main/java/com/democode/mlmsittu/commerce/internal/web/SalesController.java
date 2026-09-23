@@ -1,5 +1,6 @@
 package com.democode.mlmsittu.commerce.internal.web;
 
+import com.democode.mlmsittu.commerce.internal.domain.SalesOrder;
 import com.democode.mlmsittu.commerce.internal.service.CustomerService;
 import com.democode.mlmsittu.commerce.internal.service.FulfilmentService;
 import com.democode.mlmsittu.commerce.internal.service.InvoiceService;
@@ -17,10 +18,12 @@ import com.democode.mlmsittu.commerce.internal.web.dto.SalesDtos.SalesOrderRespo
 import com.democode.mlmsittu.commerce.internal.web.dto.SalesDtos.SlipAccessResponse;
 import com.democode.mlmsittu.commerce.internal.web.dto.SalesDtos.UpdateCustomerRequest;
 import com.democode.mlmsittu.identity.api.CurrentUser;
+import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.api.PagedResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -48,6 +51,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 @PreAuthorize("hasRole('STAFF')")
 public class SalesController {
+
+    /** The largest page any list here will return in one response. */
+    private static final int MAX_PAGE = 200;
 
     private final CustomerService customers;
     private final SalesOrderService orders;
@@ -91,15 +97,32 @@ public class SalesController {
                         currentUser.requireId()));
     }
 
-    /** Readable by anyone signed in — {@code support_agent} exists to answer questions about them. */
+    /**
+     * Readable by anyone signed in — {@code support_agent} exists to answer questions about them.
+     *
+     * <p>Paged when {@code limit} is given, in name order; {@code cursor} comes from the previous
+     * response. Without {@code limit} every match comes back at once, which is what the customer
+     * pickers on the order forms still rely on.
+     */
     @GetMapping("/customers")
     public PagedResponse<CustomerResponse> listCustomers(
             @RequestParam(required = false) String search,
-            @RequestParam(defaultValue = "false") boolean includeInactive) {
-        return PagedResponse.of(
-                customers.list(search, includeInactive).stream()
+            @RequestParam(defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+        if (limit == null) {
+            return PagedResponse.of(
+                    customers.list(search, includeInactive).stream()
+                            .map(CustomerResponse::from)
+                            .toList());
+        }
+        int size = Cursor.clampLimit(limit, MAX_PAGE, MAX_PAGE);
+        List<CustomerResponse> fetched =
+                customers.page(search, includeInactive, Cursor.decodeOrNull(cursor), size + 1)
+                        .stream()
                         .map(CustomerResponse::from)
-                        .toList());
+                        .toList();
+        return PagedResponse.page(fetched, size, row -> new Cursor(row.name(), row.id()));
     }
 
     @GetMapping("/customers/{id}")
@@ -182,12 +205,38 @@ public class SalesController {
                         currentUser.requireId()));
     }
 
+    /**
+     * Orders, newest first.
+     *
+     * <p>Paged when {@code limit} is given and no {@code customerId} is — one customer's orders
+     * are few enough to return whole. Each paged row carries its customer's name, looked up for
+     * that page only, so the screen need not load the customer list to label it. {@code search}
+     * matches the order number or the buyer's name, and applies to the paged form only.
+     */
     @GetMapping("/sales-orders")
     public PagedResponse<SalesOrderResponse> listOrders(
             @RequestParam(required = false) UUID customerId,
-            @RequestParam(required = false) String status) {
-        return PagedResponse.of(
-                orders.list(customerId, status).stream().map(SalesOrderResponse::from).toList());
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+        if (limit == null || customerId != null) {
+            return PagedResponse.of(
+                    orders.list(customerId, status).stream()
+                            .map(SalesOrderResponse::from)
+                            .toList());
+        }
+        int size = Cursor.clampLimit(limit, MAX_PAGE, MAX_PAGE);
+        List<SalesOrder> fetched =
+                orders.page(status, search, Cursor.decodeOrNull(cursor), size + 1);
+        Map<UUID, String> names =
+                customers.namesOf(fetched.stream().map(SalesOrder::getCustomerId).toList());
+        return PagedResponse.page(
+                fetched.stream()
+                        .map(order -> SalesOrderResponse.from(order, names.get(order.getCustomerId())))
+                        .toList(),
+                size,
+                row -> new Cursor(row.createdAt().toString(), row.id()));
     }
 
     @GetMapping("/sales-orders/{id}")
@@ -292,8 +341,24 @@ public class SalesController {
 
     @GetMapping("/invoices")
     @PreAuthorize("hasAnyRole('FINANCE_OFFICER', 'SUPER_ADMIN', 'SUPPORT_AGENT')")
-    public PagedResponse<InvoiceResponse> listInvoices() {
-        return PagedResponse.of(invoices.list().stream().map(InvoiceResponse::from).toList());
+    public PagedResponse<InvoiceResponse> listInvoices(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+        if (limit == null) {
+            return PagedResponse.of(invoices.list().stream().map(InvoiceResponse::from).toList());
+        }
+        // Newest first when paged. Keyed on the sequence number, which is already a total order.
+        int size = Cursor.clampLimit(limit, MAX_PAGE, MAX_PAGE);
+        List<InvoiceResponse> fetched =
+                invoices.page(search, Cursor.decodeSequence(cursor), size + 1).stream()
+                        .map(InvoiceResponse::from)
+                        .toList();
+        if (fetched.size() <= size) {
+            return PagedResponse.of(fetched);
+        }
+        List<InvoiceResponse> page = List.copyOf(fetched.subList(0, size));
+        return PagedResponse.of(page, Cursor.encodeSequence(page.get(size - 1).sequenceNo()));
     }
 
     @GetMapping("/invoices/{id}")

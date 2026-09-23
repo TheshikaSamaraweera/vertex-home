@@ -5,12 +5,13 @@ import {
   useCreatePurchaseOrder,
   useItems,
   usePurchaseOrder,
-  usePurchaseOrders,
+  usePurchaseOrdersPage,
   useReplacePurchaseOrderLines,
   useSendPurchaseOrder,
   useSuppliers,
 } from '../api/queries';
-import type { PurchaseOrder, Supplier } from '../api/types';
+import { PO_STATUSES, type PurchaseOrder, type Supplier } from '../api/types';
+import { useDebounced, usePager } from '../lib/paging';
 import {
   Badge,
   Button,
@@ -22,6 +23,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  Pager,
   Select,
   Spinner,
   statusTone,
@@ -54,7 +56,14 @@ export function PurchaseOrdersPage() {
   const canOrder = hasRole('PROCUREMENT_OFFICER');
 
   const suppliers = useSuppliers(true);
-  const orders = usePurchaseOrders();
+  const [status, setStatus] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+  const [search, setSearch] = useState('');
+  const query = useDebounced(search.trim());
+  const pager = usePager(status, supplierId, query);
+  const orders = usePurchaseOrdersPage({ status, supplierId, search: query }, pager.cursor);
+  const rows = orders.data?.data ?? [];
+  const filtered = status !== '' || supplierId !== '' || query !== '';
 
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -79,15 +88,59 @@ export function PurchaseOrdersPage() {
       />
 
       <div className="flex flex-col gap-5">
-        <Card title={t('Create order')}>
+        <Card
+          title={t('Create order')}
+          actions={
+            <>
+              <Input
+                className="w-44"
+                type="search"
+                aria-label={t('Search purchase orders')}
+                placeholder={t('PO number…')}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <Select
+                className="w-44"
+                aria-label={t('Supplier')}
+                value={supplierId}
+                onChange={(event) => setSupplierId(event.target.value)}
+              >
+                <option value="">{t('All suppliers')}</option>
+                {(suppliers.data ?? []).map((supplier) => (
+                  <option key={supplier.id} value={supplier.id ?? ''}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </Select>
+              <Select
+                className="w-40"
+                aria-label={t('Status')}
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
+                <option value="">{t('All statuses')}</option>
+                {PO_STATUSES.map((value) => (
+                  <option key={value} value={value}>
+                    {humanStatus(value)}
+                  </option>
+                ))}
+              </Select>
+            </>
+          }
+        >
           {orders.isLoading ? (
             <Spinner />
           ) : orders.error ? (
             <div className="p-4">
               <ErrorBanner error={orders.error} onRetry={() => void orders.refetch()} />
             </div>
-          ) : (orders.data ?? []).length === 0 ? (
-            <EmptyState message={t('No purchase orders yet.')} />
+          ) : rows.length === 0 ? (
+            <EmptyState
+              message={
+                filtered ? t('No purchase orders match these filters.') : t('No purchase orders yet.')
+              }
+            />
           ) : (
             <TableWrap>
               <Table>
@@ -103,7 +156,7 @@ export function PurchaseOrdersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(orders.data ?? []).map((order) => (
+                  {rows.map((order) => (
                     <tr key={order.id} className="align-top hover:bg-panel2">
                       <Td className="font-mono text-xs">{order.poNumber}</Td>
                       <Td>{supplierOf(order.supplierId)?.name ?? '—'}</Td>
@@ -157,6 +210,13 @@ export function PurchaseOrdersPage() {
               </Table>
             </TableWrap>
           )}
+          <Pager
+            page={pager.page}
+            hasNext={Boolean(orders.data?.nextCursor)}
+            loading={orders.isPlaceholderData}
+            onPrevious={pager.previous}
+            onNext={() => orders.data?.nextCursor && pager.next(orders.data.nextCursor)}
+          />
         </Card>
       </div>
 
@@ -457,7 +517,7 @@ function OrderModal({ editingId, onClose }: { editingId?: string; onClose: () =>
                           <Button
                             type="button"
                             size="sm"
-                            variant="ghost"
+                            variant="danger"
                             onClick={() => deleteLine(index)}
                           >
                             {t('Delete')}

@@ -29,6 +29,8 @@ public final class ItemSetDtos {
                     @DecimalMin(value = "0.00", message = "MUST_NOT_BE_NEGATIVE")
                     @Digits(integer = 12, fraction = 2, message = "MAX_TWO_DECIMALS")
                     BigDecimal setPrice,
+            /** From {@code POST /item-sets/image}; null for no picture. */
+            UUID imageId,
             @NotEmpty(message = "AT_LEAST_ONE_COMPONENT_REQUIRED") @Valid
                     List<ComponentRequest> components) {}
 
@@ -39,6 +41,8 @@ public final class ItemSetDtos {
                     @DecimalMin(value = "0.00", message = "MUST_NOT_BE_NEGATIVE")
                     @Digits(integer = 12, fraction = 2, message = "MAX_TWO_DECIMALS")
                     BigDecimal setPrice,
+            /** From {@code POST /item-sets/image}; null for no picture. */
+            UUID imageId,
             @NotEmpty(message = "AT_LEAST_ONE_COMPONENT_REQUIRED") @Valid
                     List<ComponentRequest> components) {}
 
@@ -51,6 +55,7 @@ public final class ItemSetDtos {
             String description,
             BigDecimal setPrice,
             boolean active,
+            UUID imageId,
             List<ComponentResponse> components) {
 
         public static ItemSetResponse from(ItemSet set) {
@@ -61,6 +66,7 @@ public final class ItemSetDtos {
                     set.getDescription(),
                     set.getSetPrice(),
                     set.isActive(),
+                    set.getImageId(),
                     set.getLines().stream()
                             .map(line -> new ComponentResponse(line.getItemId(), line.getQuantity()))
                             .toList());

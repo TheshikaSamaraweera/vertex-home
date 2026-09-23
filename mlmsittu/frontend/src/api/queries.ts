@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UseQueryOptions } from '@tanstack/react-query';
 import { api, type PagedResponse } from './client';
+import { PAGE_SIZE } from '../lib/paging';
 import type {
   Category,
   GoodsReceipt,
@@ -32,16 +33,13 @@ import type {
 /**
  * Fetch a list endpoint in full.
  *
- * Follows the cursor until the server stops offering one, so a screen always receives every row.
+ * Follows the cursor until the server stops offering one, so the caller receives every row. Kept
+ * for pickers and small reference lists — stores, categories, the options in a dropdown — where
+ * the whole set is the point.
  *
- * There is no paging in the interface, by decision. The alternative — showing the first page and
- * a "load more" — meant a stock count or a customer list could be quietly incomplete, and a total
- * you cannot trust is worse than a slower screen. Keyset pagination still exists on the server and
- * still does its job: it keeps each request bounded and indexed. It is simply not something anyone
- * using this has to think about.
- *
- * If a list ever grows large enough for this to hurt, the fix is a narrower query — a filter, a
- * date range — not making the user click through pages to find out what they own.
+ * The main list screens no longer use it. Loading every item, order and receipt on every visit
+ * was the single largest cost in the app, so those screens show one page at a time through
+ * `page` below, with the search run on the server so nothing is out of reach.
  */
 const list = async <T>(
   path: string,
@@ -75,6 +73,24 @@ const recent = <T>(
   path: string,
   query?: Record<string, string | number | boolean | undefined>,
 ) => api.get<PagedResponse<T>>(path, query).then((page) => page.data);
+
+/**
+ * One page of a list endpoint, for the screens that show a page at a time.
+ *
+ * Returns the envelope rather than unwrapping it, because the screen needs `nextCursor` to know
+ * whether there is a Next.
+ */
+export const page = <T>(
+  path: string,
+  cursor: string | undefined,
+  query?: Record<string, string | number | boolean | undefined>,
+) => api.get<PagedResponse<T>>(path, { ...query, cursor, limit: PAGE_SIZE });
+
+/**
+ * Shared by every paged hook. Keeping the previous page on screen while the next one loads stops
+ * the table collapsing to a spinner and back on every click.
+ */
+export const pagedOptions = { placeholderData: keepPreviousData } as const;
 
 /** Query keys, centralised so invalidation after a mutation cannot miss a screen. */
 export const keys = {
@@ -113,6 +129,25 @@ export const useItems = (includeInactive = false) =>
     queryFn: () => list<Item>('/api/v1/items', { includeInactive }),
   });
 
+/**
+ * One page of the catalogue, searched on the server by name or item code.
+ *
+ * Keyed under `keys.items`, so everything that already invalidates the item list refreshes the
+ * page on screen too.
+ */
+export const useItemsPage = (
+  includeInactive: boolean,
+  search: string,
+  categoryId: string,
+  cursor?: string,
+) =>
+  useQuery({
+    queryKey: [...keys.items, 'page', includeInactive, search, categoryId, cursor ?? 'first'],
+    queryFn: () =>
+      page<Item>('/api/v1/items', cursor, { includeInactive, search, categoryId }),
+    ...pagedOptions,
+  });
+
 export const useCategories = () =>
   useQuery({ queryKey: keys.categories, queryFn: () => list<Category>('/api/v1/categories') });
 
@@ -131,15 +166,27 @@ export const useStock = (locationId?: string) =>
   });
 
 /**
- * Stock totalled per item, with the per-store breakdown attached.
- *
- * The screen's main view. One row per item, not one per item-and-store — the old shape made the
- * same item appear several times with a slice of its quantity in each.
+ * Stock levels for just these items — the availability column on one page of the catalogue.
+ * Disabled until there are ids to ask about.
  */
-export const useStockByItem = () =>
+export const useStockForItems = (itemIds: string[]) =>
   useQuery({
-    queryKey: [...keys.stock, 'by-item'],
-    queryFn: () => list<StockByItem>('/api/v1/stock/by-item'),
+    queryKey: [...keys.stock, 'items', itemIds],
+    queryFn: () =>
+      api
+        .get<PagedResponse<StockLevel>>('/api/v1/stock', { itemId: itemIds })
+        .then((result) => result.data),
+    enabled: itemIds.length > 0,
+    ...pagedOptions,
+  });
+
+/** One page of stock by item, searched on the server by name or item code, and by category. */
+export const useStockByItemPage = (search: string, categoryId: string, cursor?: string) =>
+  useQuery({
+    queryKey: [...keys.stock, 'by-item', 'page', search, categoryId, cursor ?? 'first'],
+    queryFn: () =>
+      page<StockByItem>('/api/v1/stock/by-item', cursor, { search, categoryId }),
+    ...pagedOptions,
   });
 
 export const useStore = (id: string | null) =>
@@ -198,10 +245,15 @@ export const useSuppliers = (includeInactive = false) =>
     queryFn: () => list<Supplier>('/api/v1/suppliers', { includeInactive }),
   });
 
-export const usePurchaseOrders = () =>
+/** Server-side filters for the purchase order list. Empty string means "any". */
+export type PurchaseOrderFilters = { status: string; supplierId: string; search: string };
+
+/** One page of purchase orders, newest first. */
+export const usePurchaseOrdersPage = (filters: PurchaseOrderFilters, cursor?: string) =>
   useQuery({
-    queryKey: keys.purchaseOrders,
-    queryFn: () => list<PurchaseOrder>('/api/v1/purchase-orders'),
+    queryKey: [...keys.purchaseOrders, 'page', filters, cursor ?? 'first'],
+    queryFn: () => page<PurchaseOrder>('/api/v1/purchase-orders', cursor, filters),
+    ...pagedOptions,
   });
 
 export const usePurchaseOrder = (id: string | null) =>
@@ -223,10 +275,15 @@ export const useOrdersAwaitingStoring = () =>
     queryFn: () => list<PurchaseOrder>('/api/v1/purchase-orders/awaiting-storing'),
   });
 
-export const useGoodsReceipts = () =>
+/** Server-side filters for the goods receipt list. Empty string means "any". */
+export type GoodsReceiptFilters = { source: string; supplierId: string; search: string };
+
+/** One page of goods receipts, newest first. */
+export const useGoodsReceiptsPage = (filters: GoodsReceiptFilters, cursor?: string) =>
   useQuery({
-    queryKey: keys.goodsReceipts,
-    queryFn: () => list<GoodsReceipt>('/api/v1/goods-receipts'),
+    queryKey: [...keys.goodsReceipts, 'page', filters, cursor ?? 'first'],
+    queryFn: () => page<GoodsReceipt>('/api/v1/goods-receipts', cursor, filters),
+    ...pagedOptions,
   });
 
 // ---------------------------------------------------------------- reward packs
@@ -310,6 +367,25 @@ export const useUpdateItem = () =>
     [keys.items, keys.availability],
   );
 
+/**
+ * Deletes an item that was created by mistake. Refused server-side with `ITEM_IN_USE` once it has
+ * stock history, orders or sets — deactivate those instead.
+ */
+export const useDeleteItem = () =>
+  useInvalidatingMutation((id: string) => api.del<void>(`/api/v1/items/${id}`), [
+    keys.items,
+    keys.supplierPrices,
+    ...STOCK_TOUCHING,
+  ]);
+
+/** Stops recording a price from one supplier for one item. */
+export const useRemoveSupplierPrice = () =>
+  useInvalidatingMutation(
+    ({ itemId, supplierId }: { itemId: string; supplierId: string }) =>
+      api.del<void>(`/api/v1/items/${itemId}/supplier-prices/${supplierId}`),
+    [keys.supplierPrices, keys.purchaseOrders],
+  );
+
 export const useSetItemActive = () =>
   useInvalidatingMutation(
     ({ id, active }: { id: string; active: boolean }) =>
@@ -330,6 +406,32 @@ export const useRunReorderScan = () =>
   useInvalidatingMutation(() => api.post<unknown>('/api/v1/stock/reorder-scan'), [
     keys.reorderAlerts,
   ]);
+
+/** Where a set picture is fetched from. No token — see the controller. */
+export const itemSetImageUrl = (imageId: string) => `/api/v1/item-sets/image/${imageId}`;
+
+/**
+ * Uploads a set picture and returns its id, which the set's create or update then carries.
+ *
+ * Raw fetch rather than the api helper, which sets a JSON content type — the browser has to set
+ * its own multipart boundary, and overriding it makes the request unparseable server-side.
+ */
+export async function uploadItemSetImage(file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await fetch('/api/v1/item-sets/image', {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  });
+  const payload = await response.json().catch(() => undefined);
+  if (!response.ok) {
+    throw Object.assign(new Error(payload?.detail ?? 'Upload failed'), {
+      code: payload?.code ?? 'UPLOAD_FAILED',
+    });
+  }
+  return payload.id as string;
+}
 
 export const useCreateItemSet = () =>
   useInvalidatingMutation((body: unknown) => api.post<ItemSet>('/api/v1/item-sets', body), [

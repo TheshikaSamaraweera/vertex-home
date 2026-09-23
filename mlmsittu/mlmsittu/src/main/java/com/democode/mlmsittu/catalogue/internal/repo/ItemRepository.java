@@ -24,6 +24,12 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
     /**
      * The first page, ordered exactly as {@link #findAllOrdered()}.
      *
+     * <p>{@code search} is matched against name and SKU, case-insensitively; {@code category} is a
+     * category id. For both, the empty string rather than null means "no filter": a null string
+     * parameter in a native query leaves Postgres unable to infer its type, and the whole
+     * statement fails to prepare. {@code NULLIF} keeps the uuid cast from ever seeing that empty
+     * string, since SQL does not promise to short-circuit the {@code OR}.
+     *
      * <p>The order must match the keyset predicate below character for character. A page ordered
      * one way and continued another skips rows, and does it silently.
      */
@@ -32,10 +38,19 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
                     """
                     SELECT * FROM item
                      WHERE (:includeInactive = true OR is_active = true)
+                       AND (:search = ''
+                            OR lower(name) LIKE '%' || lower(:search) || '%'
+                            OR lower(sku) LIKE '%' || lower(:search) || '%')
+                       AND (:category = ''
+                            OR category_id = CAST(NULLIF(:category, '') AS uuid))
                      ORDER BY name, id
                     """,
             nativeQuery = true)
-    List<Item> firstPage(@Param("includeInactive") boolean includeInactive, Pageable pageable);
+    List<Item> firstPage(
+            @Param("includeInactive") boolean includeInactive,
+            @Param("search") String search,
+            @Param("category") String category,
+            Pageable pageable);
 
     /**
      * Everything strictly after {@code (name, id)}.
@@ -59,13 +74,41 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
                     """
                     SELECT * FROM item
                      WHERE (:includeInactive = true OR is_active = true)
+                       AND (:search = ''
+                            OR lower(name) LIKE '%' || lower(:search) || '%'
+                            OR lower(sku) LIKE '%' || lower(:search) || '%')
+                       AND (:category = ''
+                            OR category_id = CAST(NULLIF(:category, '') AS uuid))
                        AND (name, id) > (:name, CAST(:id AS uuid))
                      ORDER BY name, id
                     """,
             nativeQuery = true)
     List<Item> pageAfter(
             @Param("includeInactive") boolean includeInactive,
+            @Param("search") String search,
+            @Param("category") String category,
             @Param("name") String name,
             @Param("id") UUID id,
             Pageable pageable);
+
+    /**
+     * Everything that refers to this item and would be orphaned, or lose its meaning, if the item
+     * were deleted: stock history, sales, purchasing, receiving, reservations and set contents.
+     *
+     * <p>Native, like {@code ItemSetRepository.countSalesLinesFor}, because most of these tables
+     * belong to other modules and the catalogue has no entities for them. Supplier prices are not
+     * counted: they are quotes about the item, and go with it ({@code ON DELETE CASCADE}).
+     */
+    @Query(
+            value =
+                    """
+                    SELECT (SELECT count(*) FROM stock_movement WHERE item_id = :id)
+                         + (SELECT count(*) FROM sales_order_line WHERE item_id = :id)
+                         + (SELECT count(*) FROM purchase_order_line WHERE item_id = :id)
+                         + (SELECT count(*) FROM goods_receipt_line WHERE item_id = :id)
+                         + (SELECT count(*) FROM reservation_line WHERE item_id = :id)
+                         + (SELECT count(*) FROM item_set_line WHERE item_id = :id)
+                    """,
+            nativeQuery = true)
+    long countReferences(@Param("id") UUID id);
 }

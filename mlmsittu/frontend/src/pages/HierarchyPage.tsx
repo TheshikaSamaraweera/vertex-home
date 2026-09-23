@@ -17,10 +17,8 @@ import {
   Card,
   EmptyState,
   ErrorBanner,
-  Field,
   Modal,
   PageHeader,
-  Select,
   Spinner,
   Table,
   TableWrap,
@@ -32,8 +30,9 @@ import {
  * The referral network (P6-05), in two readings.
  *
  * **Tree** draws it. A picture cannot be assembled a level at a time — the layout needs the whole
- * shape before it can place anything — so this view fetches a bounded forest in one request and
- * pays for that departure from §6.4 with a hard depth cap, chosen by the reader.
+ * shape before it can place anything — so this view fetches the whole forest, every level, in one
+ * request. It used to stop at a depth the reader picked, up to five; referral chains run deeper
+ * than that, and a picture that quietly ends at level five understates the network.
  *
  * **Outline** is the original: two levels open on load, everything deeper costing exactly one
  * request per node and only when somebody clicks. It stays because the drawn view stops being
@@ -48,12 +47,11 @@ export function HierarchyPage() {
   const roots = useDistributorRoots();
 
   const [view, setView] = useState<'tree' | 'outline'>('tree');
-  const [depth, setDepth] = useState(3);
   const [detailFor, setDetailFor] = useState<string | null>(null);
 
   // Guarded, not merely unused: the outline expands one node at a time, and fetching a whole
   // bounded forest it is never going to draw would undo the point of that view.
-  const forest = useDistributorForest(depth, view === 'tree');
+  const forest = useDistributorForest(view === 'tree');
 
   const source = view === 'tree' ? forest : roots;
   const empty = view === 'tree' ? (forest.data ?? []).length === 0 : (roots.data ?? []).length === 0;
@@ -65,21 +63,6 @@ export function HierarchyPage() {
         description={t('The whole network. Visible to administrators only — who recruited whom is commercial structure, not general staff information.')}
         actions={
           <div className="flex flex-wrap items-end gap-2">
-            {view === 'tree' && (
-              <Field label={t('Levels')} hint={t('below each root')}>
-                <Select
-                  className="w-24"
-                  value={String(depth)}
-                  onChange={(event) => setDepth(Number(event.target.value))}
-                >
-                  {[1, 2, 3, 4, 5].map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            )}
             <div className="flex overflow-hidden rounded-md border border-rule">
               <ViewTab active={view === 'tree'} onClick={() => setView('tree')}>
                 {t('Tree')}
@@ -96,9 +79,8 @@ export function HierarchyPage() {
         title={view === 'tree' ? t('Referral network') : t('Customers')}
         subtitle={
           view === 'tree'
-            ? t('{{count}} distributor(s) to {{depth}} level(s). Click a card for the full record.', {
+            ? t('{{count}} distributor(s), every level. Click a card for the full record.', {
                 count: (forest.data ?? []).length,
-                depth,
               })
             : t('Two levels load up front; anything deeper is fetched when you expand it.')
         }

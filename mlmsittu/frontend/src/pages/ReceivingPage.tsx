@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  useGoodsReceipts,
+  useGoodsReceiptsPage,
   useItems,
   useLocations,
   useOrdersAwaitingStoring,
@@ -11,6 +11,7 @@ import {
   useSuppliers,
 } from '../api/queries';
 import type { GoodsReceipt, PurchaseOrder } from '../api/types';
+import { useDebounced, usePager } from '../lib/paging';
 import { useAuth } from '../auth/AuthContext';
 import { ItemPicker } from '../components/ItemPicker';
 import {
@@ -24,6 +25,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  Pager,
   Select,
   Spinner,
   statusTone,
@@ -57,7 +59,6 @@ export function ReceivingPage() {
   const [manual, setManual] = useState(false);
 
   const awaiting = useOrdersAwaitingStoring();
-  const receipts = useGoodsReceipts();
 
   const awaitingCount = (awaiting.data ?? []).length;
 
@@ -111,19 +112,7 @@ export function ReceivingPage() {
           )}
         </Card>
       ) : (
-        <Card title={t('Added to stores')} subtitle={t('Newest first. Includes manual entries.')}>
-          {receipts.isLoading ? (
-            <Spinner />
-          ) : receipts.error ? (
-            <div className="p-4">
-              <ErrorBanner error={receipts.error} onRetry={() => void receipts.refetch()} />
-            </div>
-          ) : (receipts.data ?? []).length === 0 ? (
-            <EmptyState message={t('Nothing has been put into a store yet.')} />
-          ) : (
-            <StoredTable receipts={receipts.data ?? []} />
-          )}
-        </Card>
+        <StoredCard />
       )}
 
       {storingOrderId && (
@@ -236,6 +225,90 @@ function AwaitingTable({
         </tbody>
       </Table>
     </TableWrap>
+  );
+}
+
+/**
+ * The history tab, a page at a time. Its own component so the history is only fetched when
+ * somebody opens the tab — the backlog is what this screen is usually opened for.
+ */
+function StoredCard() {
+  const { t } = useTranslation();
+  const suppliers = useSuppliers(true);
+  const [source, setSource] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+  const [search, setSearch] = useState('');
+  const query = useDebounced(search.trim());
+  const pager = usePager(source, supplierId, query);
+  const receipts = useGoodsReceiptsPage({ source, supplierId, search: query }, pager.cursor);
+  const rows = receipts.data?.data ?? [];
+  const filtered = source !== '' || supplierId !== '' || query !== '';
+
+  return (
+    <Card
+      title={t('Added to stores')}
+      subtitle={t('Newest first. Includes manual entries.')}
+      actions={
+        <>
+          <Input
+            className="w-44"
+            type="search"
+            aria-label={t('Search receipts')}
+            placeholder={t('Receipt number…')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+          <Select
+            className="w-44"
+            aria-label={t('Supplier')}
+            value={supplierId}
+            onChange={(event) => setSupplierId(event.target.value)}
+          >
+            <option value="">{t('All suppliers')}</option>
+            {(suppliers.data ?? []).map((supplier) => (
+              <option key={supplier.id} value={supplier.id ?? ''}>
+                {supplier.name}
+              </option>
+            ))}
+          </Select>
+          <Select
+            className="w-44"
+            aria-label={t('Source')}
+            value={source}
+            onChange={(event) => setSource(event.target.value)}
+          >
+            <option value="">{t('All sources')}</option>
+            <option value="purchase_order">{t('From a purchase order')}</option>
+            <option value="manual">{t('Added manually')}</option>
+          </Select>
+        </>
+      }
+    >
+      {receipts.isLoading ? (
+        <Spinner />
+      ) : receipts.error ? (
+        <div className="p-4">
+          <ErrorBanner error={receipts.error} onRetry={() => void receipts.refetch()} />
+        </div>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          message={
+            filtered
+              ? t('No receipts match these filters.')
+              : t('Nothing has been put into a store yet.')
+          }
+        />
+      ) : (
+        <StoredTable receipts={rows} />
+      )}
+      <Pager
+        page={pager.page}
+        hasNext={Boolean(receipts.data?.nextCursor)}
+        loading={receipts.isPlaceholderData}
+        onPrevious={pager.previous}
+        onNext={() => receipts.data?.nextCursor && pager.next(receipts.data.nextCursor)}
+      />
+    </Card>
   );
 }
 
@@ -598,7 +671,7 @@ function ManualEntryModal({ onClose }: { onClose: () => void }) {
                 </Select>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="danger"
                   aria-label={t('Remove')}
                   onClick={() => setLines(lines.filter((_, i) => i !== index))}
                 >

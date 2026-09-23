@@ -7,9 +7,11 @@ import {
   useReconcileStock,
   useReorderAlerts,
   useRunReorderScan,
-  useStockByItem,
+  useCategories,
+  useStockByItemPage,
 } from '../api/queries';
 import type { StockByItem, StockInStore } from '../api/types';
+import { useDebounced, usePager } from '../lib/paging';
 import {
   AvailabilityBox,
   Badge,
@@ -21,6 +23,8 @@ import {
   Input,
   Modal,
   PageHeader,
+  Pager,
+  Select,
   Spinner,
   Table,
   TableWrap,
@@ -48,24 +52,23 @@ export function StockPage() {
   const canWrite = hasRole('INVENTORY_CLERK');
   const canReconcile = hasRole('SUPER_ADMIN');
 
-  const stock = useStockByItem();
   const alerts = useReorderAlerts(true);
   const reconcile = useReconcileStock();
   const reorderScan = useRunReorderScan();
 
   const [search, setSearch] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const categories = useCategories();
   const [viewingStores, setViewingStores] = useState<StockByItem | null>(null);
   const [inspecting, setInspecting] = useState<StockByItem | null>(null);
   const [reconcileReport, setReconcileReport] = useState<string | null>(null);
 
-  const rows = (stock.data ?? []).filter((row) => {
-    if (!search) return true;
-    const needle = search.toLowerCase();
-    return (
-      (row.sku ?? '').toLowerCase().includes(needle) ||
-      (row.itemName ?? '').toLowerCase().includes(needle)
-    );
-  });
+  // A page of items at a time, searched on the server — the whole catalogue with every store's
+  // figures attached was the heaviest response in the app.
+  const query = useDebounced(search.trim());
+  const pager = usePager(query, categoryId);
+  const stock = useStockByItemPage(query, categoryId, pager.cursor);
+  const rows = stock.data?.data ?? [];
 
   return (
     <>
@@ -137,16 +140,31 @@ export function StockPage() {
 
       <Card
         title={t('Stock levels')}
-        subtitle={t('{{count}} item(s), totalled across all stores', { count: rows.length })}
+        subtitle={t('{{count}} shown, totalled across all stores', { count: rows.length })}
         actions={
-          <Input
-            className="w-64"
-            type="search"
-            aria-label={t('Search stock')}
-            placeholder={t('Search Item code or item name…')}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
+          <>
+            <Input
+              className="w-64"
+              type="search"
+              aria-label={t('Search stock')}
+              placeholder={t('Search Item code or item name…')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Select
+              className="w-44"
+              aria-label={t('Category')}
+              value={categoryId}
+              onChange={(event) => setCategoryId(event.target.value)}
+            >
+              <option value="">{t('All categories')}</option>
+              {(categories.data ?? []).map((category) => (
+                <option key={category.id} value={category.id ?? ''}>
+                  {category.name}
+                </option>
+              ))}
+            </Select>
+          </>
         }
       >
         {stock.isLoading ? (
@@ -215,6 +233,13 @@ export function StockPage() {
             </Table>
           </TableWrap>
         )}
+        <Pager
+          page={pager.page}
+          hasNext={Boolean(stock.data?.nextCursor)}
+          loading={stock.isPlaceholderData}
+          onPrevious={pager.previous}
+          onNext={() => stock.data?.nextCursor && pager.next(stock.data.nextCursor)}
+        />
       </Card>
 
       {viewingStores && (

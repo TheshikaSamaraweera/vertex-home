@@ -1,5 +1,6 @@
 package com.democode.mlmsittu.inventory.api;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +44,19 @@ public interface StockLedger {
     List<StockView> levelsAt(UUID locationId);
 
     List<StockView> allLevels();
+
+    /**
+     * Removes an item's empty stock positions and any reorder alerts raised on them, so the item
+     * itself can be deleted.
+     *
+     * <p>Only for an item that has never moved: the caller checks that first. A position with
+     * anything on hand or reserved is left alone, and its row then stops the item being deleted —
+     * which is the right answer, since stock that exists cannot be deleted by deleting its label.
+     */
+    void discardEmptyPositions(UUID itemId);
+
+    /** Every level held for any of these items, at any location. */
+    List<StockView> levelsOf(Collection<UUID> itemIds);
 
     /** Newest first. Either filter may be null to mean "any". */
     List<StockMovementView> movementHistory(UUID itemId, UUID locationId);

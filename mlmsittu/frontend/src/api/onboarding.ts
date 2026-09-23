@@ -208,10 +208,11 @@ export const useItemPackOptions = () =>
     queryFn: () => list<ItemPackOption>('/api/v1/registrations/item-packs'),
   });
 
-export const useDistributorForest = (depth: number, enabled = true) =>
+/** The whole network, every level, for the drawn tree. */
+export const useDistributorForest = (enabled = true) =>
   useQuery({
-    queryKey: ['distributors', 'forest', depth],
-    queryFn: () => list<DistributorNode>('/api/v1/distributors/tree', { depth }),
+    queryKey: ['distributors', 'forest', 'all'],
+    queryFn: () => list<DistributorNode>('/api/v1/distributors/tree'),
     enabled,
   });
 

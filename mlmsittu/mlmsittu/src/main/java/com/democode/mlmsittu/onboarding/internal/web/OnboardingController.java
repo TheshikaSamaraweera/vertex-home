@@ -42,6 +42,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 public class OnboardingController {
 
+    /** ltree's own ceiling on path length, so "every level" is exact rather than a guess. */
+    private static final int ALL_LEVELS = 65_535;
+
     private final RegistrationService registrations;
     private final DocumentVault documents;
     private final ReferralHierarchy distributors;
@@ -360,21 +363,28 @@ public class OnboardingController {
     }
 
     /**
-     * Every root and its descendants to a bounded depth, in one response.
+     * Every root and its descendants, in one response — every level unless {@code depth} says
+     * otherwise.
      *
      * <p>A drawn tree cannot be assembled a level at a time — the layout needs to know the whole
      * shape before it can place anything, and expanding node by node would mean redrawing the
      * picture on every click. So this is the one place that departs from §6.4's expand-on-demand
-     * rule, and it pays for the departure with a hard depth cap: five levels, which with four
-     * referral slots each is at most 341 nodes per root.
+     * rule.
      *
-     * <p>Nodes at the cap still report {@code directChildCount}, so the drawing can say "there is
-     * more below here" honestly rather than showing a leaf that is not one.
+     * <p>It used to be capped at five levels, chosen from a picker. Referral chains run far deeper
+     * than that, and a picture that silently stops at level five tells an administrator the
+     * network is smaller than it is. The walk is a single indexed {@code ltree} containment query,
+     * so depth costs the database almost nothing; the size of the response is the size of the
+     * network, which is what was asked for.
+     *
+     * <p>Nodes at a requested cap still report {@code directChildCount}, so the drawing can say
+     * "there is more below here" honestly rather than showing a leaf that is not one.
      */
     @GetMapping("/distributors/tree")
     @PreAuthorize("hasRole('ADMIN')")
-    public PagedResponse<DistributorNode> tree(@RequestParam(defaultValue = "3") int depth) {
-        return PagedResponse.of(distributors.forest(Math.min(Math.max(depth, 1), 5)));
+    public PagedResponse<DistributorNode> tree(@RequestParam(required = false) Integer depth) {
+        int levels = depth == null ? ALL_LEVELS : Math.min(Math.max(depth, 1), ALL_LEVELS);
+        return PagedResponse.of(distributors.forest(levels));
     }
 
     @GetMapping("/distributors/{id}")

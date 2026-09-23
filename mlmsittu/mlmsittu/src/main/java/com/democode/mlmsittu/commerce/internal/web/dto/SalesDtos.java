@@ -136,9 +136,18 @@ public final class SalesDtos {
             Instant paidAt,
             Instant fulfilledAt,
             Instant cancelledAt,
-            List<SalesOrderLineResponse> lines) {
+            List<SalesOrderLineResponse> lines,
+            /**
+             * Filled in on the paged list only, so the screen can label one page of orders without
+             * fetching every customer to do it. Null everywhere else.
+             */
+            String customerName) {
 
         public static SalesOrderResponse from(SalesOrder order) {
+            return from(order, null);
+        }
+
+        public static SalesOrderResponse from(SalesOrder order, String customerName) {
             return new SalesOrderResponse(
                     order.getId(),
                     order.getOrderNumber(),
@@ -154,7 +163,8 @@ public final class SalesDtos {
                     order.getPaidAt(),
                     order.getFulfilledAt(),
                     order.getCancelledAt(),
-                    order.getLines().stream().map(SalesOrderLineResponse::from).toList());
+                    order.getLines().stream().map(SalesOrderLineResponse::from).toList(),
+                    customerName);
         }
     }
 

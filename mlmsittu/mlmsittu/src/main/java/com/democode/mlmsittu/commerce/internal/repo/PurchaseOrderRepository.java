@@ -5,6 +5,7 @@ import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -26,6 +27,47 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, UU
 
     @Query("select p from PurchaseOrder p order by p.createdAt desc")
     List<PurchaseOrder> findAllOrdered();
+
+    /**
+     * The newest orders, by {@code (created_at, id)} so the order is total.
+     *
+     * <p>Each filter is the empty string for "any". {@code NULLIF} keeps the uuid cast from ever
+     * seeing that empty string, since SQL does not promise to short-circuit the {@code OR}.
+     */
+    @Query(
+            value =
+                    """
+                    SELECT * FROM purchase_order
+                     WHERE (:status = '' OR status = :status)
+                       AND (:supplier = '' OR supplier_id = CAST(NULLIF(:supplier, '') AS uuid))
+                       AND (:search = '' OR lower(po_number) LIKE '%' || lower(:search) || '%')
+                     ORDER BY created_at DESC, id DESC
+                    """,
+            nativeQuery = true)
+    List<PurchaseOrder> firstPage(
+            @Param("status") String status,
+            @Param("supplier") String supplier,
+            @Param("search") String search,
+            Pageable pageable);
+
+    @Query(
+            value =
+                    """
+                    SELECT * FROM purchase_order
+                     WHERE (:status = '' OR status = :status)
+                       AND (:supplier = '' OR supplier_id = CAST(NULLIF(:supplier, '') AS uuid))
+                       AND (:search = '' OR lower(po_number) LIKE '%' || lower(:search) || '%')
+                       AND (created_at, id) < (CAST(:createdAt AS timestamptz), CAST(:id AS uuid))
+                     ORDER BY created_at DESC, id DESC
+                    """,
+            nativeQuery = true)
+    List<PurchaseOrder> pageBefore(
+            @Param("status") String status,
+            @Param("supplier") String supplier,
+            @Param("search") String search,
+            @Param("createdAt") String createdAt,
+            @Param("id") UUID id,
+            Pageable pageable);
 
     @Query("select p from PurchaseOrder p where p.supplierId = :supplierId order by p.createdAt desc")
     List<PurchaseOrder> findBySupplier(@Param("supplierId") UUID supplierId);

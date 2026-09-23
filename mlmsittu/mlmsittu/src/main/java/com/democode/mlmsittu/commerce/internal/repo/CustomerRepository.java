@@ -4,6 +4,7 @@ import com.democode.mlmsittu.commerce.internal.domain.Customer;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,4 +31,46 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
             order by c.name
             """)
     List<Customer> search(@Param("term") String term, @Param("includeInactive") boolean includeInactive);
+
+    /**
+     * One page of customers by name, optionally filtered on name or code.
+     *
+     * <p>The same {@code (name, id)} keyset as the item catalogue, for the same reason: names are
+     * not unique, and the id is what makes "after this row" mean exactly one place.
+     * {@code search} is the empty string for no filter.
+     */
+    @Query(
+            value =
+                    """
+                    SELECT * FROM customer
+                     WHERE (:includeInactive = true OR is_active = true)
+                       AND (:search = ''
+                            OR lower(name) LIKE '%' || lower(:search) || '%'
+                            OR lower(code) LIKE '%' || lower(:search) || '%')
+                     ORDER BY name, id
+                    """,
+            nativeQuery = true)
+    List<Customer> firstPage(
+            @Param("search") String search,
+            @Param("includeInactive") boolean includeInactive,
+            Pageable pageable);
+
+    @Query(
+            value =
+                    """
+                    SELECT * FROM customer
+                     WHERE (:includeInactive = true OR is_active = true)
+                       AND (:search = ''
+                            OR lower(name) LIKE '%' || lower(:search) || '%'
+                            OR lower(code) LIKE '%' || lower(:search) || '%')
+                       AND (name, id) > (:name, CAST(:id AS uuid))
+                     ORDER BY name, id
+                    """,
+            nativeQuery = true)
+    List<Customer> pageAfter(
+            @Param("search") String search,
+            @Param("includeInactive") boolean includeInactive,
+            @Param("name") String name,
+            @Param("id") UUID id,
+            Pageable pageable);
 }

@@ -158,6 +158,7 @@ class SalesFlowTest {
                                 "Sales fixture pack",
                                 null,
                                 new BigDecimal("300.00"),
+                                null,
                                 List.of(new ComponentRequest(partA, 2), new ComponentRequest(partB, 3)))
                         .getId();
 

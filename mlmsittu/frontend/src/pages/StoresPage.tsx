@@ -14,6 +14,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  Select,
   Spinner,
   Table,
   TableWrap,
@@ -44,6 +45,18 @@ export function StoresPage() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<LocationSummary | null>(null);
 
+  const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all');
+  const needle = search.trim().toLowerCase();
+  const shown = (stores.data ?? []).filter(
+    (store) =>
+      (!needle ||
+        (store.code ?? '').toLowerCase().includes(needle) ||
+        (store.name ?? '').toLowerCase().includes(needle) ||
+        (store.address ?? '').toLowerCase().includes(needle)) &&
+      (status === 'all' || (status === 'active') === Boolean(store.active)),
+  );
+
   return (
     <>
       <PageHeader
@@ -66,7 +79,29 @@ export function StoresPage() {
 
       <Card
         title={t('Store list')}
-        subtitle={t('{{count}} shown', { count: (stores.data ?? []).length })}
+        subtitle={t('{{count}} shown', { count: shown.length })}
+        actions={
+          <>
+            <Input
+              className="w-56"
+              type="search"
+              aria-label={t('Search stores')}
+              placeholder={t('Code, name or location…')}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Select
+              className="w-36"
+              aria-label={t('Status')}
+              value={status}
+              onChange={(event) => setStatus(event.target.value as typeof status)}
+            >
+              <option value="all">{t('All stores')}</option>
+              <option value="active">{t('Active')}</option>
+              <option value="inactive">{t('Deactivated')}</option>
+            </Select>
+          </>
+        }
       >
         {stores.isLoading ? (
           <Spinner />
@@ -74,8 +109,14 @@ export function StoresPage() {
           <div className="p-4">
             <ErrorBanner error={stores.error} onRetry={() => void stores.refetch()} />
           </div>
-        ) : (stores.data ?? []).length === 0 ? (
-          <EmptyState message={t('No stores yet.')} />
+        ) : shown.length === 0 ? (
+          <EmptyState
+            message={
+              (stores.data ?? []).length === 0
+                ? t('No stores yet.')
+                : t('No stores match these filters.')
+            }
+          />
         ) : (
           <TableWrap>
             <Table>
@@ -89,7 +130,7 @@ export function StoresPage() {
                 </tr>
               </thead>
               <tbody>
-                {(stores.data ?? []).map((store) => (
+                {shown.map((store) => (
                   <tr key={store.id} className={store.active ? 'hover:bg-panel2' : 'opacity-60'}>
                     <Td className="font-mono text-xs">{store.code}</Td>
                     <Td className="text-ink">

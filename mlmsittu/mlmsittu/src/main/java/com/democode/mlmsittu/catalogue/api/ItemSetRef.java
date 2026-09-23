@@ -7,6 +7,7 @@ import java.util.UUID;
 /**
  * A set as other modules see it.
  *
+ * @param imageId the set's picture, or null — a document of kind {@code item_set}
  * @param components component item id → quantity contained in <b>one</b> set. Inventory multiplies
  *     this by the number of sets requested; the catalogue does not know or care how many are being
  *     bought.
@@ -17,4 +18,5 @@ public record ItemSetRef(
         String name,
         BigDecimal setPrice,
         boolean active,
+        UUID imageId,
         Map<UUID, Integer> components) {}

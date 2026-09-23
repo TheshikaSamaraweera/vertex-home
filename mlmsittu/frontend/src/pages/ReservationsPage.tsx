@@ -268,7 +268,7 @@ function CreateReservationModal({
               />
               <Button
                 type="button"
-                variant="ghost"
+                variant="danger"
                 onClick={() => setLines(lines.filter((_, i) => i !== index))}
                 aria-label={t('Remove')}
               >

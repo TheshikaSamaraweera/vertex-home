@@ -133,6 +133,7 @@ public class AvailabilityService {
                 set.code(),
                 set.name(),
                 set.setPrice(),
+                set.imageId(),
                 locationId,
                 Math.max(availableSets, 0),
                 contended,

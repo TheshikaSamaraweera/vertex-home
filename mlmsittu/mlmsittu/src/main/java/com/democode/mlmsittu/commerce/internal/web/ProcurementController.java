@@ -16,6 +16,7 @@ import com.democode.mlmsittu.commerce.internal.web.dto.ProcurementDtos.SupplierP
 import com.democode.mlmsittu.commerce.internal.web.dto.ProcurementDtos.SupplierRequest;
 import com.democode.mlmsittu.commerce.internal.web.dto.ProcurementDtos.SupplierResponse;
 import com.democode.mlmsittu.identity.api.CurrentUser;
+import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.api.PagedResponse;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -44,6 +45,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1")
 @PreAuthorize("hasRole('STAFF')")
 public class ProcurementController {
+
+    /** The largest page any list here will return in one response. */
+    private static final int MAX_PAGE = 200;
 
     private final SupplierService suppliers;
     private final SupplierPriceService supplierPrices;
@@ -201,10 +205,30 @@ public class ProcurementController {
                         currentUser.requireId()));
     }
 
+    /**
+     * Newest first. Paged when {@code limit} is given, and then filterable by status, supplier and
+     * PO number; everything at once otherwise.
+     */
     @GetMapping("/purchase-orders")
-    public PagedResponse<PurchaseOrderResponse> listPurchaseOrders() {
-        return PagedResponse.of(
-                purchaseOrders.list().stream().map(PurchaseOrderResponse::from).toList());
+    public PagedResponse<PurchaseOrderResponse> listPurchaseOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID supplierId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+        if (limit == null) {
+            return PagedResponse.of(
+                    purchaseOrders.list().stream().map(PurchaseOrderResponse::from).toList());
+        }
+        int size = Cursor.clampLimit(limit, MAX_PAGE, MAX_PAGE);
+        return PagedResponse.page(
+                purchaseOrders
+                        .page(status, supplierId, search, Cursor.decodeOrNull(cursor), size + 1)
+                        .stream()
+                        .map(PurchaseOrderResponse::from)
+                        .toList(),
+                size,
+                row -> new Cursor(row.createdAt().toString(), row.id()));
     }
 
     @GetMapping("/purchase-orders/{id}")
@@ -330,11 +354,30 @@ public class ProcurementController {
                         currentUser.requireId()));
     }
 
-    /** Everything that has been put into a store, newest first. */
+    /**
+     * Everything that has been put into a store, newest first. Paged when {@code limit} is given,
+     * and then filterable by source, supplier and receipt number; everything at once otherwise.
+     */
     @GetMapping("/goods-receipts")
-    public PagedResponse<GoodsReceiptResponse> listGoodsReceipts() {
-        return PagedResponse.of(
-                goodsReceipts.list().stream().map(GoodsReceiptResponse::from).toList());
+    public PagedResponse<GoodsReceiptResponse> listGoodsReceipts(
+            @RequestParam(required = false) String source,
+            @RequestParam(required = false) UUID supplierId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+        if (limit == null) {
+            return PagedResponse.of(
+                    goodsReceipts.list().stream().map(GoodsReceiptResponse::from).toList());
+        }
+        int size = Cursor.clampLimit(limit, MAX_PAGE, MAX_PAGE);
+        return PagedResponse.page(
+                goodsReceipts
+                        .page(source, supplierId, search, Cursor.decodeOrNull(cursor), size + 1)
+                        .stream()
+                        .map(GoodsReceiptResponse::from)
+                        .toList(),
+                size,
+                row -> new Cursor(row.receivedAt().toString(), row.id()));
     }
 
     @GetMapping("/goods-receipts/{id}")

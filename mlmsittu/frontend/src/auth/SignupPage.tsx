@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
-import { Button, ErrorBanner, Field, Input, Instructions } from '../components/ui';
+import { Button, ErrorBanner, Field, Input, Instructions, PasswordInput } from '../components/ui';
 
 /**
  * Account creation.
@@ -108,8 +108,7 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
                     : fieldErrors.password
                 }
               >
-                <Input
-                  type="password"
+                <PasswordInput
                   required
                   minLength={10}
                   aria-invalid={password !== '' && password.length < 10}

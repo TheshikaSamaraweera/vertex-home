@@ -7,9 +7,11 @@ import com.democode.mlmsittu.inventory.api.StockMovementType;
 import com.democode.mlmsittu.inventory.api.StockMovementView;
 import com.democode.mlmsittu.inventory.api.StockPosting;
 import com.democode.mlmsittu.inventory.api.StockView;
+import com.democode.mlmsittu.inventory.internal.reorder.ReorderAlertRepository;
 import com.democode.mlmsittu.shared.datasource.ReadFromPrimary;
 import com.democode.mlmsittu.shared.error.ApiException;
 import com.democode.mlmsittu.shared.error.NotFoundException;
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,14 +44,17 @@ public class StockLedgerService implements StockLedger {
     private final StockLevelRepository levels;
     private final StockMovementRepository movements;
     private final ItemCatalogue itemCatalogue;
+    private final ReorderAlertRepository reorderAlerts;
 
     public StockLedgerService(
             StockLevelRepository levels,
             StockMovementRepository movements,
-            ItemCatalogue itemCatalogue) {
+            ItemCatalogue itemCatalogue,
+            ReorderAlertRepository reorderAlerts) {
         this.levels = levels;
         this.movements = movements;
         this.itemCatalogue = itemCatalogue;
+        this.reorderAlerts = reorderAlerts;
     }
 
     @Override
@@ -223,6 +228,22 @@ public class StockLedgerService implements StockLedger {
     @Transactional(readOnly = true)
     public List<StockView> allLevels() {
         return levels.findAllOrdered().stream().map(StockLevel::toView).toList();
+    }
+
+    @Override
+    @Transactional
+    public void discardEmptyPositions(UUID itemId) {
+        reorderAlerts.deleteForItem(itemId);
+        levels.deleteEmptyForItem(itemId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<StockView> levelsOf(Collection<UUID> itemIds) {
+        if (itemIds.isEmpty()) {
+            return List.of();
+        }
+        return levels.findForItems(itemIds).stream().map(StockLevel::toView).toList();
     }
 
     @Override

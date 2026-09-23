@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { Button, ErrorBanner, Field, Input } from '../components/ui';
+import { Button, ErrorBanner, Field, Input, PasswordInput } from '../components/ui';
 
 /**
  * The distributor's front door — a separate page from the staff one.
@@ -117,8 +117,7 @@ export function PortalLoginPage() {
           />
         </Field>
         <Field label={t('Password')}>
-          <Input
-            type="password"
+          <PasswordInput
             required
             autoComplete="current-password"
             value={password}
@@ -221,8 +220,7 @@ export function PortalSignupPage() {
             hint={t('At least 10 characters. Longer beats complicated.')}
             error={fieldErrors.password}
           >
-            <Input
-              type="password"
+            <PasswordInput
               required
               minLength={10}
               autoComplete="new-password"

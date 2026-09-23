@@ -126,6 +126,34 @@ class AnnouncementTest {
                 .isInstanceOf(ApiException.class);
     }
 
+    @Test
+    @DisplayName("editing a draft leaves it a draft")
+    void editingDoesNotPublish() {
+        UUID id = announcements.create("Still drafting", null, GOOD_BODY, null, null, newUser());
+
+        announcements.update(id, "Still drafting, v2", null, GOOD_BODY, null, null);
+
+        assertThat(announcements.get(id).publishedAt()).isNull();
+        assertThat(announcements.listLive()).noneMatch(a -> a.id().equals(id));
+    }
+
+    @Test
+    @DisplayName("editing a taken-down announcement cannot put it back up")
+    void editingDoesNotRevive() {
+        UUID id = announcements.create("Was up", null, GOOD_BODY, null, null, newUser());
+        announcements.publish(id);
+        announcements.withdraw(id);
+        assertThat(announcements.listLive()).noneMatch(a -> a.id().equals(id));
+
+        // What the editor sends when somebody clears the "take down on" date, or moves it on.
+        announcements.update(id, "Was up, reworded", null, GOOD_BODY, null, null);
+        announcements.update(
+                id, "Was up, again", null, GOOD_BODY, null, Instant.now().plusSeconds(86_400));
+
+        assertThat(announcements.listLive()).noneMatch(a -> a.id().equals(id));
+        assertThat(announcements.get(id).title()).isEqualTo("Was up, again");
+    }
+
     private UUID newUser() {
         AppUser user = new AppUser();
         user.setEmail("announcer-" + UUID.randomUUID() + "@test.local");

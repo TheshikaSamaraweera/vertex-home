@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -121,5 +123,22 @@ public class InvoiceService {
     @Transactional(readOnly = true)
     public List<Invoice> list() {
         return invoices.findAllInSequence();
+    }
+
+    /**
+     * One page of the register, newest first — the end a person is usually looking for. A gap is
+     * as visible reading down as reading up.
+     *
+     * @param search part of an invoice number; null or blank for any
+     * @param beforeSequence null for the first page, otherwise the last sequence number shown
+     * @param limit rows to fetch — one more than the page shows, to learn whether more follow
+     */
+    @Transactional(readOnly = true)
+    public List<Invoice> page(String search, Long beforeSequence, int limit) {
+        String term = search == null ? "" : search.trim();
+        Pageable window = PageRequest.of(0, limit);
+        return beforeSequence == null
+                ? invoices.firstPage(term, window)
+                : invoices.pageBefore(term, beforeSequence, window);
     }
 }

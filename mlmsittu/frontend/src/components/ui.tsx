@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ApiError, NetworkError } from '../api/client';
 
 /**
@@ -140,6 +142,59 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
   return <input className={cx(inputClass, invalidClass, className)} {...props} />;
 }
 
+/**
+ * A password field with a show / hide toggle.
+ *
+ * Typing a password blind on a phone keyboard is how people get locked out: one wrong character
+ * and there is no way to see which. The toggle is a real button — reachable by keyboard, announced
+ * with its state — and `type="button"` so pressing it never submits the form it sits in.
+ *
+ * Starts hidden every time. Remembering "shown" would leave a password on screen the next time
+ * somebody opens the form, possibly in front of someone else.
+ */
+export function PasswordInput({
+  className,
+  ...props
+}: Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+  const { t } = useTranslation();
+  const [visible, setVisible] = useState(false);
+  const label = visible ? t('Hide password') : t('Show password');
+
+  return (
+    <div className="relative">
+      <input
+        {...props}
+        type={visible ? 'text' : 'password'}
+        className={cx(inputClass, invalidClass, 'pr-10', className)}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((shown) => !shown)}
+        aria-label={label}
+        aria-pressed={visible}
+        title={label}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-ink3 hover:text-brand focus-visible:text-brand focus-visible:outline-none"
+      >
+        <svg
+          aria-hidden
+          viewBox="0 0 24 24"
+          className="h-4 w-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+          <circle cx="12" cy="12" r="3" />
+          {/* The slash says "currently shown — press to hide", matching the label. */}
+          {visible && <path d="M3 3l18 18" />}
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select className={cx(inputClass, invalidClass, className)} {...props}>
@@ -274,6 +329,49 @@ export function Td({
     >
       {children}
     </td>
+  );
+}
+
+/**
+ * Previous / Next under a paged table.
+ *
+ * No page count and no jumping to page 7: the server pages by cursor, which is what keeps a page
+ * exact while other people are adding rows, and a cursor only knows what comes next. Hidden
+ * entirely when everything fits on one page — a control that can do nothing is just noise.
+ */
+export function Pager({
+  page,
+  hasNext,
+  onPrevious,
+  onNext,
+  loading,
+}: {
+  /** 1-based. */
+  page: number;
+  hasNext: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+  /** The next page is on its way; both buttons wait for it. */
+  loading?: boolean;
+}) {
+  const { t } = useTranslation();
+  if (page === 1 && !hasNext) return null;
+
+  return (
+    <nav
+      aria-label={t('Pages')}
+      className="flex items-center justify-between gap-3 border-t border-rule px-4 py-2.5"
+    >
+      <span className="nums text-xs text-ink3">{t('Page {{page}}', { page })}</span>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={onPrevious} disabled={page === 1 || loading}>
+          {t('Previous')}
+        </Button>
+        <Button size="sm" onClick={onNext} disabled={!hasNext || loading}>
+          {t('Next')}
+        </Button>
+      </div>
+    </nav>
   );
 }
 

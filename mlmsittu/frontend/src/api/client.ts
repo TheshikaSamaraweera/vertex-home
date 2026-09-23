@@ -49,10 +49,13 @@ export class NetworkError extends Error {
   }
 }
 
+type QueryValue = string | number | boolean | undefined | null;
+
 type RequestOptions = {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
-  query?: Record<string, string | number | boolean | undefined | null>;
+  /** An array value is sent as the same parameter repeated: `itemId=a&itemId=b`. */
+  query?: Record<string, QueryValue | QueryValue[]>;
   signal?: AbortSignal;
   /** Extra request headers. Used for `Idempotency-Key`, which describes the request, not the body. */
   headers?: Record<string, string>;
@@ -62,8 +65,10 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
   if (!query) return path;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null && value !== '') {
-      params.set(key, String(value));
+    for (const each of Array.isArray(value) ? value : [value]) {
+      if (each !== undefined && each !== null && each !== '') {
+        params.append(key, String(each));
+      }
     }
   }
   const queryString = params.toString();

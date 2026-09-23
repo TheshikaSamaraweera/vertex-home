@@ -85,6 +85,19 @@ public class ItemProvisioningService {
         return saved;
     }
 
+    /**
+     * Deletes an item that was never used, together with the empty stock position it was created
+     * with. One transaction: if the item turns out to be in use, the positions come back too.
+     */
+    @Transactional
+    public void deleteUnused(UUID itemId) {
+        items.get(itemId);
+        // Checked before touching stock, so a refused delete never even tries to remove a level.
+        items.assertUnused(itemId);
+        stock.discardEmptyPositions(itemId);
+        items.delete(itemId);
+    }
+
     /** Resolved before the item is created, so a bad location fails before anything is written. */
     private UUID resolveLocation(OpeningStock opening) {
         if (opening == null || opening.locationId() == null) {

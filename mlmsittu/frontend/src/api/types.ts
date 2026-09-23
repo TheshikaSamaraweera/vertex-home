@@ -75,6 +75,7 @@ export type SupplierPrice = Schemas['SupplierPriceResponse'];
 export const PO_STATUSES = [
   'draft',
   'sent',
+  'arrived',
   'partially_received',
   'received',
   'cancelled',

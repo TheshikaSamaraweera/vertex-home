@@ -13,6 +13,7 @@ import com.democode.mlmsittu.inventory.api.LocationDirectory;
 import com.democode.mlmsittu.inventory.api.StockLedger;
 import com.democode.mlmsittu.inventory.api.StockMovementType;
 import com.democode.mlmsittu.inventory.api.StockPosting;
+import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
 import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ApiException;
@@ -26,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -338,6 +341,28 @@ public class GoodsReceiptService {
     @Transactional(readOnly = true)
     public List<GoodsReceipt> list() {
         return receipts.findAllNewestFirst();
+    }
+
+    /**
+     * One page of receipts, newest first.
+     *
+     * @param source {@code purchase_order} or {@code manual}; null or blank for either
+     * @param supplierId null for any
+     * @param search part of a receipt number; null or blank for any
+     * @param before null for the first page
+     * @param limit rows to fetch — one more than the page shows, to learn whether more follow
+     */
+    @Transactional(readOnly = true)
+    public List<GoodsReceipt> page(
+            String source, UUID supplierId, String search, Cursor before, int limit) {
+        String kind = source == null ? "" : source.trim();
+        String supplier = supplierId == null ? "" : supplierId.toString();
+        String term = search == null ? "" : search.trim();
+        Pageable window = PageRequest.of(0, limit);
+        return before == null
+                ? receipts.firstPage(kind, supplier, term, window)
+                : receipts.pageBefore(
+                        kind, supplier, term, before.sortKey(), before.id(), window);
     }
 
     // ------------------------------------------------------------------ helpers

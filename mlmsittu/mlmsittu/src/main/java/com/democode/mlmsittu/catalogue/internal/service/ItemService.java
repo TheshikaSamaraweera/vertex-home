@@ -86,10 +86,33 @@ public class ItemService implements ItemCatalogue {
      */
     @Transactional(readOnly = true)
     public List<Item> page(boolean includeInactive, Cursor cursor, int limit) {
+        return page(includeInactive, null, null, cursor, limit);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Item> page(boolean includeInactive, String search, Cursor cursor, int limit) {
+        return page(includeInactive, search, null, cursor, limit);
+    }
+
+    /**
+     * As above, narrowed to items whose name or SKU contains {@code search}.
+     *
+     * <p>The filter has to run here and not in the browser once the screen shows one page at a
+     * time — filtering a page only finds matches that happen to be on it.
+     *
+     * @param search null or blank for no filter
+     * @param categoryId null for every category
+     */
+    @Transactional(readOnly = true)
+    public List<Item> page(
+            boolean includeInactive, String search, UUID categoryId, Cursor cursor, int limit) {
         Pageable window = PageRequest.of(0, limit + 1);
+        String term = search == null ? "" : search.trim();
+        String category = categoryId == null ? "" : categoryId.toString();
         return cursor == null
-                ? items.firstPage(includeInactive, window)
-                : items.pageAfter(includeInactive, cursor.sortKey(), cursor.id(), window);
+                ? items.firstPage(includeInactive, term, category, window)
+                : items.pageAfter(
+                        includeInactive, term, category, cursor.sortKey(), cursor.id(), window);
     }
 
     @Override
@@ -102,6 +125,20 @@ public class ItemService implements ItemCatalogue {
     @Transactional(readOnly = true)
     public List<ItemRef> findAll() {
         return items.findAllOrdered().stream().map(Item::toRef).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ItemRef> page(String search, UUID categoryId, Cursor after, int limit) {
+        Pageable window = PageRequest.of(0, limit);
+        String term = search == null ? "" : search.trim();
+        String category = categoryId == null ? "" : categoryId.toString();
+        List<Item> fetched =
+                after == null
+                        ? items.firstPage(true, term, category, window)
+                        : items.pageAfter(
+                                true, term, category, after.sortKey(), after.id(), window);
+        return fetched.stream().map(Item::toRef).toList();
     }
 
     // ------------------------------------------------------------------ commands
@@ -157,6 +194,41 @@ public class ItemService implements ItemCatalogue {
         Item saved = items.save(item);
         AuditContext.record(id, before, snapshot(saved));
         return saved;
+    }
+
+    /**
+     * Removes an item outright — for one created by mistake.
+     *
+     * <p>Refused with {@code ITEM_IN_USE} once anything refers to it: a stock movement, an order
+     * line, a purchase or receipt line, a reservation, or a set it belongs to. Those records have
+     * to keep meaning something, so deactivation is the answer for an item with a past. An item
+     * that was never stocked, sold or ordered deletes cleanly, which is what the button is for.
+     *
+     * <p>The caller clears the item's empty stock positions first; see
+     * {@link ItemProvisioningService#deleteUnused}.
+     */
+    @Transactional
+    @Audited(action = "ITEM_DELETED", entityType = "item", auditFailures = true)
+    public void delete(UUID id) {
+        Item item = require(id);
+        assertUnused(id);
+        AuditContext.record(id, snapshot(item), null);
+        items.delete(item);
+    }
+
+    /** @throws ConflictException {@code ITEM_IN_USE} if anything refers to the item */
+    void assertUnused(UUID id) {
+        long references = items.countReferences(id);
+        if (references > 0) {
+            ConflictException conflict =
+                    new ConflictException(
+                            "ITEM_IN_USE",
+                            "That item has stock history, orders or sets that refer to it and"
+                                + " cannot be deleted. Deactivate it instead — it stops new orders"
+                                + " and leaves the history intact.");
+            conflict.with("references", references);
+            throw conflict;
+        }
     }
 
     @Transactional(readOnly = true)

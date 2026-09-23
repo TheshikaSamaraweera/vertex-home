@@ -49,6 +49,9 @@ public class InventoryController {
     /** History is read newest-first and rarely scrolled far; a big first page suits that. */
     private static final int MOVEMENT_PAGE = 200;
 
+    /** Each row carries a per-store breakdown, so a page is kept smaller than the catalogue's. */
+    private static final int STOCK_PAGE = 200;
+
     private final StockLedger ledger;
     private final StockAdjustmentService adjustments;
     private final StockReconciliationService reconciliation;
@@ -181,13 +184,27 @@ public class InventoryController {
 
     // ------------------------------------------------------------------ stock
 
-    /** Item name and SKU are joined in here rather than stored on the level — see the note below. */
+    /**
+     * Item name and SKU are joined in here rather than stored on the level — see the note below.
+     *
+     * <p>{@code itemId} may be repeated to ask about just those items. The items screen shows one
+     * page of the catalogue and wants availability for that page only, not every level in the
+     * building.
+     */
     @GetMapping("/stock")
     public PagedResponse<StockLevelResponse> listStock(
-            @RequestParam(required = false) UUID locationId) {
+            @RequestParam(required = false) UUID locationId,
+            @RequestParam(name = "itemId", required = false) List<UUID> itemIds) {
 
-        List<StockView> views =
-                locationId == null ? ledger.allLevels() : ledger.levelsAt(locationId);
+        List<StockView> views;
+        if (itemIds != null && !itemIds.isEmpty()) {
+            views = ledger.levelsOf(itemIds);
+            if (locationId != null) {
+                views = views.stream().filter(v -> locationId.equals(v.locationId())).toList();
+            }
+        } else {
+            views = locationId == null ? ledger.allLevels() : ledger.levelsAt(locationId);
+        }
 
         Map<UUID, ItemRef> itemsById =
                 items.findAllById(views.stream().map(StockView::itemId).toList());
@@ -213,37 +230,46 @@ public class InventoryController {
     }
 
     /**
-     * Stock totalled per item, with a per-store breakdown.
+     * Stock totalled per item, with a per-store breakdown, one page of items at a time.
      *
      * <p>The screen's default view. Listing one row per (item, store) meant the same item appeared
      * several times with a slice of its quantity in each — which reads as a duplicate entry, and
      * made a perfectly healthy item look short in every store it was split across.
+     *
+     * <p>Paged over the catalogue, not over the levels: a page of levels could cut one item's
+     * stores in half, and the total on either side of the cut would be wrong. The catalogue's
+     * (name, id) order is the order this screen always showed, so the cursor is the item's.
      */
     @GetMapping("/stock/by-item")
-    public PagedResponse<StockByItemResponse> listStockByItem() {
+    public PagedResponse<StockByItemResponse> listStockByItem(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+
+        int size = Cursor.clampLimit(limit, STOCK_PAGE, STOCK_PAGE);
+        List<ItemRef> fetched =
+                items.page(search, categoryId, Cursor.decodeOrNull(cursor), size + 1);
+        List<ItemRef> page = fetched.size() > size ? fetched.subList(0, size) : fetched;
+
         Map<UUID, LocationRef> storesById = new LinkedHashMap<>();
         locations.findAll().forEach(store -> storesById.put(store.id(), store));
 
-        List<StockView> views = ledger.allLevels();
-        Map<UUID, ItemRef> itemsById =
-                items.findAllById(views.stream().map(StockView::itemId).toList());
-
         Map<UUID, List<StockView>> byItem = new LinkedHashMap<>();
-        for (StockView view : views) {
+        for (StockView view : ledger.levelsOf(page.stream().map(ItemRef::id).toList())) {
             byItem.computeIfAbsent(view.itemId(), key -> new ArrayList<>()).add(view);
         }
 
         List<StockByItemResponse> rows = new ArrayList<>();
-        for (Map.Entry<UUID, List<StockView>> entry : byItem.entrySet()) {
-            ItemRef item = itemsById.get(entry.getKey());
-            int reorderLevel = item == null ? 0 : item.reorderLevel();
+        for (ItemRef item : page) {
+            int reorderLevel = item.reorderLevel();
 
             int onHand = 0;
             int reserved = 0;
             int available = 0;
             List<StockInStoreResponse> stores = new ArrayList<>();
 
-            for (StockView view : entry.getValue()) {
+            for (StockView view : byItem.getOrDefault(item.id(), List.of())) {
                 LocationRef store = storesById.get(view.locationId());
                 // Only active stores count towards the totals, for the same reason the reorder
                 // scan ignores them: stock nobody picks from is not cover. It still appears in the
@@ -271,9 +297,9 @@ public class InventoryController {
 
             rows.add(
                     new StockByItemResponse(
-                            entry.getKey(),
-                            item == null ? null : item.sku(),
-                            item == null ? null : item.name(),
+                            item.id(),
+                            item.sku(),
+                            item.name(),
                             onHand,
                             reserved,
                             available,
@@ -283,12 +309,11 @@ public class InventoryController {
                             stores));
         }
 
-        rows.sort(
-                Comparator.comparing(
-                        StockByItemResponse::itemName,
-                        Comparator.nullsLast(String::compareToIgnoreCase)));
-
-        return PagedResponse.of(rows);
+        if (fetched.size() <= size) {
+            return PagedResponse.of(rows);
+        }
+        ItemRef last = page.get(page.size() - 1);
+        return PagedResponse.of(rows, new Cursor(last.name(), last.id()).encode());
     }
 
     /**

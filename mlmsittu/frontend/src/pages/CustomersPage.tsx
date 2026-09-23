@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import {
   useCreateCustomer,
-  useCustomers,
+  useCustomersPage,
   useSetCustomerActive,
   useUpdateCustomer,
   type Customer,
 } from '../api/sales';
 import { useDistributorRoots } from '../api/onboarding';
+import { useDebounced, usePager } from '../lib/paging';
 import {
   Badge,
   Button,
@@ -19,6 +20,7 @@ import {
   Input,
   Modal,
   PageHeader,
+  Pager,
   Select,
   Spinner,
   Table,
@@ -40,7 +42,10 @@ export function CustomersPage() {
 
   const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(false);
-  const customers = useCustomers(search || undefined, showInactive);
+  const query = useDebounced(search.trim());
+  const pager = usePager(query, showInactive);
+  const customers = useCustomersPage(query, showInactive, pager.cursor);
+  const rows = customers.data?.data ?? [];
 
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -81,7 +86,7 @@ export function CustomersPage() {
           <div className="p-4">
             <ErrorBanner error={customers.error} onRetry={() => void customers.refetch()} />
           </div>
-        ) : (customers.data ?? []).length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState
             message={t('No buyers match.')}
             hint={search ? t('Try a shorter search term.') : undefined}
@@ -100,7 +105,7 @@ export function CustomersPage() {
                 </tr>
               </thead>
               <tbody>
-                {(customers.data ?? []).map((customer) => (
+                {rows.map((customer) => (
                   <tr key={customer.id} className={customer.active ? 'hover:bg-panel2' : 'opacity-60'}>
                     <Td className="font-mono text-xs">{customer.code}</Td>
                     <Td className="text-ink">{customer.name}</Td>
@@ -129,6 +134,13 @@ export function CustomersPage() {
             </Table>
           </TableWrap>
         )}
+        <Pager
+          page={pager.page}
+          hasNext={Boolean(customers.data?.nextCursor)}
+          loading={customers.isPlaceholderData}
+          onPrevious={pager.previous}
+          onNext={() => customers.data?.nextCursor && pager.next(customers.data.nextCursor)}
+        />
       </Card>
 
       {creating && <CustomerModal onClose={() => setCreating(false)} />}

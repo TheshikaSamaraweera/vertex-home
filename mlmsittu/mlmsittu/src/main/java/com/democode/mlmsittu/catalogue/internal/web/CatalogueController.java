@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -112,15 +113,22 @@ public class CatalogueController {
      * <p>Backwards compatible on purpose: a caller that ignores {@code nextCursor} still gets a
      * sensible first page rather than an error, which is what let the frontend adopt this one
      * screen at a time.
+     *
+     * <p>{@code search} matches name or SKU; {@code categoryId} narrows to one category. A cursor is only meaningful with the same search it
+     * was issued under; changing the search means starting again from the first page.
      */
     @GetMapping("/items")
     public PagedResponse<ItemResponse> listItems(
             @RequestParam(defaultValue = "false") boolean includeInactive,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) UUID categoryId,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer limit) {
 
         int size = Cursor.clampLimit(limit, DEFAULT_PAGE, MAX_PAGE);
-        List<Item> fetched = itemService.page(includeInactive, Cursor.decodeOrNull(cursor), size);
+        List<Item> fetched =
+                itemService.page(
+                        includeInactive, search, categoryId, Cursor.decodeOrNull(cursor), size);
 
         return PagedResponse.page(
                 fetched.stream().map(ItemResponse::from).toList(),
@@ -209,6 +217,17 @@ public class CatalogueController {
             return Objects.equals(left, right);
         }
         return left.compareTo(right) == 0;
+    }
+
+    /**
+     * Only for an item nothing refers to — see {@code ITEM_IN_USE}. Anything with a past is
+     * deactivated instead.
+     */
+    @DeleteMapping("/items/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('INVENTORY_CLERK')")
+    public void deleteItem(@PathVariable UUID id) {
+        provisioning.deleteUnused(id);
     }
 
     @PostMapping("/items/{id}/deactivate")

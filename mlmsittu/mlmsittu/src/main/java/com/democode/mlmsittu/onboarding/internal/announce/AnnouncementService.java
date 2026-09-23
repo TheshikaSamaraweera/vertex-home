@@ -100,6 +100,14 @@ public class AnnouncementService {
         return id;
     }
 
+    /**
+     * Changes the wording, picture or end date. Never whether it is out.
+     *
+     * <p>Publishing is its own step, and an edit must not be a second way round it. An announcement
+     * that has been taken down keeps its end date whatever the form sends: the editor pre-fills
+     * that date, and clearing it or moving it forward used to put the notice straight back on
+     * every customer's home page — already "published", so with no send step and no notification.
+     */
     @Transactional
     @Audited(action = "ANNOUNCEMENT_UPDATED", entityType = "announcement", auditFailures = true)
     public void update(
@@ -112,7 +120,13 @@ public class AnnouncementService {
                         """
                         UPDATE announcement
                            SET title = ?, subtitle = ?, body = CAST(? AS JSONB),
-                               image_id = ?, expires_at = ?, updated_at = now()
+                               image_id = ?,
+                               expires_at = CASE
+                                   WHEN published_at IS NOT NULL AND expires_at <= now()
+                                       THEN expires_at
+                                   ELSE ?
+                               END,
+                               updated_at = now()
                          WHERE id = ?
                         """,
                         title.trim(),

@@ -13,6 +13,7 @@ import com.democode.mlmsittu.inventory.api.LocationDirectory.LocationRef;
 import com.democode.mlmsittu.inventory.api.ReservationRequestLine;
 import com.democode.mlmsittu.inventory.api.ReservationView;
 import com.democode.mlmsittu.inventory.api.StockReservations;
+import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
 import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ApiException;
@@ -34,6 +35,8 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -425,6 +428,27 @@ public class SalesOrderService {
             return orders.findByStatus(SalesOrderStatus.fromDbValue(status).dbValue());
         }
         return orders.findAllOrdered();
+    }
+
+    /**
+     * One page of orders, newest first, optionally of one status and matching a search.
+     *
+     * @param status null or blank for any
+     * @param search order number or buyer name; null or blank for any
+     * @param before null for the first page
+     * @param limit rows to fetch — one more than the page shows, to learn whether more follow
+     */
+    @Transactional(readOnly = true)
+    public List<SalesOrder> page(String status, String search, Cursor before, int limit) {
+        String dbStatus =
+                status == null || status.isBlank()
+                        ? ""
+                        : SalesOrderStatus.fromDbValue(status).dbValue();
+        String term = search == null ? "" : search.trim();
+        Pageable window = PageRequest.of(0, limit);
+        return before == null
+                ? orders.firstPage(dbStatus, term, window)
+                : orders.pageBefore(dbStatus, term, before.sortKey(), before.id(), window);
     }
 
     @Transactional(readOnly = true)

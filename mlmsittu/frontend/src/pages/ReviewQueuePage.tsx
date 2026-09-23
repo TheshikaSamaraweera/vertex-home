@@ -49,6 +49,19 @@ export function ReviewQueuePage() {
   const [rejecting, setRejecting] = useState(false);
   const [approved, setApproved] = useState<string | null>(null);
 
+  const [search, setSearch] = useState('');
+  const [claimed, setClaimed] = useState<'all' | 'unclaimed' | 'mine'>('all');
+  const needle = search.trim().toLowerCase();
+  const shown = (queue.data ?? []).filter(
+    (item) =>
+      (!needle ||
+        [item.applicantName, item.applicantEmail, item.referrerBusinessId].some((field) =>
+          (field ?? '').toLowerCase().includes(needle),
+        )) &&
+      (claimed === 'all' ||
+        (claimed === 'unclaimed' ? !item.claimedBy : item.claimedBy === user?.id)),
+  );
+
   const registration = detail.data?.registration;
   const isMine = registration?.claimedBy === user?.id;
   const isOwnRegistration = registration?.userId === user?.id;
@@ -92,31 +105,54 @@ export function ReviewQueuePage() {
           ) : (queue.data ?? []).length === 0 ? (
             <EmptyState message={t('Nothing waiting.')} hint={t('New submissions appear here.')} />
           ) : (
-            <ul className="divide-y divide-rule">
-              {(queue.data ?? []).map((item) => (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedId(item.id ?? null)}
-                    className={
-                      'w-full px-4 py-3 text-left transition-colors hover:bg-panel2 ' +
-                      (selectedId === item.id ? 'bg-brandsoft' : '')
-                    }
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-sm text-ink">{item.applicantName}</span>
-                      <Badge tone={statusTone(item.status ?? '')}>{item.status}</Badge>
-                    </div>
-                    <p className="mt-0.5 truncate text-[11px] text-ink3">{item.applicantEmail}</p>
-                    {item.claimedByName && (
-                      <p className="mt-1 text-[11px] text-warn">
-                        {t('claimed by')} {item.claimedByName}
-                      </p>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              {/* Inside the card rather than in its header: the column is too narrow to hold them
+                  beside the title. */}
+              <div className="flex flex-col gap-2 border-b border-rule p-3">
+                <Input
+                  type="search"
+                  aria-label={t('Search the queue')}
+                  placeholder={t('Name, email or referrer ID…')}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+                <Select
+                  aria-label={t('Claimed')}
+                  value={claimed}
+                  onChange={(event) => setClaimed(event.target.value as typeof claimed)}
+                >
+                  <option value="all">{t('Everything waiting')}</option>
+                  <option value="unclaimed">{t('Not claimed yet')}</option>
+                  <option value="mine">{t('Claimed by me')}</option>
+                </Select>
+              </div>
+              {shown.length === 0 && <EmptyState message={t('Nothing matches these filters.')} />}
+              <ul className="divide-y divide-rule">
+                {shown.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(item.id ?? null)}
+                      className={
+                        'w-full px-4 py-3 text-left transition-colors hover:bg-panel2 ' +
+                        (selectedId === item.id ? 'bg-brandsoft' : '')
+                      }
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm text-ink">{item.applicantName}</span>
+                        <Badge tone={statusTone(item.status ?? '')}>{item.status}</Badge>
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] text-ink3">{item.applicantEmail}</p>
+                      {item.claimedByName && (
+                        <p className="mt-1 text-[11px] text-warn">
+                          {t('claimed by')} {item.claimedByName}
+                        </p>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </Card>
 

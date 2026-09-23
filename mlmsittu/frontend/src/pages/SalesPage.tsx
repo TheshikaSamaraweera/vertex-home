@@ -3,20 +3,21 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import { useItems, useItemSets } from '../api/queries';
 import { uploadDocument } from '../api/onboarding';
+import { useDebounced, usePager } from '../lib/paging';
 import {
   fetchSlipObjectUrl,
   useCancelSalesOrder,
   useCustomers,
   useCreateSalesOrder,
   useFulfilOrder,
-  useInvoices,
+  useInvoicesPage,
   useOrderInvoice,
   useOrderPayments,
   usePayments,
   useRecordPayment,
   useRejectPayment,
   useSalesOrder,
-  useSalesOrders,
+  useSalesOrdersPage,
   useVerifyPayment,
   type Payment,
   type SalesOrder,
@@ -32,6 +33,7 @@ import {
   Modal,
   money,
   PageHeader,
+  Pager,
   Select,
   Spinner,
   statusTone,
@@ -50,23 +52,36 @@ import {
  * returns `SELF_VERIFICATION_FORBIDDEN` if the same person tries both, and the UI does not hide
  * that button, because seeing the refusal is how a tester confirms the control exists.
  */
+/** Every order status, in the order an order moves through them. */
+const ORDER_STATUSES = [
+  'awaiting_payment',
+  'payment_review',
+  'payment_rejected',
+  'paid',
+  'fulfilled',
+  'cancelled',
+] as const;
+
 export function SalesPage() {
   const { t } = useTranslation();
   const { hasRole } = useAuth();
   const canSell = hasRole('FINANCE_OFFICER', 'SUPER_ADMIN');
   const canFulfil = hasRole('INVENTORY_CLERK', 'SUPER_ADMIN');
 
-  const orders = useSalesOrders();
-  const customers = useCustomers(undefined, true);
+  // One page at a time. Each row carries its buyer's name, so there is no longer a second request
+  // for every customer just to label the page.
+  const [status, setStatus] = useState('');
+  const [search, setSearch] = useState('');
+  const query = useDebounced(search.trim());
+  const pager = usePager(status, query);
+  const orders = useSalesOrdersPage({ status, search: query }, pager.cursor);
+  const rows = orders.data?.data ?? [];
   const fulfil = useFulfilOrder();
   const cancel = useCancelSalesOrder();
 
   const [creating, setCreating] = useState(false);
   const [payingFor, setPayingFor] = useState<SalesOrder | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
-
-  const customerName = (id: string | undefined) =>
-    (customers.data ?? []).find((customer) => customer.id === id)?.name ?? '—';
 
   return (
     <>
@@ -89,18 +104,49 @@ export function SalesPage() {
       )}
 
       <div className="flex flex-col gap-5">
-        <Card title={t('Sales orders')}>
+        <Card
+          title={t('Sales orders')}
+          actions={
+            <>
+              <Input
+                className="w-56"
+                type="search"
+                aria-label={t('Search orders')}
+                placeholder={t('Order number or buyer…')}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+              <Select
+                className="w-44"
+                aria-label={t('Status')}
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+              >
+                <option value="">{t('All statuses')}</option>
+                {ORDER_STATUSES.map((value) => (
+                  <option key={value} value={value}>
+                    {humanStatus(value)}
+                  </option>
+                ))}
+              </Select>
+            </>
+          }
+        >
           {orders.isLoading ? (
             <Spinner />
           ) : orders.error ? (
             <div className="p-4">
               <ErrorBanner error={orders.error} onRetry={() => void orders.refetch()} />
             </div>
-          ) : (orders.data ?? []).length === 0 ? (
-            <EmptyState
-              message={t('No sales orders yet.')}
-              hint={canSell ? t('Start one with “New order”.') : undefined}
-            />
+          ) : rows.length === 0 ? (
+            status || query ? (
+              <EmptyState message={t('No orders match these filters.')} />
+            ) : (
+              <EmptyState
+                message={t('No sales orders yet.')}
+                hint={canSell ? t('Start one with “New order”.') : undefined}
+              />
+            )
           ) : (
             <TableWrap>
               <Table>
@@ -115,10 +161,10 @@ export function SalesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(orders.data ?? []).map((order) => (
+                  {rows.map((order) => (
                     <tr key={order.id} className="hover:bg-panel2">
                       <Td className="font-mono text-xs">{order.orderNumber}</Td>
-                      <Td>{customerName(order.customerId)}</Td>
+                      <Td>{order.customerName ?? '—'}</Td>
                       <Td>
                         <Badge tone={statusTone(order.orderStatus ?? '')}>
                           {humanStatus(order.orderStatus)}
@@ -177,6 +223,13 @@ export function SalesPage() {
               </Table>
             </TableWrap>
           )}
+          <Pager
+            page={pager.page}
+            hasNext={Boolean(orders.data?.nextCursor)}
+            loading={orders.isPlaceholderData}
+            onPrevious={pager.previous}
+            onNext={() => orders.data?.nextCursor && pager.next(orders.data.nextCursor)}
+          />
         </Card>
 
         <PaymentQueue />
@@ -408,25 +461,54 @@ function SlipModal({ payment, onClose }: { payment: Payment; onClose: () => void
 
 // ================================================================== invoices
 
-/** P5-10 · the register, in number order. Gaps would be visible here at a glance. */
+/**
+ * P5-10 · the register, newest first, a page at a time. Gaps would still be visible at a glance —
+ * the sequence column counts down without skipping.
+ */
 function InvoiceRegister() {
-  const { t } = useTranslation();
   const { hasRole } = useAuth();
-  const invoices = useInvoices();
 
   if (!hasRole('FINANCE_OFFICER', 'SUPER_ADMIN', 'SUPPORT_AGENT')) {
     return null;
   }
+  // Split so the query only runs for roles allowed to read invoices; a hook cannot sit below the
+  // early return.
+  return <InvoiceTable />;
+}
+
+function InvoiceTable() {
+  const { t } = useTranslation();
+  const [search, setSearch] = useState('');
+  const query = useDebounced(search.trim());
+  const pager = usePager(query);
+  const invoices = useInvoicesPage(query, pager.cursor);
+  const rows = invoices.data?.data ?? [];
 
   return (
     <Card
       title={t('Invoices')}
       subtitle={t('Numbered consecutively. A gap would mean a sale went missing, so there are none.')}
+      actions={
+        <Input
+          className="w-56"
+          type="search"
+          aria-label={t('Search invoices')}
+          placeholder={t('Invoice number…')}
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+        />
+      }
     >
       {invoices.isLoading ? (
         <Spinner />
-      ) : (invoices.data ?? []).length === 0 ? (
-        <EmptyState message={t('No invoices yet — one is issued when an order is fulfilled.')} />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          message={
+            query
+              ? t('No invoices match that number.')
+              : t('No invoices yet — one is issued when an order is fulfilled.')
+          }
+        />
       ) : (
         <TableWrap>
           <Table>
@@ -439,7 +521,7 @@ function InvoiceRegister() {
               </tr>
             </thead>
             <tbody>
-              {(invoices.data ?? []).map((invoice) => (
+              {rows.map((invoice) => (
                 <tr key={invoice.id}>
                   <Td className="font-mono text-xs text-ink">{invoice.invoiceNumber}</Td>
                   <Td align="right">{invoice.sequenceNo}</Td>
@@ -453,6 +535,13 @@ function InvoiceRegister() {
           </Table>
         </TableWrap>
       )}
+      <Pager
+        page={pager.page}
+        hasNext={Boolean(invoices.data?.nextCursor)}
+        loading={invoices.isPlaceholderData}
+        onPrevious={pager.previous}
+        onNext={() => invoices.data?.nextCursor && pager.next(invoices.data.nextCursor)}
+      />
     </Card>
   );
 }
@@ -599,7 +688,7 @@ function CreateOrderModal({ onClose }: { onClose: () => void }) {
                 />
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="danger"
                   onClick={() => setLines(lines.filter((_, i) => i !== index))}
                   aria-label={t('Remove')}
                 >
