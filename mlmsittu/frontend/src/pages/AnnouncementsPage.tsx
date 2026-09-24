@@ -13,6 +13,7 @@ import {
   type Announcement,
 } from '../api/announcements';
 import { useAuth } from '../auth/AuthContext';
+import { Icon } from '../components/icons';
 import { RichText } from '../components/RichText';
 import { RichTextEditor } from '../components/RichTextEditor';
 import {
@@ -383,18 +384,23 @@ function AnnouncementEditor({
  * that is a separate implementation is a preview that eventually lies.
  */
 export function AnnouncementCard({ announcement }: { announcement: Announcement }) {
+  const { t } = useTranslation();
   return (
-    <article className="overflow-hidden rounded-xl border-2 border-brand bg-panel shadow-card">
+    <article className="overflow-hidden rounded-3xl border border-white/70 bg-white/90 shadow-[0_10px_30px_-14px_rgba(16,24,40,0.2)]">
       {announcement.imageId && (
         <img
           src={announcementImageUrl(announcement.imageId)}
           alt=""
           // Fixed aspect, cover: a notice board where every card is a different height reads as
           // broken rather than as varied, and the author cannot be expected to crop.
-          className="h-48 w-full border-b-2 border-brand object-cover"
+          className="h-48 w-full object-cover"
         />
       )}
-      <div className="p-5">
+      <div className="p-6">
+        <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-brandsoft px-2.5 py-1 text-[11px] font-bold text-brand">
+          <Icon name="megaphone" className="h-3.5 w-3.5" />
+          {t('Announcement')}
+        </span>
         <h2 className="text-lg font-bold tracking-tight text-ink">{announcement.title}</h2>
         {announcement.subtitle && (
           <p className="mt-1 text-sm font-medium text-brand">{announcement.subtitle}</p>

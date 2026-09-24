@@ -229,6 +229,24 @@ public class InventoryController {
                         .toList());
     }
 
+    /** The dashboard's headline figures, computed where the data is. */
+    public record StockSummaryResponse(
+            long activeItems, long unitsReserved, long positionsBelowReorder) {}
+
+    /**
+     * Three numbers for the dashboard.
+     *
+     * <p>The dashboard used to download the whole catalogue and every stock level to count them in
+     * the browser — the heaviest request in the app, made on the page everyone lands on. Each
+     * figure here is one aggregate query.
+     */
+    @GetMapping("/stock/summary")
+    public StockSummaryResponse stockSummary() {
+        StockLedger.Summary summary = ledger.summary();
+        return new StockSummaryResponse(
+                items.countActive(), summary.unitsReserved(), summary.positionsBelowReorder());
+    }
+
     /**
      * Stock totalled per item, with a per-store breakdown, one page of items at a time.
      *

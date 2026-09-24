@@ -22,6 +22,7 @@ import {
   humanStatus,
   Input,
   Modal,
+  money,
   PageHeader,
   Pager,
   Select,
@@ -166,7 +167,7 @@ export function PurchaseOrdersPage() {
                         </Badge>
                       </Td>
                       <Td align="right">{order.lines?.length ?? 0}</Td>
-                      <Td align="right">{Number(order.total ?? 0).toFixed(2)}</Td>
+                      <Td align="right">{money(order.total)}</Td>
                       <Td className="text-xs text-ink3">
                         {/* The audit trail in miniature: where it went, and who signed for it.
                             Both are questions somebody asks a week later. */}

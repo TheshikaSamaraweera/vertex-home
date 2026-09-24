@@ -231,6 +231,12 @@ public class StockLedgerService implements StockLedger {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Summary summary() {
+        return new Summary(levels.totalReserved(), levels.countBelowReorder());
+    }
+
+    @Override
     @Transactional
     public void discardEmptyPositions(UUID itemId) {
         reorderAlerts.deleteForItem(itemId);

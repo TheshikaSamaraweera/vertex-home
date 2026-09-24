@@ -129,6 +129,12 @@ public class ItemService implements ItemCatalogue {
 
     @Override
     @Transactional(readOnly = true)
+    public long countActive() {
+        return items.countByActiveTrue();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<ItemRef> page(String search, UUID categoryId, Cursor after, int limit) {
         Pageable window = PageRequest.of(0, limit);
         String term = search == null ? "" : search.trim();

@@ -24,6 +24,9 @@ public interface ItemCatalogue {
     /** Every item, active or not. Reorder scanning and reconciliation need the full set. */
     List<ItemRef> findAll();
 
+    /** How many items may appear on a new order. A count, for the dashboard — not the list. */
+    long countActive();
+
     /**
      * One page of every item, active or not, ordered by name then id — the stock screen pages
      * through the catalogue and attaches levels to each page.

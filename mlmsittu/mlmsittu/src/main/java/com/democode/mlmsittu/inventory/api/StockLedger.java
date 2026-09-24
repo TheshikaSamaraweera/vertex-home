@@ -55,6 +55,11 @@ public interface StockLedger {
      */
     void discardEmptyPositions(UUID itemId);
 
+    /** Units reserved across every store, and positions at or below their reorder level. */
+    record Summary(long unitsReserved, long positionsBelowReorder) {}
+
+    Summary summary();
+
     /** Every level held for any of these items, at any location. */
     List<StockView> levelsOf(Collection<UUID> itemIds);
 

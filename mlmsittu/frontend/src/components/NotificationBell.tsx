@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
+import { Icon } from './icons';
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -77,10 +78,10 @@ export function NotificationBell({ historyPath }: { historyPath: string }) {
             : t('Notifications')
         }
         aria-expanded={open}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md border border-rule bg-panel text-ink2 hover:text-ink"
+        className="relative flex h-10 w-10 items-center justify-center rounded-full border border-rulestrong bg-panel text-ink2 shadow-xs transition-colors hover:text-brand"
       >
         <span aria-hidden className="text-base">
-          🔔
+          <Icon name="bell" className="h-[18px] w-[18px]" />
         </span>
         {unread > 0 && (
           <span

@@ -24,20 +24,25 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export function Button({ variant = 'secondary', size = 'md', className, ...props }: ButtonProps) {
   const base =
-    'inline-flex items-center justify-center gap-2 rounded-md font-medium ' +
+    'inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold ' +
     'transition-[background-color,border-color,color,box-shadow] duration-150 ' +
     'active:translate-y-px disabled:opacity-45 disabled:cursor-not-allowed ' +
     'disabled:active:translate-y-0 whitespace-nowrap';
 
-  const sizes = { sm: 'px-2.5 py-1.5 text-xs', md: 'px-3.5 py-2 text-sm' };
+  // Fixed heights rather than padding alone, so a button sits level with the 40px inputs beside
+  // it in a filter bar instead of a few pixels short.
+  const sizes = { sm: 'h-8 px-3 text-xs', md: 'h-10 px-4 text-sm' };
 
-  // Hover darkens the fill rather than fading it. Reducing opacity lets the page show through,
-  // which on a green button over a green-tinted ground reads as a rendering fault.
+  // Hover darkens the fill rather than fading it. Reducing opacity lets the card show through,
+  // which reads as a rendering fault rather than as a state.
   const variants = {
     primary: 'bg-brand text-brandink shadow-sm hover:bg-branddeep',
     secondary:
-      'bg-panel text-ink border border-rulestrong hover:border-brand hover:bg-brandsoft hover:text-brand',
-    danger: 'bg-dangersoft text-danger border border-danger hover:bg-danger hover:text-panel',
+      'bg-panel text-ink border border-rulestrong shadow-xs hover:border-brand/40 hover:bg-brandsoft hover:text-brand',
+    // Red at rest, not only on hover: a destructive action should be recognisable before the
+    // pointer reaches it. Solid red on hover confirms what is about to happen.
+    danger:
+      'bg-dangersoft text-danger border border-danger/25 hover:bg-danger hover:border-danger hover:text-white',
     ghost: 'text-ink2 hover:text-brand hover:bg-brandsoft',
   };
   return <button className={cx(base, sizes[size], variants[variant], className)} {...props} />;
@@ -60,8 +65,10 @@ export function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-semibold tracking-wide text-ink2 uppercase">
+    <label className="flex flex-col gap-1.5">
+      {/* Sentence case at 13px, not uppercase captions: a long form of shouting labels is harder
+          to scan, and the field outlines already do the job the capitals were doing. */}
+      <span className="text-[13px] font-medium text-ink">
         {label}
         {required && (
           // Marked on the label rather than left to the browser's own validation, which says
@@ -111,7 +118,7 @@ export function Instructions({
 }) {
   const line = tone === 'danger' ? 'border-l-danger' : 'border-l-brand';
   return (
-    <div className={`border-l-4 bg-panel2 px-4 py-3 ${line}`}>
+    <div className={`rounded-r-lg border-l-4 bg-panel2 px-4 py-3 ${line}`}>
       {title && <p className="text-sm font-semibold text-ink">{title}</p>}
       <div className={`text-xs text-ink2 ${title ? 'mt-1' : ''}`}>{children}</div>
     </div>
@@ -119,11 +126,11 @@ export function Instructions({
 }
 
 const inputClass =
-  'w-full rounded-md border border-rulestrong bg-panel px-3 py-2 text-sm text-ink ' +
-  'transition-colors placeholder:text-ink3 ' +
+  'h-10 rounded-lg border border-rulestrong bg-panel px-3 text-sm text-ink shadow-xs ' +
+  'transition-[border-color,box-shadow] placeholder:text-ink3 ' +
   // A ring as well as a border: a 1px colour change alone is easy to miss, and this is a
   // data-entry app where knowing which field has focus matters more than it looks.
-  'focus:border-brand focus:ring-2 focus:ring-brandsoft focus:outline-none ' +
+  'focus:border-brand focus:ring-4 focus:ring-brandsoft focus:outline-none ' +
   'disabled:bg-panel2 disabled:text-ink3';
 
 /**
@@ -138,8 +145,20 @@ const invalidClass =
   'aria-[invalid=true]:border-danger aria-[invalid=true]:focus:border-danger ' +
   'aria-[invalid=true]:focus:ring-dangersoft';
 
+/**
+ * Full width unless the caller sizes it.
+ *
+ * Both classes in one list do not compose: `w-full w-64` resolves by stylesheet order, not by the
+ * order they are written, and full width won — so every filter box that asked for 16rem stretched
+ * across its card. Adding the default only when no width was given makes the caller's choice
+ * actually stick.
+ */
+function widthOf(className: string | undefined): string {
+  return /(^|\s)(w-|flex-1|min-w-0)/.test(className ?? '') ? '' : 'w-full';
+}
+
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input className={cx(inputClass, invalidClass, className)} {...props} />;
+  return <input className={cx(inputClass, widthOf(className), invalidClass, className)} {...props} />;
 }
 
 /**
@@ -165,7 +184,7 @@ export function PasswordInput({
       <input
         {...props}
         type={visible ? 'text' : 'password'}
-        className={cx(inputClass, invalidClass, 'pr-10', className)}
+        className={cx(inputClass, 'w-full', invalidClass, 'pr-10', className)}
       />
       <button
         type="button"
@@ -173,7 +192,7 @@ export function PasswordInput({
         aria-label={label}
         aria-pressed={visible}
         title={label}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-ink3 hover:text-brand focus-visible:text-brand focus-visible:outline-none"
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-lg text-ink3 hover:text-brand focus-visible:text-brand focus-visible:outline-none"
       >
         <svg
           aria-hidden
@@ -197,7 +216,7 @@ export function PasswordInput({
 
 export function Select({ className, children, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select className={cx(inputClass, invalidClass, className)} {...props}>
+    <select className={cx(inputClass, widthOf(className), invalidClass, className)} {...props}>
       {children}
     </select>
   );
@@ -219,19 +238,19 @@ export function Card({
   className?: string;
 }) {
   return (
-    // 2px in the heavier green, where the inside stays on the light rule. The outline of a card
-    // is the thing worth drawing firmly; every divider within it at the same weight would turn
-    // the page into a stack of boxes and none of them would read as a container any more.
+    // Lifted off the canvas by a soft shadow and a hairline, not outlined. A heavy border on every
+    // card turned each screen into a grid of boxes competing for attention; a card only has to say
+    // "this is one thing", and the shadow says it quietly.
     <section
-      className={cx('rounded-xl border-2 border-rulestrong bg-panel shadow-card', className)}
+      className={cx('rounded-2xl border border-rule bg-panel shadow-card', className)}
     >
       {(title || actions) && (
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-rulestrong bg-panel2/50 px-5 py-3.5">
-          <div>
-            {title && <h2 className="text-sm font-semibold text-ink">{title}</h2>}
-            {subtitle && <p className="mt-0.5 text-xs text-ink3">{subtitle}</p>}
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-5 py-4">
+          <div className="min-w-0">
+            {title && <h2 className="text-[15px] font-semibold text-ink">{title}</h2>}
+            {subtitle && <p className="mt-0.5 text-[13px] text-ink3">{subtitle}</p>}
           </div>
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
         </header>
       )}
       {children}
@@ -249,14 +268,14 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    // A 2px brand underline rather than a hairline. It is the first thing on every page and
-    // the only mark that says where the header ends and the work begins.
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b-2 border-brand/35 pb-4">
-      <div>
-        <h1 className="text-[22px] leading-tight font-bold tracking-tight text-ink">{title}</h1>
-        {description && <p className="mt-1.5 max-w-2xl text-sm text-ink2">{description}</p>}
+    // No rule under it. The cards below start where the header ends, and on a grey canvas the
+    // change from text to white card is already the boundary.
+    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
+        <h1 className="text-2xl leading-tight font-bold tracking-tight text-ink">{title}</h1>
+        {description && <p className="mt-1.5 max-w-2xl text-sm text-ink3">{description}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
   );
 }
@@ -277,7 +296,9 @@ export function Table({ children }: { children: ReactNode }) {
     // It earns its place on a wide table: it is what keeps the eye on one record while it travels
     // from the first column to the last. Without it, reading a figure at the right-hand edge and
     // knowing whose figure it is are two separate acts.
-    <table className="w-full min-w-[36rem] border-collapse text-sm [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-brandsoft/60">
+    // The last row drops its divider: the card edge is already there, and a line right above it
+    // reads as a double rule.
+    <table className="w-full min-w-[36rem] border-collapse text-sm [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-panel2 [&_tbody_tr:last-child_td]:border-b-0">
       {children}
     </table>
   );
@@ -293,13 +314,9 @@ export function Th({
   return (
     <th
       className={cx(
-        // Bold, a shade darker, and sitting on a 2px brand underline.
-        //
-        // Column headings label everything below them and were set lighter than the data they
-        // describe, which is the hierarchy upside down. The thick rule under the head is what
-        // separates labels from values — without it a header row is just the first row with
-        // different words in it, and on a long table you lose track of which column is which.
-        'border-b-2 border-brand/60 bg-panel2 px-3 py-2.5 text-[10.5px] font-bold tracking-wider text-ink uppercase',
+        // A tinted band with small capitals. The band, not the weight of the type, is what
+        // separates labels from values, so the labels can stay quiet and let the data lead.
+        'border-b border-rule bg-panel2 px-4 py-3 text-[11px] font-semibold tracking-[0.06em] whitespace-nowrap text-ink3 uppercase',
         align === 'right' ? 'text-right' : 'text-left',
       )}
     >
@@ -320,9 +337,9 @@ export function Td({
   return (
     <td
       className={cx(
-        // Deliberately still 1px. Row dividers at the header's weight would be a cage, and the
-        // eye needs somewhere quiet to read the numbers.
-        'border-b border-rule px-3 py-2.5 text-ink2',
+        // Hairline dividers and generous row height: dense enough for a stock list, airy enough
+        // that a row is easy to follow across a wide table.
+        'border-b border-rule px-4 py-3 text-ink2',
         align === 'right' ? 'nums text-right' : '',
         className,
       )}
@@ -360,18 +377,28 @@ export function Pager({
   return (
     <nav
       aria-label={t('Pages')}
-      className="flex items-center justify-between gap-3 border-t border-rule px-4 py-2.5"
+      className="flex items-center justify-between gap-3 border-t border-rule px-5 py-3"
     >
-      <span className="nums text-xs text-ink3">{t('Page {{page}}', { page })}</span>
+      <span className="nums text-[13px] font-medium text-ink3">{t('Page {{page}}', { page })}</span>
       <div className="flex gap-2">
         <Button size="sm" onClick={onPrevious} disabled={page === 1 || loading}>
+          <Chevron direction="left" />
           {t('Previous')}
         </Button>
         <Button size="sm" onClick={onNext} disabled={!hasNext || loading}>
           {t('Next')}
+          <Chevron direction="right" />
         </Button>
       </div>
     </nav>
+  );
+}
+
+function Chevron({ direction }: { direction: 'left' | 'right' }) {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={direction === 'left' ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'} />
+    </svg>
   );
 }
 
@@ -380,22 +407,28 @@ export function Pager({
 type Tone = 'neutral' | 'brand' | 'ok' | 'warn' | 'danger';
 
 const toneClasses: Record<Tone, string> = {
-  neutral: 'bg-panel2 text-ink2 border-rule',
-  brand: 'bg-brandsoft text-brand border-brand',
-  ok: 'bg-oksoft text-ok border-ok',
-  warn: 'bg-warnsoft text-warn border-warn',
-  danger: 'bg-dangersoft text-danger border-danger',
+  neutral: 'bg-[#eef1f5] text-ink2',
+  brand: 'bg-brandsoft text-brand',
+  ok: 'bg-oksoft text-ok',
+  warn: 'bg-warnsoft text-warn',
+  danger: 'bg-dangersoft text-danger',
 };
 
-/** State encoded in form as well as text, so a row's condition reads at a glance. */
+/**
+ * State encoded in form as well as text, so a row's condition reads at a glance.
+ *
+ * A soft pill with a dot in the tone's own colour. The dot is what survives a greyscale print or
+ * a colour-blind reader skimming a column: it marks "this is a status" before the word is read.
+ */
 export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: Tone }) {
   return (
     <span
       className={cx(
-        'inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap',
         toneClasses[tone],
       )}
     >
+      <span aria-hidden className="h-1.5 w-1.5 flex-none rounded-full bg-current opacity-80" />
       {children}
     </span>
   );
@@ -467,16 +500,16 @@ export function AvailabilityBox({
 
   const band =
     available > 10
-      ? { classes: 'bg-oksoft text-ok border-ok', label: 'in stock' }
+      ? { classes: 'bg-oksoft text-ok', label: 'in stock' }
       : available >= 5
-        ? { classes: 'bg-warnsoft text-warn border-warn', label: 'getting low' }
-        : { classes: 'bg-dangersoft text-danger border-danger', label: 'nearly out' };
+        ? { classes: 'bg-warnsoft text-warn', label: 'getting low' }
+        : { classes: 'bg-dangersoft text-danger', label: 'nearly out' };
 
   return (
     <span
       title={`${available} available — ${band.label}`}
       className={cx(
-        'nums inline-flex items-center justify-center rounded border font-semibold',
+        'nums inline-flex items-center justify-center rounded-md font-semibold',
         size === 'sm' ? 'min-w-9 px-1.5 py-0.5 text-[11px]' : 'min-w-11 px-2 py-0.5 text-xs',
         band.classes,
       )}
@@ -492,9 +525,20 @@ export function humanStatus(status: string | undefined): string {
   return (status ?? '').replace(/_/g, ' ');
 }
 
-/** Money, always two decimals and always right-aligned by the caller. */
+/**
+ * Money, always two decimals and always right-aligned by the caller.
+ *
+ * Grouped into thousands: "124,500.00" is read at a glance where "124500.00" has to be counted.
+ * Fixed to en-US grouping rather than the browser's locale, so a figure reads the same on every
+ * machine that looks at it — the same reason the app has one colour scheme.
+ */
+const moneyFormat = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 export function money(value: unknown): string {
-  return Number(value ?? 0).toFixed(2);
+  return moneyFormat.format(Number(value ?? 0));
 }
 
 // ---------------------------------------------------------------- feedback
@@ -524,7 +568,7 @@ export function ErrorBanner({ error, onRetry }: { error: unknown; onRetry?: () =
   }
 
   return (
-    <div className="rounded-md border border-danger bg-dangersoft px-4 py-3 text-sm text-ink">
+    <div className="rounded-xl border border-danger/25 bg-dangersoft px-4 py-3 text-sm text-ink">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-[11px] font-bold tracking-wider text-danger uppercase">
           {code}
@@ -564,9 +608,21 @@ export function Spinner({ label }: { label?: string }) {
 
 export function EmptyState({ message, hint }: { message: string; hint?: string }) {
   return (
-    <div className="px-4 py-10 text-center">
-      <p className="text-sm text-ink2">{message}</p>
-      {hint && <p className="mt-1 text-xs text-ink3">{hint}</p>}
+    <div className="flex flex-col items-center px-4 py-12 text-center">
+      {/* A soft tile rather than a bare sentence, so an empty table reads as "nothing here yet"
+          instead of "something failed to render". */}
+      <span
+        aria-hidden
+        className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-panel2 text-ink3"
+      >
+        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 8v13H3V8" />
+          <path d="M1 3h22v5H1z" />
+          <path d="M10 12h4" />
+        </svg>
+      </span>
+      <p className="text-sm font-medium text-ink">{message}</p>
+      {hint && <p className="mt-1 max-w-sm text-[13px] text-ink3">{hint}</p>}
     </div>
   );
 }
@@ -586,7 +642,7 @@ export function Modal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/35 p-4 backdrop-blur-[2px] sm:p-8"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink/40 p-4 backdrop-blur-[3px] sm:p-8"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -594,18 +650,25 @@ export function Modal({
     >
       <div
         className={cx(
-          'w-full rounded-xl border-2 border-rulestrong bg-panel shadow-float',
+          'w-full rounded-2xl border border-rule bg-panel shadow-float',
           wide ? 'max-w-3xl' : 'max-w-lg',
         )}
         onClick={(event) => event.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b border-rule px-5 py-3.5">
-          <h2 className="text-sm font-semibold text-ink">{title}</h2>
-          <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close">
-            ✕
-          </Button>
+        <header className="flex items-center justify-between gap-3 border-b border-rule px-6 py-4">
+          <h2 className="text-base font-semibold text-ink">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink3 transition-colors hover:bg-panel2 hover:text-ink"
+          >
+            <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
         </header>
-        <div className="p-5">{children}</div>
+        <div className="p-6">{children}</div>
       </div>
     </div>
   );

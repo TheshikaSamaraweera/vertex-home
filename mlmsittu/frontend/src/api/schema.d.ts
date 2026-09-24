@@ -1108,6 +1108,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stock/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["stockSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/stock/reorder-alerts": {
         parameters: {
             query?: never;
@@ -2020,6 +2036,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/distributors/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["distributorDirectoryCounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/items/{itemId}/supplier-prices/{supplierId}": {
         parameters: {
             query?: never;
@@ -2902,6 +2934,14 @@ export interface components {
             data?: components["schemas"]["StockLevelResponse"][];
             nextCursor?: string;
         };
+        StockSummaryResponse: {
+            /** Format: int64 */
+            activeItems?: number;
+            /** Format: int64 */
+            unitsReserved?: number;
+            /** Format: int64 */
+            positionsBelowReorder?: number;
+        };
         PagedResponseReorderAlertResponse: {
             data?: components["schemas"]["ReorderAlertResponse"][];
             nextCursor?: string;
@@ -3422,6 +3462,14 @@ export interface components {
         PagedResponseReferralCardBatch: {
             data?: components["schemas"]["ReferralCardBatch"][];
             nextCursor?: string;
+        };
+        DirectoryCounts: {
+            /** Format: int64 */
+            total?: number;
+            /** Format: int64 */
+            active?: number;
+            /** Format: int64 */
+            waiting?: number;
         };
     };
     responses: never;
@@ -5657,6 +5705,26 @@ export interface operations {
             };
         };
     };
+    stockSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["StockSummaryResponse"];
+                };
+            };
+        };
+    };
     listReorderAlerts: {
         parameters: {
             query?: {
@@ -6894,6 +6962,8 @@ export interface operations {
             query?: {
                 search?: string;
                 includeApplicants?: boolean;
+                cursor?: string;
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -6908,6 +6978,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["PagedResponseDistributorRow"];
+                };
+            };
+        };
+    };
+    distributorDirectoryCounts: {
+        parameters: {
+            query?: {
+                search?: string;
+                includeApplicants?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DirectoryCounts"];
                 };
             };
         };

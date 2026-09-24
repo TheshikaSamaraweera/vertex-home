@@ -1,29 +1,26 @@
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 import { usePortalMe, usePortalReferrals, type DistributorNode } from '../api/portal';
-import {
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  ErrorBanner,
-  PageHeader,
-  Spinner,
-  Table,
-  TableWrap,
-  Td,
-  Th,
-} from '../components/ui';
+import { ErrorBanner, Spinner } from '../components/ui';
+import { Icon, type IconName } from '../components/icons';
 import { useLiveAnnouncements } from '../api/announcements';
 import { AnnouncementCard } from '../pages/AnnouncementsPage';
 import { REFERRAL_STAGES } from '../lib/stages';
+import { CopyButton, GlassCard, PersonAvatar, ProgressRing, SectionTitle } from './portalUi';
 
 /**
  * The four screens a distributor gets once their registration is approved.
  *
  * Every one of them reads the same `/portal/me` response, which is served behind the gate — so
  * none of these components can accidentally show something the server would have withheld.
+ *
+ * The look is deliberately richer than the staff app: a customer opens this to see how they are
+ * doing and to show the person they are about to refer, so progress is drawn (a ring, a journey,
+ * faces) rather than listed.
  */
+
+const dateOf = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—';
 
 /**
  * What the office is saying, newest first.
@@ -32,15 +29,19 @@ import { REFERRAL_STAGES } from '../lib/stages';
  * permanent hole in the page in exchange for information nobody needed.
  */
 function Announcements() {
+  const { t } = useTranslation();
   const { data } = useLiveAnnouncements();
   if (!data || data.length === 0) return null;
 
   return (
-    <div className="mb-6 flex flex-col gap-4">
-      {data.map((announcement) => (
-        <AnnouncementCard key={announcement.id} announcement={announcement} />
-      ))}
-    </div>
+    <section className="mt-8">
+      <SectionTitle eyebrow={t('News')} title={t('From the office')} />
+      <div className="grid gap-5 md:grid-cols-2">
+        {data.map((announcement) => (
+          <AnnouncementCard key={announcement.id} announcement={announcement} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -51,11 +52,6 @@ export function PortalDashboard() {
   const me = usePortalMe();
 
   // Until the registration is approved there is exactly one thing to do, so land on it.
-  //
-  // This page used to render for everybody. Somebody who had just created an account arrived at a
-  // dashboard of em-dashes — no Business ID, no stages, no referrals — with the one action they
-  // needed behind a link in the navigation. The page was not wrong, it was answering a question
-  // they could not yet ask.
   //
   // The redirect waits for the first load rather than guessing: sending an approved customer to
   // the registration page for half a second, every time they open the portal, is worse than a
@@ -71,99 +67,298 @@ export function PortalDashboard() {
   const completed = stages?.stagesCompleted ?? 0;
   const total = stages?.totalStages ?? REFERRAL_STAGES;
   const children = me.data?.children ?? [];
+  const placesLeft = Math.max(0, REFERRAL_STAGES - children.length);
+  const firstName = (me.data?.fullName ?? '').split(' ')[0];
 
   return (
     <>
-      <PageHeader
-        title={t('Welcome, {{name}}', { name: me.data?.fullName ?? '' })}
-        description={t('Your account at a glance.')}
-      />
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        {/* The hero: greeting, where they stand, and the two things they are likely to do next. */}
+        <section className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#0b7a6e] via-[#0f8d80] to-[#3f5bd8] p-7 text-white shadow-[0_20px_40px_-18px_rgba(11,122,110,0.65)] sm:p-8">
+          <div aria-hidden className="pointer-events-none absolute -top-20 -right-16 h-64 w-64 rounded-full bg-white/10" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-28 left-1/3 h-72 w-72 rounded-full bg-[#7ee0d3]/15 blur-2xl" />
+          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold ring-1 ring-white/20">
+                <Icon name="sparkles" className="h-3.5 w-3.5" />
+                {completed >= total ? t('All levels complete') : t('Level {{n}} of {{total}}', { n: completed, total })}
+              </p>
+              <h1 className="mt-4 text-3xl leading-tight font-extrabold tracking-tight sm:text-[34px]">
+                {t('Welcome back, {{name}}', { name: firstName || me.data?.fullName || '' })}
+              </h1>
+              <p className="mt-2 max-w-md text-[15px] text-white/85">
+                {completed >= total
+                  ? t('You have completed every level. Your item pack is on its way to you.')
+                  : t('Refer {{left}} more to complete every level and earn your item pack.', {
+                      left: total - completed,
+                    })}
+              </p>
+              {/* On a phone the ring would sit under the buttons; a bar says the same in one line. */}
+              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/20 sm:hidden" aria-hidden>
+                <div className="h-full rounded-full bg-white" style={{ width: `${(Math.min(completed, total) / total) * 100}%` }} />
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2.5">
+                <Link
+                  to="/portal/referrals"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-brand shadow-sm transition-transform hover:-translate-y-0.5"
+                >
+                  {t('My referrals')}
+                  <Icon name="arrowRight" className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/portal/stages"
+                  className="inline-flex h-10 items-center rounded-full bg-white/15 px-4 text-sm font-semibold ring-1 ring-white/25 transition-colors hover:bg-white/25"
+                >
+                  {t('See my stages')}
+                </Link>
+              </div>
+            </div>
+            <div className="hidden sm:block">
+              <ProgressRing value={completed} total={total} label={t('levels')} />
+            </div>
+          </div>
+        </section>
 
-      {/* Above the figures, deliberately. This is the one part of the page somebody else chose to
-          put there, and it is time-limited — the stats are still true tomorrow. */}
-      <Announcements />
+        <MembershipCard
+          name={me.data?.fullName ?? ''}
+          businessId={me.data?.businessId ?? ''}
+          since={me.data?.approvedAt ?? me.data?.joinedAt}
+        />
+      </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label={t('Business ID')}
-          value={me.data?.businessId ?? '—'}
-          mono
-          hint={t('Give this to anyone you refer')}
-        />
-        <StatCard label={t('Level')} value={`${completed} / ${total}`} hint={t('One per referral')} />
-        <StatCard
-          label={t('Direct referrals')}
-          value={String(children.length)}
-          hint={t('{{left}} places left', { left: Math.max(0, REFERRAL_STAGES - children.length) })}
-        />
-        <StatCard
-          label={t('Member since')}
-          value={me.data?.joinedAt ? new Date(me.data.joinedAt).toLocaleDateString() : '—'}
-          hint={
-            me.data?.approvedAt
-              ? t('Approved {{date}}', {
-                  date: new Date(me.data.approvedAt).toLocaleDateString(),
-                })
-              : undefined
-          }
-        />
+      <div className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Stat icon="trophy" tone="teal" label={t('Current level')} value={`${completed}/${total}`} />
+        <Stat icon="users" tone="indigo" label={t('Direct referrals')} value={String(children.length)} />
+        <Stat icon="userPlus" tone="amber" label={t('Places left')} value={String(placesLeft)} />
+        <Stat icon="calendar" tone="pink" label={t('Member since')} value={dateOf(me.data?.approvedAt ?? me.data?.joinedAt)} small />
       </div>
 
       <RewardCard />
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
-        <Card title={t('Your progress')}>
-          <div className="p-5">
-            <StageLadder completed={completed} total={total} bonus={stages?.bonusStageEligible} />
-            <Link to="/portal/stages">
-              <Button size="sm" className="mt-4">
-                {t('See what each level means')}
-              </Button>
+      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        <GlassCard>
+          <div className="flex items-start justify-between gap-3">
+            <SectionTitle eyebrow={t('Progress')} title={t('Your journey')} />
+            <Link to="/portal/stages" className="text-sm font-semibold text-brand hover:underline">
+              {t('Details')}
             </Link>
           </div>
-        </Card>
+          <Journey completed={completed} total={total} bonus={stages?.bonusStageEligible} />
+        </GlassCard>
 
-        <Card title={t('Who referred you')}>
-          <div className="p-5">
-            {me.data?.parent ? (
-              <>
-                <p className="font-mono text-sm text-ink">{me.data.parent.businessId}</p>
-                <p className="text-sm text-ink2">{me.data.parent.fullName}</p>
-              </>
-            ) : (
-              <p className="text-sm text-ink2">
+        <GlassCard>
+          <SectionTitle eyebrow={t('Upline')} title={t('Who referred you')} />
+          {me.data?.parent ? (
+            <div className="flex items-center gap-4 rounded-2xl bg-panel2 p-4">
+              <PersonAvatar name={me.data.parent.fullName} size="lg" />
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-ink">{me.data.parent.fullName}</p>
+                <p className="font-mono text-sm font-semibold text-brand">
+                  ID {me.data.parent.businessId}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4 rounded-2xl bg-linear-to-r from-brandsoft to-[#eef1ff] p-4">
+              <span className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-white text-brand shadow-sm">
+                <Icon name="star" className="h-6 w-6" />
+              </span>
+              <p className="text-sm font-medium text-ink2">
                 {t('Nobody — you are at the top of your own tree.')}
               </p>
-            )}
+            </div>
+          )}
+
+          <div className="mt-6 flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink">{t('Your team')}</p>
+            <Link to="/portal/referrals" className="text-sm font-semibold text-brand hover:underline">
+              {t('View all')}
+            </Link>
           </div>
-        </Card>
+          {children.length === 0 ? (
+            <p className="mt-2 text-sm text-ink3">
+              {t('Share your Business ID — each person who registers with it unlocks a level.')}
+            </p>
+          ) : (
+            <div className="mt-3 flex -space-x-2">
+              {children.slice(0, 5).map((child) => (
+                <span key={child.id} title={child.fullName ?? ''}>
+                  <PersonAvatar name={child.fullName} className="ring-2 ring-white" />
+                </span>
+              ))}
+              {placesLeft > 0 &&
+                Array.from({ length: placesLeft }, (_, index) => (
+                  <span
+                    key={`open-${index}`}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-dashed border-rulestrong bg-white text-ink3"
+                    title={t('Open place')}
+                  >
+                    <Icon name="userPlus" className="h-4 w-4" />
+                  </span>
+                ))}
+            </div>
+          )}
+        </GlassCard>
       </div>
+
+      {/* Below the figures now: the figures are theirs, the notices are the office's. */}
+      <Announcements />
     </>
   );
 }
 
-function StatCard({
+/**
+ * The Business ID as a membership card — the thing a customer reads out to the person they are
+ * referring, so it is the largest text on the card and has a copy button beside it.
+ */
+function MembershipCard({
+  name,
+  businessId,
+  since,
+}: {
+  name: string;
+  businessId: string;
+  since?: string | null;
+}) {
+  const { t } = useTranslation();
+  return (
+    <section className="relative flex min-h-[240px] flex-col justify-between overflow-hidden rounded-3xl bg-linear-to-br from-[#0f1b2d] via-[#123a44] to-[#0b5f56] p-6 text-white shadow-[0_20px_40px_-18px_rgba(15,27,45,0.7)]">
+      <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#38b2a3]/25 blur-2xl" />
+      <div aria-hidden className="pointer-events-none absolute right-6 bottom-6 h-24 w-24 rounded-full border border-white/10" />
+      <div aria-hidden className="pointer-events-none absolute right-12 bottom-12 h-24 w-24 rounded-full border border-white/10" />
+
+      <div className="relative flex items-start justify-between">
+        <div>
+          <p className="text-[11px] font-bold tracking-[0.16em] text-white/60 uppercase">{t('Member')}</p>
+          <p className="mt-0.5 text-sm font-semibold">MLM Sittu</p>
+        </div>
+        {/* The chip: pure decoration, and the thing that makes it read as a card at a glance. */}
+        <span aria-hidden className="h-8 w-11 rounded-md bg-linear-to-br from-[#f6d58e] to-[#c99a3c] shadow-inner" />
+      </div>
+
+      <div className="relative">
+        <p className="text-[11px] font-bold tracking-[0.16em] text-white/60 uppercase">{t('Business ID')}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-3">
+          <p className="font-mono text-4xl font-bold tracking-[0.12em]">{businessId || '—'}</p>
+          <CopyButton value={businessId} variant="glass" label={t('Copy ID')} />
+        </div>
+      </div>
+
+      <div className="relative flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold tracking-[0.16em] text-white/60 uppercase">{t('Name')}</p>
+          <p className="truncate text-sm font-semibold">{name}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10px] font-bold tracking-[0.16em] text-white/60 uppercase">{t('Since')}</p>
+          <p className="text-sm font-semibold">{dateOf(since)}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const STAT_TONES = {
+  teal: 'from-[#38b2a3] to-[#0b7a6e]',
+  indigo: 'from-[#7c8cff] to-[#4f5bd5]',
+  amber: 'from-[#f6b35c] to-[#e07a2b]',
+  pink: 'from-[#f472b6] to-[#c0266d]',
+} as const;
+
+function Stat({
+  icon,
+  tone,
   label,
   value,
-  hint,
-  mono,
+  small,
 }: {
+  icon: IconName;
+  tone: keyof typeof STAT_TONES;
   label: string;
   value: string;
-  hint?: string;
-  mono?: boolean;
+  small?: boolean;
 }) {
   return (
-    <div className="rounded-xl border-2 border-rulestrong bg-panel p-4 shadow-card">
-      <p className="text-[10px] font-semibold tracking-wider text-ink3 uppercase">{label}</p>
-      <p
+    <div className="flex items-center gap-3 rounded-3xl border border-white/70 bg-white/85 p-3.5 shadow-[0_10px_30px_-14px_rgba(16,24,40,0.2)] sm:gap-3.5 sm:p-5">
+      <span
+        className={`flex h-10 w-10 flex-none items-center justify-center rounded-2xl bg-linear-to-br text-white shadow-sm sm:h-12 sm:w-12 ${STAT_TONES[tone]}`}
+      >
+        <Icon name={icon} className="h-[22px] w-[22px]" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[11px] leading-tight font-medium text-ink3 sm:text-xs">{label}</p>
+        <p
+          className={`nums mt-0.5 leading-tight font-extrabold tracking-tight text-ink ${small ? 'text-sm sm:text-base' : 'text-2xl'}`}
+        >
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Five levels and the bonus as a stepper: filled up to where you are, a pulse on what is next. */
+function Journey({ completed, total, bonus }: { completed: number; total: number; bonus?: boolean }) {
+  const { t } = useTranslation();
+  const steps = Array.from({ length: total }, (_, index) => index + 1);
+
+  return (
+    <div>
+      <ol className="relative flex items-start justify-between">
+        <span aria-hidden className="absolute top-5 right-5 left-5 h-1 rounded-full bg-rulestrong" />
+        <span
+          aria-hidden
+          className="absolute top-5 left-5 h-1 rounded-full bg-linear-to-r from-brandbright to-brand transition-all duration-700"
+          style={{ width: `calc((100% - 2.5rem) * ${Math.min(completed, total) / total})` }}
+        />
+        {steps.map((level) => {
+          const done = level <= completed;
+          const next = level === completed + 1;
+          return (
+            <li key={level} className="relative flex flex-col items-center gap-2">
+              <span
+                className={
+                  'relative flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-colors ' +
+                  (done
+                    ? 'bg-linear-to-br from-brandbright to-brand text-white shadow-[0_6px_14px_-6px_rgba(11,122,110,0.8)]'
+                    : next
+                      ? 'bg-white text-brand ring-2 ring-brand'
+                      : 'bg-white text-ink3 ring-1 ring-rulestrong')
+                }
+              >
+                {next && <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-brand/20" />}
+                {done ? <Icon name="check" className="h-5 w-5" /> : level}
+              </span>
+              <span className={`text-xs font-semibold ${done ? 'text-ink' : 'text-ink3'}`}>
+                {t('Level {{level}}', { level })}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+      <div
         className={
-          'mt-1 text-xl font-bold text-ink ' + (mono ? 'font-mono text-lg text-brand' : 'nums')
+          'mt-6 flex items-center gap-3 rounded-2xl p-4 ' +
+          (bonus ? 'bg-linear-to-r from-[#fff4d6] to-[#ffe9c2]' : 'bg-panel2')
         }
       >
-        {value}
-      </p>
-      {hint && <p className="mt-0.5 text-[11px] text-ink3">{hint}</p>}
+        <span
+          className={
+            'flex h-10 w-10 flex-none items-center justify-center rounded-full ' +
+            (bonus ? 'bg-linear-to-br from-[#f6c453] to-[#e09a1a] text-white shadow-sm' : 'bg-white text-ink3')
+          }
+        >
+          <Icon name="star" className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="text-sm font-bold text-ink">{t('Bonus stage')}</p>
+          <p className="text-xs text-ink2">
+            {bonus
+              ? t('You are eligible. The office will be in touch about what it involves.')
+              : t('Unlocks when all five levels are complete.')}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -174,49 +369,59 @@ export function PortalDetails() {
   const { t } = useTranslation();
   const me = usePortalMe();
 
+  const rows: Array<{ icon: IconName; label: string; value?: string | null; mono?: boolean }> = [
+    { icon: 'idCard', label: t('Business ID'), value: me.data?.businessId, mono: true },
+    { icon: 'mail', label: t('Email'), value: me.data?.email },
+    { icon: 'phone', label: t('Mobile'), value: me.data?.mobile },
+    { icon: 'calendar', label: t('Account created'), value: dateOf(me.data?.joinedAt) },
+    { icon: 'shieldCheck', label: t('Approved as a customer'), value: dateOf(me.data?.approvedAt) },
+    {
+      icon: 'lock',
+      label: t('Registered with NIC ending'),
+      value: me.data?.registration?.nicLast4 ? `••••${me.data.registration.nicLast4}` : null,
+      mono: true,
+    },
+    { icon: 'users', label: t('Referred by'), value: me.data?.registration?.referrerBusinessId, mono: true },
+  ];
+
   return (
     <>
-      <PageHeader title={t('My details')} description={t('What we hold about you.')} />
+      <section className="relative overflow-hidden rounded-3xl border border-white/70 bg-white/85 shadow-[0_10px_30px_-12px_rgba(16,24,40,0.18)]">
+        <div className="h-28 bg-linear-to-r from-[#0b7a6e] via-[#1f9e8f] to-[#5b6fe0]" />
+        <div className="flex flex-col gap-4 px-6 pb-6 sm:flex-row sm:items-end">
+          <PersonAvatar name={me.data?.fullName} size="xl" className="-mt-10 ring-4 ring-white" />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-2xl font-extrabold tracking-tight text-ink">{me.data?.fullName}</h1>
+            <p className="text-sm text-ink3">{t('What we hold about you.')}</p>
+          </div>
+          {me.data?.businessId && <CopyButton value={me.data.businessId} label={t('Copy Business ID')} />}
+        </div>
+      </section>
 
-      <Card title={t('Account')}>
-        <dl className="grid gap-x-8 gap-y-4 p-5 sm:grid-cols-2">
-          <Detail label={t('Name')} value={me.data?.fullName} />
-          <Detail label={t('Business ID')} value={me.data?.businessId} mono />
-          <Detail label={t('Email')} value={me.data?.email} />
-          <Detail label={t('Mobile')} value={me.data?.mobile ?? '—'} />
-          <Detail
-            label={t('Account created')}
-            value={me.data?.joinedAt ? new Date(me.data.joinedAt).toLocaleString() : '—'}
-          />
-          <Detail
-            label={t('Approved as a customer')}
-            value={me.data?.approvedAt ? new Date(me.data.approvedAt).toLocaleString() : '—'}
-          />
-          <Detail
-            label={t('Registered with NIC ending')}
-            value={me.data?.registration?.nicLast4 ? `••••${me.data.registration.nicLast4}` : '—'}
-          />
-          <Detail
-            label={t('Referred by')}
-            value={me.data?.registration?.referrerBusinessId ?? '—'}
-            mono
-          />
-        </dl>
-      </Card>
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map((row) => (
+          <div
+            key={row.label}
+            className="flex items-center gap-3.5 rounded-2xl border border-white/70 bg-white/85 p-4 shadow-[0_8px_24px_-14px_rgba(16,24,40,0.2)]"
+          >
+            <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-brandsoft text-brand">
+              <Icon name={row.icon} className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-ink3">{row.label}</p>
+              <p className={`truncate text-sm font-semibold text-ink ${row.mono ? 'font-mono' : ''}`}>
+                {row.value || '—'}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
 
-      <p className="mt-4 max-w-2xl text-xs text-ink3">
+      <p className="mt-5 flex items-start gap-2 text-xs text-ink3">
+        <Icon name="lock" className="mt-0.5 h-3.5 w-3.5 flex-none" />
         {t('To change any of this, contact the office. Your NIC and bank details are held encrypted and are not shown here.')}
       </p>
     </>
-  );
-}
-
-function Detail({ label, value, mono }: { label: string; value?: string | null; mono?: boolean }) {
-  return (
-    <div>
-      <dt className="text-[10px] font-semibold tracking-wider text-ink3 uppercase">{label}</dt>
-      <dd className={'mt-0.5 text-sm text-ink ' + (mono ? 'font-mono' : '')}>{value || '—'}</dd>
-    </div>
   );
 }
 
@@ -233,138 +438,109 @@ export function PortalStages() {
 
   return (
     <>
-      <PageHeader
-        title={t('My stages')}
-        description={t('One level unlocks for each customer you refer, up to four.')}
-      />
+      <section className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#0b7a6e] via-[#0f8d80] to-[#3f5bd8] p-7 text-white shadow-[0_20px_40px_-18px_rgba(11,122,110,0.65)]">
+        <div aria-hidden className="pointer-events-none absolute -top-16 -right-10 h-56 w-56 rounded-full bg-white/10" />
+        <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-bold tracking-[0.14em] text-white/70 uppercase">{t('My stages')}</p>
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight">
+              {t('Level {{completed}} of {{total}}', { completed, total })}
+            </h1>
+            <p className="mt-2 max-w-md text-[15px] text-white/85">
+              {t('One level unlocks for each customer you refer, up to {{total}}.', { total })}
+            </p>
+          </div>
+          <ProgressRing value={completed} total={total} label={t('levels')} />
+        </div>
+      </section>
 
-      <Card title={t('Level {{completed}} of {{total}}', { completed, total })}>
-        <div className="p-5">
-          <StageLadder completed={completed} total={total} bonus={stages?.bonusStageEligible} large />
-
-          <div className="mt-6 flex flex-col gap-3">
-            {Array.from({ length: total }, (_, index) => {
-              const level = index + 1;
-              const unlocked = level <= completed;
-              const referral = children[index];
-              return (
-                <div
-                  key={level}
-                  className={
-                    'flex flex-wrap items-center gap-3 rounded-lg border p-3 ' +
-                    (unlocked ? 'border-ok bg-oksoft' : 'border-rule bg-panel2')
-                  }
-                >
-                  <span
-                    className={
-                      'flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-bold ' +
-                      (unlocked ? 'bg-ok text-panel' : 'bg-panel text-ink3')
-                    }
-                  >
-                    {level}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink">
-                      {t('Level {{level}}', { level })}
-                    </p>
-                    <p className="text-xs text-ink2">
-                      {unlocked && referral
-                        ? t('Unlocked by {{name}} ({{id}})', {
-                            name: referral.fullName,
-                            id: referral.businessId,
-                          })
-                        : unlocked
-                          ? t('Unlocked')
-                          : t('Refer one more customer to unlock')}
-                    </p>
-                  </div>
-                  {unlocked && <Badge tone="ok">{t('unlocked')}</Badge>}
-                </div>
-              );
-            })}
-
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: total }, (_, index) => {
+          const level = index + 1;
+          const unlocked = level <= completed;
+          const referral = children[index];
+          return (
             <div
+              key={level}
               className={
-                'flex flex-wrap items-center gap-3 rounded-lg border border-dashed p-3 ' +
-                (stages?.bonusStageEligible ? 'border-brand bg-brandsoft' : 'border-rule')
+                'relative overflow-hidden rounded-3xl p-5 transition-transform hover:-translate-y-0.5 ' +
+                (unlocked
+                  ? 'bg-linear-to-br from-white to-[#e6f6f3] shadow-[0_10px_30px_-14px_rgba(11,122,110,0.45)] ring-1 ring-brand/15'
+                  : 'border border-dashed border-rulestrong bg-white/60')
               }
             >
-              <span
-                className={
-                  'flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-bold ' +
-                  (stages?.bonusStageEligible ? 'bg-brand text-brandink' : 'bg-panel2 text-ink3')
-                }
-              >
-                ★
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">{t('Bonus stage')}</p>
-                <p className="text-xs text-ink2">
-                  {stages?.bonusStageEligible
-                    ? t('You are eligible. The office will be in touch about what it involves.')
-                    : t('Unlocks when all five levels are complete.')}
-                </p>
+              <div className="flex items-center justify-between">
+                <span
+                  className={
+                    'flex h-12 w-12 items-center justify-center rounded-2xl text-lg font-extrabold ' +
+                    (unlocked
+                      ? 'bg-linear-to-br from-brandbright to-brand text-white shadow-sm'
+                      : 'bg-panel2 text-ink3')
+                  }
+                >
+                  {unlocked ? <Icon name="check" className="h-6 w-6" /> : level}
+                </span>
+                <span
+                  className={
+                    'rounded-full px-2.5 py-1 text-[11px] font-bold ' +
+                    (unlocked ? 'bg-oksoft text-ok' : 'bg-panel2 text-ink3')
+                  }
+                >
+                  {unlocked ? t('Unlocked') : t('Locked')}
+                </span>
               </div>
+              <p className="mt-4 text-base font-bold text-ink">{t('Level {{level}}', { level })}</p>
+              {unlocked && referral ? (
+                <div className="mt-2 flex items-center gap-2.5">
+                  <PersonAvatar name={referral.fullName} size="sm" />
+                  <p className="min-w-0 truncate text-sm text-ink2">
+                    {referral.fullName}{' '}
+                    <span className="font-mono text-xs text-brand">{referral.businessId}</span>
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-ink3">
+                  {unlocked ? t('Unlocked') : t('Refer one more customer to unlock')}
+                </p>
+              )}
             </div>
-          </div>
+          );
+        })}
 
-          {/* Said plainly rather than implied. The mechanic exists and is tracked; what a level is
-              worth has not been decided, and inventing a figure here would be a promise the
-              system cannot keep. */}
-          <p className="mt-5 rounded-md border border-rule bg-panel2 p-3 text-xs text-ink2">
-            {t('Levels record how many customers you have referred. What each level entitles you to is set by the office and is not shown here.')}
+        <div
+          className={
+            'relative overflow-hidden rounded-3xl p-5 ' +
+            (stages?.bonusStageEligible
+              ? 'bg-linear-to-br from-[#fff6dd] to-[#ffe2a8] shadow-[0_10px_30px_-14px_rgba(224,154,26,0.6)]'
+              : 'border border-dashed border-rulestrong bg-white/60')
+          }
+        >
+          <span
+            className={
+              'flex h-12 w-12 items-center justify-center rounded-2xl ' +
+              (stages?.bonusStageEligible
+                ? 'bg-linear-to-br from-[#f6c453] to-[#e09a1a] text-white shadow-sm'
+                : 'bg-panel2 text-ink3')
+            }
+          >
+            <Icon name="star" className="h-6 w-6" />
+          </span>
+          <p className="mt-4 text-base font-bold text-ink">{t('Bonus stage')}</p>
+          <p className="mt-2 text-sm text-ink2">
+            {stages?.bonusStageEligible
+              ? t('You are eligible. The office will be in touch about what it involves.')
+              : t('Unlocks when all five levels are complete.')}
           </p>
         </div>
-      </Card>
-    </>
-  );
-}
-
-/** The ladder, used small on the dashboard and large on the stages page. */
-function StageLadder({
-  completed,
-  total,
-  bonus,
-  large,
-}: {
-  completed: number;
-  total: number;
-  bonus?: boolean;
-  large?: boolean;
-}) {
-  const { t } = useTranslation();
-  const size = large ? 'h-3' : 'h-2';
-
-  return (
-    <div>
-      <div className="flex items-center gap-1.5">
-        {Array.from({ length: total }, (_, index) => (
-          <span
-            key={index}
-            className={
-              `${size} flex-1 rounded-full ` + (index < completed ? 'bg-ok' : 'bg-panel2')
-            }
-          />
-        ))}
-        <span
-          aria-hidden
-          className={
-            `${size} w-6 flex-none rounded-full ` + (bonus ? 'bg-brand' : 'bg-panel2 opacity-60')
-          }
-        />
       </div>
-      <p className="mt-2 text-xs text-ink2">
-        {completed >= total
-          ? t('All {{total}} levels complete', { total })
-          : t('{{left}} more referral to reach level {{next}}', {
-              left: 1,
-              next: completed + 1,
-            })}
+
+      {/* Said plainly rather than implied. The mechanic exists and is tracked; what a level is
+          worth has not been decided, and inventing a figure here would be a promise the system
+          cannot keep. */}
+      <p className="mt-6 rounded-2xl bg-white/70 p-4 text-sm text-ink2 ring-1 ring-white">
+        {t('Levels record how many customers you have referred. What each level entitles you to is set by the office and is not shown here.')}
       </p>
-      <span className="sr-only">
-        {t('{{completed}} of {{total}} levels unlocked', { completed, total })}
-      </span>
-    </div>
+    </>
   );
 }
 
@@ -376,69 +552,75 @@ export function PortalReferrals() {
   const referrals = usePortalReferrals(me.data?.access === 'ACTIVE');
 
   const children = referrals.data ?? me.data?.children ?? [];
-  const capacity = 4;
+  // One place per stage. This used to be a literal 4 while the rule was five, so a customer with
+  // five referrals saw a diagram with no room for the fifth.
+  const capacity = REFERRAL_STAGES;
 
   return (
     <>
-      <PageHeader
-        title={t('My referrals')}
-        description={t('Who referred you, and who you have referred. You can see one level in each direction.')}
-      />
+      <div className="mb-6">
+        <p className="text-xs font-bold tracking-[0.14em] text-brand uppercase">{t('Network')}</p>
+        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-ink">{t('My referrals')}</h1>
+        <p className="mt-1.5 text-sm text-ink3">
+          {t('Who referred you, and who you have referred. You can see one level in each direction.')}
+        </p>
+      </div>
 
-      <Card title={t('Your position')}>
-        <div className="p-6">
-          {referrals.isLoading ? (
-            <Spinner />
-          ) : referrals.error ? (
-            <ErrorBanner error={referrals.error} />
-          ) : (
-            <ReferralDiagram
-              parent={me.data?.parent ?? null}
-              self={{
-                businessId: me.data?.businessId ?? '',
-                fullName: me.data?.fullName ?? '',
-              }}
-              children={children}
-              capacity={capacity}
-            />
-          )}
-        </div>
-      </Card>
-
-      <Card className="mt-5" title={t('Your direct referrals')}>
-        {children.length === 0 ? (
-          <EmptyState
-            message={t('Nobody yet.')}
-            hint={t('Share your Business ID — each person who registers with it unlocks a level.')}
-          />
+      <GlassCard>
+        {referrals.isLoading ? (
+          <Spinner />
+        ) : referrals.error ? (
+          <ErrorBanner error={referrals.error} />
         ) : (
-          <TableWrap>
-            <Table>
-              <thead>
-                <tr>
-                  <Th>{t('Business ID')}</Th>
-                  <Th>{t('Name')}</Th>
-                  <Th>{t('Joined')}</Th>
-                  <Th align="right">{t('Their referrals')}</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {children.map((child) => (
-                  <tr key={child.id}>
-                    <Td className="font-mono text-xs text-brand">{child.businessId}</Td>
-                    <Td className="text-ink">{child.fullName}</Td>
-                    <Td className="text-xs">
-                      {child.approvedAt ? new Date(child.approvedAt).toLocaleDateString() : '—'}
-                    </Td>
-                    {/* A count, not a link. How their downline is doing is their business. */}
-                    <Td align="right">{child.directChildCount}</Td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableWrap>
+          <ReferralDiagram
+            parent={me.data?.parent ?? null}
+            self={{ businessId: me.data?.businessId ?? '', fullName: me.data?.fullName ?? '' }}
+            children={children}
+            capacity={capacity}
+          />
         )}
-      </Card>
+      </GlassCard>
+
+      <section className="mt-8">
+        <SectionTitle
+          eyebrow={t('{{count}} of {{total}} places filled', { count: children.length, total: capacity })}
+          title={t('Your direct referrals')}
+        />
+        {children.length === 0 ? (
+          <GlassCard className="text-center">
+            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-brandsoft text-brand">
+              <Icon name="userPlus" className="h-6 w-6" />
+            </span>
+            <p className="mt-3 font-semibold text-ink">{t('Nobody yet.')}</p>
+            <p className="mt-1 text-sm text-ink3">
+              {t('Share your Business ID — each person who registers with it unlocks a level.')}
+            </p>
+          </GlassCard>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {children.map((child, index) => (
+              <div
+                key={child.id}
+                className="flex items-center gap-4 rounded-3xl border border-white/70 bg-white/85 p-5 shadow-[0_10px_30px_-14px_rgba(16,24,40,0.2)] transition-transform hover:-translate-y-0.5"
+              >
+                <PersonAvatar name={child.fullName} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-bold text-ink">{child.fullName}</p>
+                  <p className="font-mono text-sm font-semibold text-brand">ID {child.businessId}</p>
+                  <p className="mt-1 text-xs text-ink3">
+                    {t('Joined {{date}}', { date: dateOf(child.approvedAt) })} ·{' '}
+                    {/* A count, not a link. How their downline is doing is their business. */}
+                    {t('{{count}} referrals', { count: child.directChildCount ?? 0 })}
+                  </p>
+                </div>
+                <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-oksoft text-xs font-bold text-ok">
+                  {index + 1}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </>
   );
 }
@@ -447,8 +629,8 @@ export function PortalReferrals() {
  * Three rows: who referred you, you, and who you referred.
  *
  * Drawn rather than listed because the shape is the information — a distributor wants to see how
- * many of their four places are filled, and a row of cards with visible gaps says that instantly
- * where a table does not. Empty places are drawn as dashed outlines for the same reason.
+ * many of their places are filled, and a row of faces with visible gaps says that instantly where
+ * a table does not. Empty places are drawn as dashed outlines for the same reason.
  */
 function ReferralDiagram({
   parent,
@@ -465,40 +647,37 @@ function ReferralDiagram({
   const empty = Math.max(0, capacity - children.length);
 
   return (
-    <div className="flex flex-col items-center gap-0">
+    <div className="flex flex-col items-center py-2">
       {parent ? (
         <>
-          <NodeCard
-            label={t('Referred you')}
-            businessId={parent.businessId ?? ''}
-            name={parent.fullName ?? ''}
-            tone="muted"
-          />
+          <PersonNode label={t('Referred you')} businessId={parent.businessId ?? ''} name={parent.fullName ?? ''} tone="muted" />
           <Connector />
         </>
       ) : (
-        <p className="mb-3 text-xs text-ink3">{t('You are at the top of your own tree')}</p>
+        <p className="mb-4 rounded-full bg-panel2 px-3 py-1 text-xs font-semibold text-ink3">
+          {t('You are at the top of your own tree')}
+        </p>
       )}
 
-      <NodeCard label={t('You')} businessId={self.businessId} name={self.fullName} tone="self" />
+      <PersonNode label={t('You')} businessId={self.businessId} name={self.fullName} tone="self" />
 
       {(children.length > 0 || empty > 0) && <Connector />}
 
       <div className="flex flex-wrap justify-center gap-3">
         {children.map((child) => (
-          <NodeCard
-            key={child.id}
-            businessId={child.businessId ?? ''}
-            name={child.fullName ?? ''}
-            tone="child"
-          />
+          <PersonNode key={child.id} businessId={child.businessId ?? ''} name={child.fullName ?? ''} tone="child" />
         ))}
         {Array.from({ length: empty }, (_, index) => (
           <div
             key={`empty-${index}`}
-            className="flex min-w-[150px] flex-col items-center justify-center rounded-lg border border-dashed border-rule px-4 py-3 text-center"
+            className="flex w-[150px] flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-rulestrong bg-white/50 px-3 py-4 text-center"
           >
-            <p className="text-xs text-ink3">{t('Place {{n}} open', { n: children.length + index + 1 })}</p>
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-panel2 text-ink3">
+              <Icon name="userPlus" className="h-4 w-4" />
+            </span>
+            <p className="text-xs font-semibold text-ink3">
+              {t('Place {{n}} open', { n: children.length + index + 1 })}
+            </p>
           </div>
         ))}
       </div>
@@ -507,10 +686,10 @@ function ReferralDiagram({
 }
 
 function Connector() {
-  return <span aria-hidden className="my-1 h-5 w-px bg-rule" />;
+  return <span aria-hidden className="my-2 h-7 w-0.5 rounded-full bg-linear-to-b from-brand/40 to-brand/10" />;
 }
 
-function NodeCard({
+function PersonNode({
   label,
   businessId,
   name,
@@ -521,19 +700,27 @@ function NodeCard({
   name: string;
   tone: 'muted' | 'self' | 'child';
 }) {
-  const styles = {
-    muted: 'border-rule bg-panel2',
-    self: 'border-brand bg-brandsoft ring-2 ring-brand/20',
-    child: 'border-ok bg-oksoft',
-  }[tone];
-
+  if (tone === 'self') {
+    return (
+      <div className="flex w-[210px] flex-col items-center rounded-3xl bg-linear-to-br from-[#0b7a6e] to-[#3f5bd8] px-4 py-4 text-center text-white shadow-[0_14px_30px_-14px_rgba(11,122,110,0.8)]">
+        {label && <p className="text-[10px] font-bold tracking-[0.16em] text-white/70 uppercase">{label}</p>}
+        <PersonAvatar name={name} size="lg" className="mt-2 ring-4 ring-white/30" />
+        <p className="mt-2 w-full truncate font-bold">{name}</p>
+        <p className="font-mono text-sm font-semibold text-white/85">ID {businessId || '—'}</p>
+      </div>
+    );
+  }
   return (
-    <div className={`min-w-[150px] rounded-lg border px-4 py-3 text-center ${styles}`}>
-      {label && (
-        <p className="text-[9.5px] font-semibold tracking-wider text-ink3 uppercase">{label}</p>
-      )}
-      <p className="font-mono text-xs font-semibold text-ink">{businessId || '—'}</p>
-      <p className="truncate text-xs text-ink2">{name}</p>
+    <div
+      className={
+        'flex w-[150px] flex-col items-center rounded-2xl px-3 py-4 text-center ' +
+        (tone === 'muted' ? 'bg-panel2' : 'bg-white shadow-[0_8px_20px_-12px_rgba(16,24,40,0.3)] ring-1 ring-rule')
+      }
+    >
+      {label && <p className="text-[10px] font-bold tracking-[0.14em] text-ink3 uppercase">{label}</p>}
+      <PersonAvatar name={name} className="mt-1.5" />
+      <p className="mt-2 w-full truncate text-sm font-semibold text-ink">{name}</p>
+      <p className="font-mono text-xs font-semibold text-brand">{businessId || '—'}</p>
     </div>
   );
 }
@@ -543,9 +730,9 @@ function NodeCard({
  *
  * Deliberately absent until there is something to say. A card reading "you have no reward yet" on
  * somebody's first day is a reminder that they have not achieved anything, which is not what a
- * dashboard is for — the stage ladder below already shows how far along they are.
+ * dashboard is for — the journey below already shows how far along they are.
  *
- * Two states, and the difference matters to the reader: **yours to collect** means an
+ * Two states, and the difference matters to the reader: **ready to collect** means an
  * administrator still has to hand it over, and **collected** records that they have.
  */
 function RewardCard() {
@@ -560,20 +747,31 @@ function RewardCard() {
   const issued = reward.status === 'issued';
 
   return (
-    <div
+    <section
       className={
-        'mt-5 rounded-lg border p-5 ' +
-        (issued ? 'border-ok bg-oksoft' : 'border-brand bg-brandsoft')
+        'relative mt-5 overflow-hidden rounded-3xl p-6 sm:p-7 ' +
+        (issued
+          ? 'bg-linear-to-r from-[#e7f7ec] to-[#dff3f0] ring-1 ring-ok/20'
+          : 'bg-linear-to-r from-[#fff3d4] via-[#ffe6b0] to-[#ffd98a] shadow-[0_16px_36px_-18px_rgba(224,154,26,0.75)]')
       }
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] tracking-wide text-ink3 uppercase">
+      <div aria-hidden className="pointer-events-none absolute -top-10 -right-6 h-40 w-40 rounded-full bg-white/40" />
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
+        <span
+          className={
+            'flex h-14 w-14 flex-none items-center justify-center rounded-2xl text-white shadow-sm sm:h-16 sm:w-16 ' +
+            (issued ? 'bg-linear-to-br from-[#34d399] to-[#059669]' : 'bg-linear-to-br from-[#f6c453] to-[#e0891a]')
+          }
+        >
+          <Icon name={issued ? 'check' : 'gift'} className="h-8 w-8" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold tracking-[0.14em] text-ink2 uppercase">
             {issued ? t('Your item pack') : t('You have earned your item pack')}
           </p>
-          <p className="mt-1 text-lg font-semibold text-ink">
+          <p className="mt-1 text-xl font-extrabold tracking-tight text-ink">
             {reward.itemSetName}
-            <span className="ml-2 font-mono text-xs text-ink3">{reward.itemSetCode}</span>
+            <span className="ml-2 font-mono text-xs font-semibold text-ink3">{reward.itemSetCode}</span>
           </p>
           <p className="mt-1 text-sm text-ink2">
             {issued
@@ -581,18 +779,18 @@ function RewardCard() {
                   when: reward.issuedAt ? new Date(reward.issuedAt).toLocaleString() : '—',
                   store: reward.issuedFromStore ?? '—',
                 })
-              : t('All four stages are complete. An administrator will hand it over — there is nothing to pay and nothing for you to do.')}
+              : t('Every level is complete. An administrator will hand it over — there is nothing to pay and nothing for you to do.')}
           </p>
         </div>
         <span
           className={
-            'rounded-full border px-2.5 py-1 text-[11px] font-medium ' +
-            (issued ? 'border-ok text-ok' : 'border-brand text-brand')
+            'self-start rounded-full px-3.5 py-1.5 text-xs font-bold sm:self-center ' +
+            (issued ? 'bg-white text-ok' : 'bg-white text-[#b86e0c] shadow-sm')
           }
         >
-          {issued ? t('collected') : t('ready to collect')}
+          {issued ? t('Collected') : t('Ready to collect')}
         </span>
       </div>
-    </div>
+    </section>
   );
 }

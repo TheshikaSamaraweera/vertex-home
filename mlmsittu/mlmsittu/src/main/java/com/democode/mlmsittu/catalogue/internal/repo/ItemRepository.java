@@ -15,6 +15,8 @@ public interface ItemRepository extends JpaRepository<Item, UUID> {
 
     boolean existsBySku(String sku);
 
+    long countByActiveTrue();
+
     @Query("select i from Item i where i.active = true order by i.name asc, i.id asc")
     List<Item> findAllActiveOrdered();
 

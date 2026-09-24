@@ -6,6 +6,7 @@ import com.democode.mlmsittu.hierarchy.api.StageProgress;
 import com.democode.mlmsittu.catalogue.api.ItemSetCatalogue;
 import com.democode.mlmsittu.identity.api.CurrentUser;
 import com.democode.mlmsittu.onboarding.internal.registration.ReferralCardService;
+import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.error.NotFoundException;
 import com.democode.mlmsittu.onboarding.internal.registration.DistributorDetailService;
 import com.democode.mlmsittu.onboarding.internal.registration.DistributorDirectoryService;
@@ -44,6 +45,9 @@ public class OnboardingController {
 
     /** ltree's own ceiling on path length, so "every level" is exact rather than a guess. */
     private static final int ALL_LEVELS = 65_535;
+
+    /** The largest page of the customer directory returned in one response. */
+    private static final int DIRECTORY_PAGE = 200;
 
     private final RegistrationService registrations;
     private final DocumentVault documents;
@@ -411,8 +415,29 @@ public class OnboardingController {
     @PreAuthorize("hasRole('ADMIN')")
     public PagedResponse<DistributorDirectoryService.DistributorRow> distributorDirectory(
             @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "true") boolean includeApplicants,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit) {
+        if (limit == null) {
+            return PagedResponse.of(distributorDirectory.list(search, includeApplicants));
+        }
+        // Paged, newest account first. The whole population is the one list here that grows with
+        // the business itself, so it is the last one that should arrive in a single response.
+        int size = Cursor.clampLimit(limit, DIRECTORY_PAGE, DIRECTORY_PAGE);
+        return PagedResponse.page(
+                distributorDirectory.page(
+                        search, includeApplicants, Cursor.decodeOrNull(cursor), size + 1),
+                size,
+                row -> new Cursor(row.joinedAt().toString(), row.userId()));
+    }
+
+    /** The directory's headline figures, which a paged list can no longer count for itself. */
+    @GetMapping("/admin/distributors/counts")
+    @PreAuthorize("hasRole('ADMIN')")
+    public DistributorDirectoryService.DirectoryCounts distributorDirectoryCounts(
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "true") boolean includeApplicants) {
-        return PagedResponse.of(distributorDirectory.list(search, includeApplicants));
+        return distributorDirectory.counts(search, includeApplicants);
     }
 
     @GetMapping("/distributors/{id}/detail")

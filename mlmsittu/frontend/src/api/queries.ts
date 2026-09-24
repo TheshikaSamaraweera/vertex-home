@@ -189,6 +189,16 @@ export const useStockByItemPage = (search: string, categoryId: string, cursor?: 
     ...pagedOptions,
   });
 
+/** The dashboard's three headline figures, counted on the server. */
+export const useStockSummary = () =>
+  useQuery({
+    queryKey: [...keys.stock, 'summary'],
+    queryFn: () =>
+      api.get<{ activeItems: number; unitsReserved: number; positionsBelowReorder: number }>(
+        '/api/v1/stock/summary',
+      ),
+  });
+
 export const useStore = (id: string | null) =>
   useQuery({
     queryKey: [...keys.locations, id],

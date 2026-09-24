@@ -1,5 +1,8 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Icon, type IconName } from './icons';
+import { SignOutDialog } from './SignOutDialog';
 import { NotificationBell } from './NotificationBell';
 import { ROLE_LABELS, useAuth } from '../auth/AuthContext';
 import type { Role } from '../api/types';
@@ -8,17 +11,17 @@ import { useRewardsWaiting } from '../api/queries';
 /**
  * The application frame.
  *
- * <h2>Why the rail looks the way it does</h2>
+ * <h2>Layout</h2>
  *
- * It used to be a white panel on a near-white page, which gave it no edge and no presence — it
- * read as an absence rather than a region. The hierarchy was inverted too: the section headings,
- * the labels that organise the whole application, were the faintest marks on the screen at 9.5px
- * of pale grey, with 0.14em tracking that costs legibility at that size rather than adding it.
+ * A white rail on a grey canvas, in the admin-dashboard idiom the client asked for. Each item has
+ * an icon tile; the active item's tile fills with the brand and its row takes a soft teal wash, so
+ * the current page is found by colour before its label is read. Section headings are small
+ * capitals in real contrast (4.9:1), not the faintest grey on the screen — they organise
+ * everything beneath them.
  *
- * Three changes, none of them darkness: a tinted ground so the rail is visibly a region; headings
- * in real ink at a readable size; and an active item filled with the brand rather than hinted at
- * with a wash of it. The type went from 13px in a 28px row to 14.5px in a 40px one, which is both
- * easier to read and easier to hit.
+ * Above the content, a bar carries a breadcrumb of where you are, the notification bell and your
+ * account. On a narrow screen the rail becomes a drawer behind a menu button: stacked above the
+ * page, it pushed the work itself below the fold on every visit.
  *
  * <h2>Roles</h2>
  *
@@ -28,57 +31,70 @@ import { useRewardsWaiting } from '../api/queries';
  * explicit that client-side gating is presentation only.
  */
 
-type NavItem = { to: string; label: string; roles?: Role[]; badge?: 'rewards' };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: IconName;
+  roles?: Role[];
+  badge?: 'rewards';
+};
 
 export function AppShell() {
   const { t } = useTranslation();
-  const { user, signOut, hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
 
   const sections: Array<{ heading: string; items: NavItem[] }> = [
     {
       heading: t('Overview'),
-      items: [{ to: '/', label: t('Dashboard') }],
+      items: [{ to: '/', label: t('Dashboard'), icon: 'dashboard' }],
     },
     {
       heading: t('Catalogue'),
       items: [
-        { to: '/items', label: t('Items') },
-        { to: '/item-sets', label: t('Item sets') },
+        { to: '/items', label: t('Items'), icon: 'package' },
+        { to: '/item-sets', label: t('Item sets'), icon: 'layers' },
       ],
     },
     {
       heading: t('Inventory'),
       items: [
-        { to: '/stock', label: t('Stock') },
-        { to: '/stores', label: t('Stores') },
+        { to: '/stock', label: t('Stock'), icon: 'warehouse' },
+        { to: '/stores', label: t('Stores'), icon: 'store' },
       ],
     },
     {
       heading: t('Procurement'),
       items: [
-        { to: '/suppliers', label: t('Suppliers') },
-        { to: '/purchase-orders', label: t('Create order') },
+        { to: '/suppliers', label: t('Suppliers'), icon: 'truck' },
+        { to: '/purchase-orders', label: t('Create order'), icon: 'clipboard' },
         // After orders because that is the order things happen in: an order is raised, sent and
         // signed for there, and lands here waiting for a shelf.
-        { to: '/receiving', label: t('Received orders') },
+        { to: '/receiving', label: t('Received orders'), icon: 'inbox' },
       ],
     },
     {
       heading: t('Sales'),
       items: [
-        { to: '/announcements', label: t('Announcements'), roles: ['ADMIN'] },
-        { to: '/hierarchy', label: t('Referral hierarchy'), roles: ['ADMIN'] },
-        { to: '/rewards', label: t('Reward packs'), roles: ['ADMIN'], badge: 'rewards' },
+        { to: '/announcements', label: t('Announcements'), roles: ['ADMIN'], icon: 'megaphone' },
+        { to: '/hierarchy', label: t('Referral hierarchy'), roles: ['ADMIN'], icon: 'network' },
+        {
+          to: '/rewards',
+          label: t('Reward packs'),
+          roles: ['ADMIN'],
+          badge: 'rewards',
+          icon: 'gift',
+        },
       ],
     },
     {
       heading: t('Reporting'),
       items: [
-        { to: '/reports', label: t('Stock and sales') },
+        { to: '/reports', label: t('Stock and sales'), icon: 'chart' },
         {
           to: '/analytics',
           label: t('Buyer analytics'),
           roles: ['FINANCE_OFFICER', 'SUPER_ADMIN', 'SUPPORT_AGENT'],
+          icon: 'pie',
         },
       ],
     },
@@ -93,18 +109,22 @@ export function AppShell() {
           // An administrator uses this screen to register other people, so calling it "mine"
           // describes the wrong thing entirely for them.
           label: hasRole('ADMIN') ? t('User registration') : t('My registration'),
+          icon: 'userPlus',
         },
         {
           to: '/registrations',
           label: t('Registration verification'),
           roles: ['KYC_REVIEWER', 'ADMIN'],
+          icon: 'shieldCheck',
         },
-        { to: '/distributors', label: t('Customers'), roles: ['ADMIN'] },
+        { to: '/distributors', label: t('Customers'), roles: ['ADMIN'], icon: 'users' },
       ],
     },
     {
       heading: t('Administration'),
-      items: [{ to: '/users', label: t('Users and roles'), roles: ['SUPER_ADMIN'] }],
+      items: [
+        { to: '/users', label: t('Users and roles'), roles: ['SUPER_ADMIN'], icon: 'key' },
+      ],
     },
   ];
 
@@ -115,123 +135,213 @@ export function AppShell() {
     }))
     .filter((section) => section.items.length > 0);
 
-  return (
-    <div className="min-h-dvh bg-ground">
-      <div className="mx-auto grid max-w-[1600px] grid-cols-1 lg:grid-cols-[268px_minmax(0,1fr)]">
-        <nav className="border-r border-navedge bg-nav px-3 py-5 lg:sticky lg:top-0 lg:h-dvh lg:overflow-y-auto">
-          {/* The mark. Larger and on a lighter green block, so the eye has a fixed anchor at the
-              top of the rail rather than having to find one. */}
-          <div className="mb-7 flex items-center gap-3 px-2">
-            {/* The one place the brand runs at full strength while at rest, so the eye has a
-                fixed anchor at the top of the rail instead of having to find one. */}
-            {/* White on green, where it used to be green on pale. Full-strength brand on a
-                brand-coloured rail would have disappeared into it. */}
-            <span
-              aria-hidden
-              className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-white text-[15px] font-bold text-brand shadow-sm"
-            >
-              MS
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-[15px] font-bold tracking-tight text-navink">
-                MLM Sittu
-              </p>
-              <p className="truncate text-[11px] text-navink3">{t('Distribution & inventory')}</p>
-            </div>
-          </div>
+  const location = useLocation();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
 
-          <div className="flex flex-wrap gap-x-6 gap-y-4 lg:block">
-            {visible.map((section) => (
-              <div key={section.heading} className="lg:mb-6">
-                {/* 11px in real ink, where it used to be 9.5px of the palest grey in the
-                    palette. These labels organise everything below them and were the hardest
-                    thing on the rail to read, which is exactly backwards. */}
-                {/* The group label. Bold and wider-tracked, because it names everything
-                    beneath it and a heading that is quieter than its own contents inverts the
-                    hierarchy it exists to express. */}
-                <p className="mb-1.5 px-3 text-[11px] font-bold tracking-[0.1em] text-navink3 uppercase">
-                  {section.heading}
-                </p>
-                {/* Indented, with a rule down the left.
-                    
-                    Indentation alone leaves it to the eye to infer the grouping from a few pixels
-                    of gap. The rule makes it a fact: everything to the right of this line belongs
-                    to the heading above it, and where a group ends is visible rather than
-                    deduced. */}
-                <ul className="ml-3 flex flex-col gap-0.5 border-l border-white/15 pl-2">
-                  {section.items.map((item) => (
-                    <li key={item.to}>
-                      <NavLink
-                        to={item.to}
-                        end={item.to === '/'}
-                        className={({ isActive }) =>
-                          'relative flex items-center gap-2 rounded-lg py-2.5 pr-3 pl-3 text-[14.5px] transition-colors duration-150 ' +
-                          (isActive
-                            ? // White block, green text: the inverse of everything around it, and
-                              // the brightest thing on the rail. On a dark surface this is the
-                              // strongest mark available — a tinted fill would have to compete
-                              // with the green it sits on.
-                              'bg-white font-bold text-brand shadow-sm'
-                            : // Three distinct states, not two. Resting text is deliberately
-                              // dimmer than white so the active item is found by brightness
-                              // before it is read; hover lifts the row to a lighter green and
-                              // the text to full white, so it is clear what is about to be
-                              // clicked without it pretending to be selected.
-                              'font-medium text-navink2 hover:bg-navraised hover:text-navink')
-                        }
-                      >
+  // The drawer closes whenever the page changes: a tap on a link should land you on the page, not
+  // leave the menu covering it.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [location.pathname]);
+
+  // Where you are, for the breadcrumb: the most specific navigation entry the path falls under,
+  // so /stores/abc still reads as Inventory / Stores.
+  const current = visible
+    .flatMap((section) => section.items.map((item) => ({ section: section.heading, item })))
+    .filter(({ item }) =>
+      item.to === '/'
+        ? location.pathname === '/'
+        : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`),
+    )
+    .sort((a, b) => b.item.to.length - a.item.to.length)[0];
+
+  const rail = (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-3 px-5 pt-6 pb-5">
+        <span
+          aria-hidden
+          className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-linear-to-br from-brandbright to-brand text-[14px] font-extrabold text-white shadow-sm"
+        >
+          MS
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-bold tracking-tight text-navink">MLM Sittu</p>
+          <p className="truncate text-xs text-navink3">{t('Distribution & inventory')}</p>
+        </div>
+      </div>
+
+      <div className="mx-5 h-px bg-linear-to-r from-transparent via-brand/20 to-transparent" />
+
+      <div className="flex-1 overflow-y-auto px-3 py-4">
+        {visible.map((section) => (
+          <div key={section.heading} className="mb-4 last:mb-0">
+            <p className="mb-1.5 px-3 text-[11px] font-semibold tracking-[0.08em] text-navink3 uppercase">
+              {section.heading}
+            </p>
+            <ul className="flex flex-col gap-0.5">
+              {section.items.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    end={item.to === '/'}
+                    className={({ isActive }) =>
+                      'group flex items-center gap-3 rounded-xl px-2.5 py-1.5 text-sm transition-[background-color,box-shadow,color] duration-150 ' +
+                      (isActive
+                        ? // A white card lifted off the tinted rail — the brightest thing on it,
+                          // so the current page is found before it is read.
+                          'bg-white font-semibold text-navink shadow-[0_6px_16px_-8px_rgba(11,122,110,0.45)]'
+                        : 'font-medium text-navink2 hover:bg-white/70 hover:text-navink')
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {/* The tile carries the state: filled brand when active, a quiet grey
+                            square otherwise, so the rail reads as a column of places rather than
+                            a list of words. */}
+                        <span
+                          className={
+                            'flex h-8 w-8 flex-none items-center justify-center rounded-lg transition-colors ' +
+                            (isActive
+                              ? 'bg-linear-to-br from-brandbright to-brand text-white shadow-sm'
+                              : 'bg-white text-brand shadow-xs ring-1 ring-navedge group-hover:ring-brand/30')
+                          }
+                        >
+                          <Icon name={item.icon} className="h-[17px] w-[17px]" />
+                        </span>
                         <span className="truncate">{item.label}</span>
                         {item.badge === 'rewards' && <RewardBadge />}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                      </>
+                    )}
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
           </div>
+        ))}
+      </div>
 
-          {/* The user card is lifted out of the rail rather than dropped on top of it. A white
-              card here would be the brightest block on the sidebar and would compete with the
-              active nav item, which is the one thing that should win. */}
-          {user && (
-            <div className="mt-7 rounded-xl border border-white/15 bg-white/10 p-3.5">
+      {user && (
+        <div className="p-3">
+          <div className="flex items-center gap-3 rounded-2xl bg-white/85 p-2.5 shadow-card ring-1 ring-white backdrop-blur">
+            <Avatar name={user.fullName} />
+            <div className="min-w-0 flex-1">
               <p className="truncate text-[13.5px] font-semibold text-navink">{user.fullName}</p>
-              <p className="truncate text-[11.5px] text-navink3">{user.email ?? user.mobile}</p>
-              <div className="mt-2.5 flex flex-wrap gap-1">
-                {(user.roles ?? []).map((role) => (
-                  <span
-                    key={role}
-                    className="rounded-full border border-white/25 bg-white/15 px-2 py-0.5 text-[10.5px] font-semibold text-navink"
-                  >
-                    {ROLE_LABELS[role as Role] ?? role}
-                  </span>
-                ))}
-              </div>
-              {/* Not the shared Button: every variant it offers is drawn for a light surface, and
-                  a white-bordered control on the green rail reads as a mistake. One button styled
-                  where it lives beats a fifth variant that exists for one caller. */}
-              <button
-                type="button"
-                onClick={() => void signOut()}
-                className="mt-3 w-full rounded-md border border-white/30 py-1.5 text-xs font-semibold text-navink2 transition-colors hover:border-white hover:bg-white hover:text-brand"
-              >
-                {t('Sign out')}
-              </button>
+              <p className="truncate text-xs text-navink3">
+                {(user.roles ?? [])
+                  .map((role) => ROLE_LABELS[role as Role] ?? role)
+                  .join(', ') ||
+                  user.email ||
+                  user.mobile}
+              </p>
             </div>
-          )}
-        </nav>
-
-        <main className="min-w-0 px-5 py-7 sm:px-8">
-          {/* The bell sits above the content rather than in the dark rail: it belongs to whatever
-              screen you are on, it needs a panel that opens downward into space, and the rail
-              scrolls away on a narrow window. */}
-          <div className="mb-4 flex justify-end">
-            <NotificationBell historyPath="/notifications" />
+            <button
+              type="button"
+              onClick={() => setConfirmingSignOut(true)}
+              title={t('Sign out')}
+              aria-label={t('Sign out')}
+              className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-navink3 transition-colors hover:bg-dangersoft hover:text-danger"
+            >
+              <Icon name="logout" className="h-[18px] w-[18px]" />
+            </button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="min-h-dvh bg-ground lg:grid lg:grid-cols-[272px_minmax(0,1fr)]">
+      {/* Desktop: a fixed rail. */}
+      <nav
+        aria-label={t('Main')}
+        className="nav-surface hidden border-r border-navedge lg:sticky lg:top-0 lg:block lg:h-dvh"
+      >
+        {rail}
+      </nav>
+
+      {/* Narrow screens: the same rail as a drawer. */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            aria-label={t('Close menu')}
+            className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <nav
+            aria-label={t('Main')}
+            className="nav-surface absolute inset-y-0 left-0 w-[284px] max-w-[85vw] shadow-float"
+          >
+            <button
+              type="button"
+              aria-label={t('Close menu')}
+              onClick={() => setDrawerOpen(false)}
+              className="absolute top-6 right-3 flex h-9 w-9 items-center justify-center rounded-lg text-navink3 hover:bg-navraised hover:text-navink"
+            >
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+            {rail}
+          </nav>
+        </div>
+      )}
+
+      <div className="flex min-w-0 flex-col">
+        {/* The top bar. Translucent over the canvas so a long page scrolls under it without the
+            bar reading as a second, heavier header. */}
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-navedge/70 bg-ground/85 px-4 backdrop-blur-md sm:px-8">
+          <button
+            type="button"
+            aria-label={t('Open menu')}
+            onClick={() => setDrawerOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-ink2 hover:bg-panel hover:text-ink lg:hidden"
+          >
+            <Icon name="menu" className="h-5 w-5" />
+          </button>
+          <nav aria-label={t('Breadcrumb')} className="min-w-0 flex-1">
+            <ol className="flex items-center gap-1.5 text-[13px]">
+              <li className="hidden text-ink3 sm:block">{current?.section ?? t('Overview')}</li>
+              <li aria-hidden className="hidden text-ink3 sm:block">
+                /
+              </li>
+              <li className="truncate font-semibold text-ink" aria-current="page">
+                {current?.item.label ?? t('Dashboard')}
+              </li>
+            </ol>
+          </nav>
+          <NotificationBell historyPath="/notifications" />
+          {user && (
+            <span className="hidden sm:block">
+              <Avatar name={user.fullName} />
+            </span>
+          )}
+        </header>
+
+        <main className="mx-auto w-full max-w-[1400px] min-w-0 px-4 py-6 sm:px-8 sm:py-8">
           <Outlet />
         </main>
+        {confirmingSignOut && <SignOutDialog onClose={() => setConfirmingSignOut(false)} />}
       </div>
     </div>
+  );
+}
+
+/** Initials in a tinted circle. Stands in for a photo the system does not hold. */
+function Avatar({ name }: { name: string | null | undefined }) {
+  const initials =
+    (name ?? '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || '?';
+  return (
+    <span
+      aria-hidden
+      className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brandsoft text-[13px] font-bold text-brand ring-2 ring-panel"
+    >
+      {initials}
+    </span>
   );
 }
 
@@ -251,7 +361,7 @@ function RewardBadge() {
   }
 
   return (
-    <span className="nums ml-auto rounded-full bg-warn px-1.5 py-0.5 text-[10.5px] font-bold text-white">
+    <span className="nums ml-auto rounded-full bg-danger px-2 py-0.5 text-[11px] font-bold text-white">
       {count}
     </span>
   );

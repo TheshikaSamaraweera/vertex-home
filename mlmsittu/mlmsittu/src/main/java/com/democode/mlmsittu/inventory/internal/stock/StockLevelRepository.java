@@ -42,6 +42,30 @@ interface StockLevelRepository extends JpaRepository<StockLevel, StockLevelId> {
             nativeQuery = true)
     void ensureRowExists(@Param("itemId") UUID itemId, @Param("locationId") UUID locationId);
 
+    /** Every unit held against an order, in every store. */
+    @Query(value = "SELECT COALESCE(sum(reserved), 0) FROM stock_level", nativeQuery = true)
+    long totalReserved();
+
+    /**
+     * Positions at or below their item's reorder level, counted per item and store — the same
+     * test {@code GET /stock} applies row by row, done once in the database instead of in a
+     * browser that first had to download every row.
+     *
+     * <p>Reads {@code item.reorder_level} natively, like the catalogue's own reference counts read
+     * other modules' tables: one figure, and no entity worth crossing the boundary for.
+     */
+    @Query(
+            value =
+                    """
+                    SELECT count(*)
+                      FROM stock_level s
+                      JOIN item i ON i.id = s.item_id
+                     WHERE i.reorder_level > 0
+                       AND s.on_hand - s.reserved <= i.reorder_level
+                    """,
+            nativeQuery = true)
+    long countBelowReorder();
+
     @Modifying
     @Query(
             value =

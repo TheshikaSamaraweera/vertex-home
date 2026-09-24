@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ==============================================================================================
-   MLM Sittu — light theme, deep forest green.
+   MLM Sittu — light theme, deep teal.
 
    ONE PALETTE, NO DARK MODE
    -------------------------
@@ -12,78 +12,69 @@
    designing the dark palette properly; a half-designed second theme is how the original problem
    happened.
 
-   THE COLOURS
-   -----------
-   Green is the brand, so the neutrals are given a slight green bias rather than being left a flat
-   grey — a neutral that shares a hue with the accent reads as chosen rather than inherited.
+   THE LOOK
+   --------
+   Modelled on the admin-dashboard idiom the client pointed at (Purity UI, and an inventory UI
+   kit): a cool grey canvas, white cards that float on it by shadow and a hairline rather than by
+   a heavy outline, a single teal accent, and a white navigation rail whose active item is marked
+   by a filled icon tile. The previous theme drew every card with a 2px green border; at the
+   density of this app that made every screen a grid of boxes competing for attention.
 
-   Because the brand is green, the positive-state colour has to work harder to stay distinct from
-   it: `--c-ok` is deliberately lighter and brighter than `--c-brand`, and the two never appear in
-   the same component role (brand fills buttons and navigation, ok tints badges). Amber and
-   terracotta carry the rest of the state signalling so the interface does not collapse into one
-   hue.
+   The brand stays in the green family — teal is where it moved, not away from it — but at a depth
+   that carries white text at WCAG AA (5.3:1). The bright teal of the reference kits is kept for
+   what it is good at: icon tiles and accents, never text on white.
+
+   Neutrals are a cool slate ramp. `--c-ink-3` is the faintest colour allowed to carry text and
+   is 5.4:1 on white and 5.0:1 on the canvas; anything paler is decoration only.
    ============================================================================================== */
 
 :root {
   /* Surfaces. Ground sits behind cards; panel is the card; panel-2 is inset — table headers,
      hover rows, form wells. */
-  --c-ground: #eff4f0;
+  --c-ground: #f4f6fa;
   --c-panel: #ffffff;
-  --c-panel-2: #e8f0ea;
+  --c-panel-2: #f7f9fc;
 
-  /* Text. Near-black with a green bias rather than a pure grey ramp. */
-  --c-ink: #14221a;
-  --c-ink-2: #47584e;
-  --c-ink-3: #78887e;
-  --c-rule: #c6dbcc;
+  /* Text. A slate ramp, from headings to captions. */
+  --c-ink: #1a2233;
+  --c-ink-2: #4a5568;
+  --c-ink-3: #5f6b7d;
 
-  /* The heavier rule, for the edge of a card and the underline of a table head.
-     
-     A second weight rather than one border used everywhere. Drawing every line at 2px turns a
-     table into graph paper and a form into a stack of boxes — the eye stops reading any of them
-     as structure because they all shout equally. This is the outline of a thing; --c-rule stays
-     the line *inside* it. */
-  --c-rule-strong: #8cbb9f;
+  /* Lines. The light rule divides inside a card; the strong rule outlines controls and cards. */
+  --c-rule: #edf0f5;
+  --c-rule-strong: #e1e6ee;
 
   /* Brand. Buttons, links, active navigation, focus rings, chart emphasis. */
-  --c-brand: #146b3a;
-  --c-brand-deep: #0e4e2a;
+  --c-brand: #0b7a6e;
+  --c-brand-deep: #08625a;
   --c-brand-ink: #ffffff;
-  --c-brand-soft: #e3f0e8;
+  --c-brand-soft: #e6f6f3;
+  /* The bright teal of the reference kits. Icon tiles and accents only — too light for text. */
+  --c-brand-bright: #38b2a3;
 
   /* Semantic state. Distinct hues so a status reads without being read. */
-  --c-ok: #1e874f;
-  --c-ok-soft: #ddf0e6;
-  --c-warn: #96620a;
-  --c-warn-soft: #faefd9;
-  --c-danger: #a6341f;
-  --c-danger-soft: #fbe9e4;
+  --c-ok: #15803d;
+  --c-ok-soft: #e7f7ec;
+  --c-warn: #a15c07;
+  --c-warn-soft: #fdf3e1;
+  --c-danger: #c2362b;
+  --c-danger-soft: #fdecea;
+  --c-info: #2f5fd0;
+  --c-info-soft: #eaf0fd;
 
-  /* Navigation rail.
-     
-     A solid deep green, not a tint. It was a pale green sitting on a pale ground, which gave the
-     rail almost no figure/ground separation — it read as an absence where the page happened to
-     stop rather than as a region of its own. Filling it makes the shape of the application
-     legible from across a desk, and gives the active item somewhere to be bright against.
-     
-     The active state inverts: white block, green text. On a dark rail that is the strongest mark
-     available, and it costs nothing — where a coloured fill on a coloured rail has to fight the
-     surface it sits on.
-     
-     Contrast is not incidental here. This is a rail somebody looks at all day: white on this
-     green is 9.8:1, the resting label 7.3:1, and the section headings 4.7:1 — all past WCAG AA,
-     with the resting state deliberately dimmer than the active one so the current page is found
-     by brightness before it is found by reading. */
-  --c-nav: #0e4e2a;
-  --c-nav-raised: #17673a;
-  --c-nav-edge: #093a1f;
-  --c-nav-ink: #ffffff;
-  --c-nav-ink-2: #cfe3d6;
-  --c-nav-ink-3: #a8d4ba;
+  /* Navigation rail. White, separated from the canvas by a hairline; the active item is a soft
+     teal row with a filled icon tile, so the current page is found by colour before it is read. */
+  --c-nav: #ffffff;
+  --c-nav-raised: #f4f6fa;
+  --c-nav-edge: #e8ecf2;
+  --c-nav-ink: #1a2233;
+  --c-nav-ink-2: #4a5568;
+  --c-nav-ink-3: #66718a;
 
-  /* Elevation. Two steps only: resting cards, and things that float above them. */
-  --elev-card: 0 1px 2px rgba(20, 34, 26, 0.05), 0 1px 3px rgba(20, 34, 26, 0.04);
-  --elev-float: 0 4px 6px -2px rgba(20, 34, 26, 0.08), 0 16px 32px -12px rgba(20, 34, 26, 0.24);
+  /* Elevation. Two steps only: resting cards, and things that float above them. Soft and wide
+     rather than dark and tight — the card is lifted off the canvas, not cut out of it. */
+  --elev-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 12px -2px rgba(16, 24, 40, 0.05);
+  --elev-float: 0 8px 16px -4px rgba(16, 24, 40, 0.08), 0 24px 48px -12px rgba(16, 24, 40, 0.22);
 }
 
 /* `inline` emits var() references rather than baking values, so a token change here reaches every
@@ -107,18 +98,23 @@
   --color-branddeep: var(--c-brand-deep);
   --color-brandink: var(--c-brand-ink);
   --color-brandsoft: var(--c-brand-soft);
+  --color-brandbright: var(--c-brand-bright);
   --color-ok: var(--c-ok);
   --color-oksoft: var(--c-ok-soft);
   --color-warn: var(--c-warn);
   --color-warnsoft: var(--c-warn-soft);
   --color-danger: var(--c-danger);
   --color-dangersoft: var(--c-danger-soft);
+  --color-info: var(--c-info);
+  --color-infosoft: var(--c-info-soft);
 
   --shadow-card: var(--elev-card);
   --shadow-float: var(--elev-float);
 
-  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto,
-    Helvetica, Arial, sans-serif;
+  /* Inter, loaded in index.html, with the platform UI fonts behind it so a blocked font request
+     still leaves a clean sans rather than a serif. */
+  --font-sans: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', -apple-system, BlinkMacSystemFont,
+    Roboto, Helvetica, Arial, sans-serif;
   --font-mono: 'Cascadia Code', ui-monospace, SFMono-Regular, Consolas, Menlo, monospace;
 }
 
@@ -132,8 +128,30 @@ body {
   background: var(--c-ground);
   color: var(--c-ink);
   font-family: var(--font-sans);
+  /* Inter's alternate digits and single-storey a read better at dashboard sizes. */
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/* The navigation rail's surface: mint at the top turning to a soft periwinkle at the foot, with
+   two faint glows so it reads as lit rather than painted. Light enough that the white cards and
+   tiles on it still stand forward — the rail frames the app, it does not compete with it. */
+.nav-surface {
+  background:
+    radial-gradient(130% 55% at 0% 0%, rgba(56, 178, 163, 0.18), transparent 62%),
+    radial-gradient(110% 45% at 100% 100%, rgba(108, 132, 255, 0.12), transparent 60%),
+    linear-gradient(180deg, #f1faf8 0%, #f6f9fb 50%, #f1f3fb 100%);
+}
+
+/* The customer portal's canvas: the same family, a touch warmer and more open, because this is
+   the page a customer shows somebody else. */
+.portal-canvas {
+  background:
+    radial-gradient(60% 40% at 10% 0%, rgba(56, 178, 163, 0.20), transparent 70%),
+    radial-gradient(50% 35% at 95% 5%, rgba(108, 132, 255, 0.14), transparent 70%),
+    radial-gradient(60% 40% at 80% 100%, rgba(250, 190, 90, 0.10), transparent 70%),
+    #f5f7fb;
 }
 
 /* Anything showing aligned figures — stock counts, quantities, prices — gets tabular digits so
@@ -153,11 +171,11 @@ h3 {
 *:focus-visible {
   outline: 2px solid var(--c-brand);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: 6px;
 }
 
 /* Date and file inputs render their own icons from the colour scheme; nudge them to the ink ramp
-   so they do not sit at full black against a green-biased palette. */
+   so they do not sit at full black beside the softer slate text. */
 input[type='date']::-webkit-calendar-picker-indicator {
   opacity: 0.55;
   cursor: pointer;
@@ -171,7 +189,7 @@ input[type='date']::-webkit-calendar-picker-indicator:hover {
   color: var(--c-ink);
 }
 
-/* Scrollbars inside panels, so a long table does not paint a system-grey bar across the green. */
+/* Scrollbars inside panels, so a long table does not paint a heavy system bar across a card. */
 * {
   scrollbar-color: var(--c-rule) transparent;
   scrollbar-width: thin;

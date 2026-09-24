@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:18080",
+      "url": "http://localhost:8080",
       "description": "Generated server url"
     }
   ],
@@ -3132,6 +3132,26 @@
         }
       }
     },
+    "/api/v1/stock/summary": {
+      "get": {
+        "tags": [
+          "inventory-controller"
+        ],
+        "operationId": "stockSummary",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockSummaryResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/stock/reorder-alerts": {
       "get": {
         "tags": [
@@ -4890,6 +4910,23 @@
               "type": "boolean",
               "default": true
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
           }
         ],
         "responses": {
@@ -4899,6 +4936,45 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PagedResponseDistributorRow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/distributors/counts": {
+      "get": {
+        "tags": [
+          "onboarding-controller"
+        ],
+        "operationId": "distributorDirectoryCounts",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeApplicants",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryCounts"
                 }
               }
             }
@@ -7412,6 +7488,23 @@
           }
         }
       },
+      "StockSummaryResponse": {
+        "type": "object",
+        "properties": {
+          "activeItems": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "unitsReserved": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "positionsBelowReorder": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "PagedResponseReorderAlertResponse": {
         "type": "object",
         "properties": {
@@ -8825,6 +8918,23 @@
           },
           "nextCursor": {
             "type": "string"
+          }
+        }
+      },
+      "DirectoryCounts": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "active": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "waiting": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       }

@@ -29,6 +29,7 @@ import {
   Field,
   Input,
   Modal,
+  money,
   PageHeader,
   Pager,
   Select,
@@ -211,13 +212,13 @@ export function ItemsPage() {
                           <AvailabilityBox available={availableByItem.get(item.id ?? '') ?? 0} />
                         )}
                       </Td>
-                      <Td align="right">{cost.toFixed(2)}</Td>
+                      <Td align="right">{money(cost)}</Td>
                       {/* An em dash rather than 0.00 — no price set is not a price of nothing. */}
                       <Td align="right" className="text-ink2">
-                        {item.retailPrice != null ? Number(item.retailPrice).toFixed(2) : '—'}
+                        {item.retailPrice != null ? money(item.retailPrice) : '—'}
                       </Td>
                       <Td align="right" className="text-ink2">
-                        {item.wholesalePrice != null ? Number(item.wholesalePrice).toFixed(2) : '—'}
+                        {item.wholesalePrice != null ? money(item.wholesalePrice) : '—'}
                       </Td>
                       <Td align="right" className="text-ink3">
                         {item.reorderLevel || '—'}

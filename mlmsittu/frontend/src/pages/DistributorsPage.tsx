@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type PagedResponse } from '../api/client';
+import { api } from '../api/client';
 import type { components } from '../api/schema';
 import {
   fetchDocumentObjectUrl,
@@ -10,9 +10,10 @@ import {
   useIssueReferralCards,
   useReferralCardBatches,
 } from '../api/onboarding';
-import { useItemSets } from '../api/queries';
+import { page, pagedOptions, useItemSets } from '../api/queries';
 import { useAuth } from '../auth/AuthContext';
 import { expiryStatus } from '../lib/expiry';
+import { useDebounced, usePager } from '../lib/paging';
 import { REFERRAL_STAGES, stageIndexes } from '../lib/stages';
 import {
   Badge,
@@ -23,6 +24,7 @@ import {
   humanStatus,
   Input,
   PageHeader,
+  Pager,
   Spinner,
   statusTone,
   Table,
@@ -41,16 +43,27 @@ type DistributorRow = components['schemas']['DistributorRow'];
  * for exactly that reason.
  */
 
-const useDistributors = (search: string, includeApplicants: boolean) =>
+/** One page of the directory, newest account first. */
+const useDistributorsPage = (search: string, includeApplicants: boolean, cursor?: string) =>
   useQuery({
-    queryKey: ['admin', 'distributors', search, includeApplicants],
+    queryKey: ['admin', 'distributors', 'page', search, includeApplicants, cursor ?? 'first'],
     queryFn: () =>
-      api
-        .get<PagedResponse<DistributorRow>>('/api/v1/admin/distributors', {
-          search: search || undefined,
-          includeApplicants,
-        })
-        .then((page) => page.data),
+      page<DistributorRow>('/api/v1/admin/distributors', cursor, { search, includeApplicants }),
+    ...pagedOptions,
+  });
+
+/**
+ * The headline figures for the whole directory under the same search. A paged list cannot count
+ * what is not on the page, so the server does it.
+ */
+const useDistributorCounts = (search: string, includeApplicants: boolean) =>
+  useQuery({
+    queryKey: ['admin', 'distributors', 'counts', search, includeApplicants],
+    queryFn: () =>
+      api.get<{ total: number; active: number; waiting: number }>(
+        '/api/v1/admin/distributors/counts',
+        { search, includeApplicants },
+      ),
   });
 
 export function DistributorsPage() {
@@ -59,18 +72,12 @@ export function DistributorsPage() {
 
   const [search, setSearch] = useState('');
   const [includeApplicants, setIncludeApplicants] = useState(true);
-  const people = useDistributors(search, includeApplicants);
-
-  const counts = useMemo(() => {
-    const rows = people.data ?? [];
-    return {
-      total: rows.length,
-      active: rows.filter((row) => row.distributorStatus === 'active').length,
-      waiting: rows.filter((row) =>
-        ['submitted', 'under_review', 'resubmit_required'].includes(row.registrationStatus ?? ''),
-      ).length,
-    };
-  }, [people.data]);
+  const query = useDebounced(search.trim());
+  const pager = usePager(query, includeApplicants);
+  const people = useDistributorsPage(query, includeApplicants, pager.cursor);
+  const rows = people.data?.data ?? [];
+  const countsQuery = useDistributorCounts(query, includeApplicants);
+  const counts = countsQuery.data ?? { total: 0, active: 0, waiting: 0 };
 
   return (
     <>
@@ -102,7 +109,7 @@ export function DistributorsPage() {
           <div className="p-4">
             <ErrorBanner error={people.error} onRetry={() => void people.refetch()} />
           </div>
-        ) : (people.data ?? []).length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState message={t('Nobody matches.')} />
         ) : (
           <TableWrap>
@@ -122,7 +129,7 @@ export function DistributorsPage() {
                 </tr>
               </thead>
               <tbody>
-                {(people.data ?? []).map((row) => (
+                {rows.map((row) => (
                   <tr key={row.userId} className="hover:bg-panel2">
                     <Td className="font-mono text-xs text-brand">{row.businessId ?? '—'}</Td>
                     <Td className="text-ink">{row.fullName}</Td>
@@ -190,6 +197,13 @@ export function DistributorsPage() {
             </Table>
           </TableWrap>
         )}
+        <Pager
+          page={pager.page}
+          hasNext={Boolean(people.data?.nextCursor)}
+          loading={people.isPlaceholderData}
+          onPrevious={pager.previous}
+          onNext={() => people.data?.nextCursor && pager.next(people.data.nextCursor)}
+        />
       </Card>
     </>
   );

@@ -28,26 +28,26 @@ function PortalFrame({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-ground px-4 py-10">
-      <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center gap-2.5">
+    <div className="portal-canvas flex min-h-dvh items-center justify-center px-4 py-10">
+      <div className="w-full max-w-[420px]">
+        <div className="mb-7 flex flex-col items-center text-center">
           <span
             aria-hidden
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-brand text-sm font-bold text-brandink"
+            className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-linear-to-br from-brandbright to-brand text-lg font-extrabold text-white shadow-[0_10px_24px_-10px_rgba(11,122,110,0.8)]"
           >
             MS
           </span>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-ink">{title}</h1>
-            <p className="text-xs text-ink2">{subtitle}</p>
-          </div>
+          <h1 className="mt-4 text-[26px] font-extrabold tracking-tight text-ink">{title}</h1>
+          <p className="mt-1 text-sm text-ink3">{subtitle}</p>
         </div>
 
-        <div className="rounded-xl border-2 border-rulestrong bg-panel p-5 shadow-card">{children}</div>
+        <div className="rounded-3xl border border-white/70 bg-white/85 p-7 shadow-[0_20px_44px_-20px_rgba(16,24,40,0.3)] backdrop-blur-sm">
+          {children}
+        </div>
 
-        <p className="mt-5 text-center text-xs text-ink3">
+        <p className="mt-6 text-center text-sm text-ink3">
           {t('Staff member?')}{' '}
-          <Link className="text-brand underline" to="/">
+          <Link className="font-semibold text-brand hover:underline" to="/">
             {t('Sign in here instead')}
           </Link>
         </p>
