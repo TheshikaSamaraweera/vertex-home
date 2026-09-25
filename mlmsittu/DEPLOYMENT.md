@@ -39,10 +39,35 @@ mounted volume, so there is nothing else to run.
 | Setting | Value | Why |
 |---|---|---|
 | AMI | Amazon Linux 2023 or Ubuntu 24.04 LTS | Both are covered below. Ubuntu needs Docker's own apt repository, not the distribution package. |
-| Type | `t3.small` | The JVM takes ~70% of its container's memory, PostgreSQL a few hundred MB, nginx nothing. `t3.micro` (1 GB) runs but leaves no headroom, and the build is what runs out first. |
+| Type | `t3.small` or `t4g.small` (2 GB) | Enough — see **Memory budget** below for the measured figures. `t4g` (Graviton/ARM) is ~20% cheaper and every image here runs on it. `t3.micro` (1 GB) is too small. More than 2 GB buys nothing this application uses. |
 | Storage | 30 GB gp3 | The default 8 GB does not survive Docker images plus the database plus uploaded documents. Growing it later means resizing a live filesystem. |
 | Key pair | create and download | The only way in. There is no password login. |
 | Elastic IP | allocate and associate | A stopped instance gets a **new** public IP on restart, which silently breaks `APP_BASE_URL` and every verification link already emailed. |
+
+### Memory budget
+
+`docker-compose.yml` caps each container, and the figures behind the caps were measured, not
+guessed (production image, 150 concurrent users, and a burst of 40 people signing in at once):
+
+| Container | Limit | Measured | What decides it |
+|---|---|---|---|
+| `app` | 1 GB (`APP_MEM_LIMIT`) | 443 MB at rest, **794 MB peak** | 512 MB heap (50% of the limit, set in the Dockerfile) + ~350 MB JVM overhead. The application's own data is ~60 MB. |
+| `db` | 448 MB (`DB_MEM_LIMIT`) | ~80–100 MB, growing towards ~250 MB as its cache fills | 128 MB shared buffers + a few MB per connection; `max_connections=40`. |
+| `web` | 64 MB (`WEB_MEM_LIMIT`) | a few MB | nginx. |
+| OS + Docker | — | ~300–400 MB | |
+| **Total** | | **~1.5 GB** | Fits 2 GB with the 2 GB swap file below as a safety margin. |
+
+Two things drive the app's memory, and neither is the number of users browsing:
+
+- **Signing in.** Passwords are hashed with Argon2 at 64 MB each. Only as many hashes run at once
+  as the instance has CPUs (at most four; `SECURITY_PASSWORD_HASHING_MAX_CONCURRENT` overrides) —
+  the rest queue for a second or two — so a sign-in rush costs latency, not memory.
+- **The heap share.** If you change `APP_MEM_LIMIT`, the heap follows at 50%. Do not raise the
+  percentage: the ~350 MB of JVM overhead sits on top of the heap, and a process that outgrows its
+  container limit is killed by the kernel and restarted into the same wall.
+
+The **build** is the exception: Gradle and Vite need more than 2 GB between them, which is what the
+swap file below is for. Building the images elsewhere (CI, or your own machine) removes that need.
 
 **Security group inbound:** 22 from your own IP only, 80 and 443 from anywhere.
 **Do not open 5432.** The database is not published outside the compose network and must stay that

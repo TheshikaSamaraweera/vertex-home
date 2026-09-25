@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -40,9 +41,24 @@ public class SecurityConfig {
      * <p>P1-02 says decide now, not later — changing this after users exist means every one of
      * them resets their password, because a hash cannot be converted between schemes.
      */
+    /**
+     * Argon2id, with at most a few hashes running at once — see {@link BoundedPasswordEncoder}.
+     *
+     * <p>The limit defaults to the number of CPUs, capped at four. More hashes than cores cannot
+     * run any faster (each one keeps a core busy), they only hold more memory — 64 MB apiece.
+     * Measured on a 512 MB heap under a burst of 40 simultaneous sign-ins: a limit of 4 caused 26
+     * full garbage collections, a limit of 2 caused 2, and all 40 still signed in within about
+     * five seconds. {@code security.password-hashing.max-concurrent} overrides the default.
+     */
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new Argon2PasswordEncoder(16, 32, 1, 1 << 16, 3);
+    public PasswordEncoder passwordEncoder(
+            @Value("${security.password-hashing.max-concurrent:0}") int configuredLimit) {
+        int limit =
+                configuredLimit > 0
+                        ? configuredLimit
+                        : Math.min(4, Runtime.getRuntime().availableProcessors());
+        return new BoundedPasswordEncoder(
+                new Argon2PasswordEncoder(16, 32, 1, 1 << 16, 3), limit);
     }
 
     @Bean

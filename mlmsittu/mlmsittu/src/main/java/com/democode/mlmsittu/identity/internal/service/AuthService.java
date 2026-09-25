@@ -31,7 +31,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Password and TOTP login (development plan P1-03, P1-05, P1-07).
@@ -90,9 +89,23 @@ public class AuthService {
 
     // ------------------------------------------------------------------ step 1: password
 
-    // Not readOnly: the audit aspect runs inside this transaction, and PostgreSQL refuses an
-    // INSERT in a read-only transaction.
-    @Transactional
+    /**
+     * Step 1: the password.
+     *
+     * <p><b>Deliberately not {@code @Transactional}.</b> It used to be, and under a sign-in rush
+     * that froze the whole application. The transaction held a database connection for the
+     * entire call — including the Argon2 hash, which takes about half a second of CPU on its own
+     * and far longer when many run at once — while the rate limiter (and, on failure, the audit
+     * log) each open a transaction of their own, {@code REQUIRES_NEW}, needing a <em>second</em>
+     * connection. With as many simultaneous sign-ins as the pool has connections, every one held
+     * a connection and waited for another: nothing moved until the pool timed out, 30 seconds
+     * later, and every other request in the app waited too.
+     *
+     * <p>Without the outer transaction, each step takes a connection only for as long as its own
+     * statement or transaction lasts: the rate-limit check, the account lookup (roles load
+     * eagerly with it), the audit row. The password is hashed holding no connection at all.
+     * {@code LoginBurstTest} fires twice the pool size at once and fails on the old behaviour.
+     */
     @Audited(action = "LOGIN", entityType = "app_user", auditFailures = true)
     public LoginResponse login(
             String identifier,
@@ -173,7 +186,14 @@ public class AuthService {
 
     // ------------------------------------------------------------------ step 2: TOTP
 
-    @Transactional
+    /**
+     * Step 2: the authenticator code.
+     *
+     * <p>Not {@code @Transactional} either, for the same reason as {@link #login}: the rate-limit
+     * resets below run in transactions of their own, and holding a connection around them is how
+     * a burst starves the pool. The one write — storing a newly enrolled TOTP secret — is a
+     * single {@code save}, which the repository runs in its own short transaction.
+     */
     @Audited(action = "LOGIN_MFA", entityType = "app_user", auditFailures = true)
     public LoginResponse completeMfa(
             String challengeId,

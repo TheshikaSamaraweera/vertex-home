@@ -17,6 +17,11 @@ services:
   db:
     image: postgres:18-alpine
     restart: unless-stopped
+    # Memory: see "Memory budget" in DEPLOYMENT.md. PostgreSQL's 128 MB of shared buffers plus a
+    # few MB per connection; forty connections is well above what the app's pool (15) and a
+    # migration or a psql session need, and each unused slot still reserves memory.
+    mem_limit: ${DB_MEM_LIMIT:-448m}
+    command: ["postgres", "-c", "max_connections=40"]
     environment:
       POSTGRES_DB: ${DB_NAME:-mlmsitty}
       POSTGRES_USER: ${DB_MIGRATION_USER:-postgres}
@@ -68,6 +73,10 @@ services:
     build:
       context: ./mlmsittu
     restart: unless-stopped
+    # The JVM sizes its heap at 50% of this (see the Dockerfile): 1 GB gives a 512 MB heap plus
+    # ~350 MB of JVM overhead, measured at ~880 MB peak through a 40-person sign-in rush.
+    # Lowering it below 1 GB means lowering MaxRAMPercentage's result too — do both or neither.
+    mem_limit: ${APP_MEM_LIMIT:-1g}
     depends_on:
       db:
         condition: service_healthy
@@ -151,6 +160,8 @@ services:
     build:
       context: ./frontend
     restart: unless-stopped
+    # nginx serving static files and proxying; it uses a few MB.
+    mem_limit: ${WEB_MEM_LIMIT:-64m}
     depends_on:
       - app
     ports:

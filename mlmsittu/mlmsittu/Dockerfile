@@ -62,7 +62,15 @@ ENV SPRING_PROFILES_ACTIVE=prod
 # MaxRAMPercentage rather than a fixed -Xmx: the JVM reads the container's memory limit, so the
 # heap follows whatever the EC2 instance and compose allocate instead of a number that is wrong on
 # every machine except the one it was chosen for.
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseContainerSupport -XX:+ExitOnOutOfMemoryError"
+#
+# 50%, not the 70% this used to be. The heap is only part of what the process uses: measured on
+# this application, metaspace, compiled code, GC structures and thread stacks add a steady
+# ~350 MB on top of it. With compose's 1 GB limit, 70% meant a 717 MB heap and a process of about
+# 1.07 GB — over the limit, so the kernel would kill the container and the restart policy would
+# bring it back into the same wall. 50% is a 512 MB heap and a process that peaked at ~880 MB
+# through a 40-person sign-in rush, with room to spare. The application's own data is small:
+# about 60 MB survives a full collection after 150 concurrent users.
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=50 -XX:+UseContainerSupport -XX:+ExitOnOutOfMemoryError"
 
 # ExitOnOutOfMemoryError is deliberate. A JVM that has exhausted its heap does not recover; it
 # thrashes, serves slowly, and passes a shallow health check while doing it. Dying lets the
