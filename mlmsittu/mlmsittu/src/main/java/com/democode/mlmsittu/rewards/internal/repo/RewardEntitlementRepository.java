@@ -32,4 +32,14 @@ public interface RewardEntitlementRepository extends JpaRepository<RewardEntitle
     List<RewardEntitlement> findAllNewestFirst();
 
     long countByStatus(String status);
+
+    /** Issued packs being tracked, newest first; {@code stage} null for every stage. */
+    @Query(
+            "select e from RewardEntitlement e where e.trackingStage is not null"
+                    + " and (:stage is null or e.trackingStage = :stage) order by e.issuedAt desc")
+    List<RewardEntitlement> findTracked(@Param("stage") String stage);
+
+    /** The next number in {@code PK-2026-000123}. A sequence, so two issues never share one. */
+    @Query(value = "select nextval('reward_tracking_seq')", nativeQuery = true)
+    long nextTrackingSequence();
 }

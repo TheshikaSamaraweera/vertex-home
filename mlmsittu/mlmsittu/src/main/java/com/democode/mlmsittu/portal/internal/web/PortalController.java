@@ -5,6 +5,12 @@ import com.democode.mlmsittu.identity.api.CurrentUser;
 import com.democode.mlmsittu.portal.api.PortalView;
 import com.democode.mlmsittu.portal.internal.PackCatalogueService;
 import com.democode.mlmsittu.portal.internal.PortalService;
+import com.democode.mlmsittu.rewards.api.RewardDelivery;
+import com.democode.mlmsittu.rewards.api.RewardDelivery.PickupPoint;
+import com.democode.mlmsittu.rewards.api.RewardDelivery.ReceiveMethodChoice;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import com.democode.mlmsittu.shared.api.PagedResponse;
 import com.democode.mlmsittu.shared.error.ApiException;
 import com.democode.mlmsittu.shared.storage.api.DocumentVault;
@@ -18,6 +24,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -45,14 +53,17 @@ public class PortalController {
     private final PortalService portal;
     private final PackCatalogueService packs;
     private final DocumentVault vault;
+    private final RewardDelivery delivery;
     private final CurrentUser currentUser;
 
     public PortalController(
             PortalService portal,
             PackCatalogueService packs,
             DocumentVault vault,
+            RewardDelivery delivery,
             CurrentUser currentUser) {
         this.portal = portal;
+        this.delivery = delivery;
         this.packs = packs;
         this.vault = vault;
         this.currentUser = currentUser;
@@ -115,5 +126,35 @@ public class PortalController {
     @GetMapping("/referrals")
     public PagedResponse<DistributorNode> referrals() {
         return PagedResponse.of(portal.directReferrals(currentUser.requireId()));
+    }
+
+    /** The warehouses a customer may collect their pack from. */
+    @GetMapping("/reward/pickup-points")
+    public PagedResponse<PickupPoint> pickupPoints() {
+        portal.requireActiveDistributor(currentUser.requireId());
+        return PagedResponse.of(delivery.pickupPoints());
+    }
+
+    public record ReceiveMethodRequest(
+            @NotNull(message = "REQUIRED") String method,
+            UUID pickupLocationId,
+            @Size(max = 500) String deliveryAddress,
+            @Size(max = 32) String deliveryContact) {}
+
+    /**
+     * How they will receive their issued pack. Once only — after this, the office changes it.
+     * Returns the refreshed portal view, so the dashboard updates from the answer.
+     */
+    @PutMapping("/reward/receive-method")
+    public PortalView chooseReceiveMethod(@Valid @RequestBody ReceiveMethodRequest body) {
+        UUID userId = currentUser.requireId();
+        delivery.chooseReceiveMethod(
+                portal.requireActiveDistributor(userId),
+                new ReceiveMethodChoice(
+                        body.method(),
+                        body.pickupLocationId(),
+                        body.deliveryAddress(),
+                        body.deliveryContact()));
+        return portal.viewFor(userId);
     }
 }

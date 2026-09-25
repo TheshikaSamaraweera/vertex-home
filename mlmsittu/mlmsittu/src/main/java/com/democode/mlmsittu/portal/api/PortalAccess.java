@@ -37,5 +37,16 @@ public enum PortalAccess {
      * letting it reach into somebody else's stage count would make one missed payment a third
      * party's problem. Only the portal closes.
      */
-    EXPIRED
+    EXPIRED,
+
+    /**
+     * Their item pack has been picked up or delivered: this business account has done everything
+     * it exists to do, and is closed.
+     *
+     * <p>Unlike the other closed states, the view still carries their Business ID, stages and pack —
+     * that is their history, and the dashboard shows it. Nothing in the tree changes; only the
+     * portal's working pages close. Registering again for another pack starts a new account's
+     * journey.
+     */
+    COMPLETED
 }

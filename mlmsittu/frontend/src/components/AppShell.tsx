@@ -84,6 +84,8 @@ export function AppShell() {
           badge: 'rewards',
           icon: 'gift',
         },
+        // Right after Reward packs: an issued pack moves from there to here.
+        { to: '/reward-tracking', label: t('Pack tracking'), roles: ['ADMIN'], icon: 'truck' },
       ],
     },
     {

@@ -35,6 +35,7 @@ public class Notifications {
     public static final String STAGES_COMPLETE = "STAGES_COMPLETE";
     public static final String REWARD_READY = "REWARD_READY";
     public static final String REWARD_ISSUED = "REWARD_ISSUED";
+    public static final String REWARD_TRACKING = "REWARD_TRACKING";
     public static final String ANNOUNCEMENT = "ANNOUNCEMENT";
     public static final String MEMBERSHIP_EXPIRING = "MEMBERSHIP_EXPIRING";
     public static final String STOCK_LOW = "STOCK_LOW";

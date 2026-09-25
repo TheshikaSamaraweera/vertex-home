@@ -600,6 +600,45 @@ export const useIssueRewardPack = () =>
     [keys.rewards, ...STOCK_TOUCHING],
   );
 
+// ---------------------------------------------------------------- pack tracking
+
+/** Issued packs on their way to customers; `stage` empty for every stage. */
+export const useTrackedRewards = (stage?: string) =>
+  useQuery({
+    queryKey: [...keys.rewards, 'tracking', stage ?? 'all'],
+    queryFn: () => list<RewardEntitlement>('/api/v1/admin/rewards/tracking', { stage }),
+  });
+
+export type ReceiveMethodBody = {
+  method: 'pickup' | 'delivery';
+  pickupLocationId?: string;
+  deliveryAddress?: string;
+  deliveryContact?: string;
+};
+
+/** Adds a receiving method, or — with the administrator's password — changes one already set. */
+export const useSetReceiveMethod = () =>
+  useInvalidatingMutation(
+    ({ id, ...body }: ReceiveMethodBody & { id: string; password?: string }) =>
+      api.put<RewardEntitlement>(`/api/v1/admin/rewards/${id}/receive-method`, body),
+    [keys.rewards],
+  );
+
+export const useChangeRewardStage = () =>
+  useInvalidatingMutation(
+    ({ id, stage, note }: { id: string; stage: 'preparing' | 'dispatched'; note?: string }) =>
+      api.post<RewardEntitlement>(`/api/v1/admin/rewards/${id}/stage`, { stage, note }),
+    [keys.rewards],
+  );
+
+/** The last stage: handed over from a warehouse. Final. */
+export const useCompleteReward = () =>
+  useInvalidatingMutation(
+    ({ id, locationId, note }: { id: string; locationId: string; note?: string }) =>
+      api.post<RewardEntitlement>(`/api/v1/admin/rewards/${id}/complete`, { locationId, note }),
+    [keys.rewards],
+  );
+
 export const useReplaceUserRoles = () =>
   useInvalidatingMutation(
     ({ id, roleCodes }: { id: string; roleCodes: string[] }) =>

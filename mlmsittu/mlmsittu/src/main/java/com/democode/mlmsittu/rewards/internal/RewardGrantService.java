@@ -40,6 +40,7 @@ public class RewardGrantService implements RewardGrants, RewardStatus {
     private final LocationDirectory locations;
     private final NotificationSender notifications;
     private final Notifications inApp;
+    private final TrackingDescriber tracking;
 
     public RewardGrantService(
             RewardEntitlementRepository entitlements,
@@ -47,8 +48,10 @@ public class RewardGrantService implements RewardGrants, RewardStatus {
             UserDirectory users,
             LocationDirectory locations,
             NotificationSender notifications,
-            Notifications inApp) {
+            Notifications inApp,
+            TrackingDescriber tracking) {
         this.entitlements = entitlements;
+        this.tracking = tracking;
         this.itemSets = itemSets;
         this.users = users;
         this.locations = locations;
@@ -81,10 +84,23 @@ public class RewardGrantService implements RewardGrants, RewardStatus {
                                     entitlement.getItemSetId(),
                                     pack == null ? null : pack.code(),
                                     pack == null ? null : pack.name(),
+                                    pack == null ? null : pack.description(),
+                                    pack == null ? null : pack.imageId(),
+                                    tracking.lines(pack),
                                     entitlement.getBecameEligibleAt(),
                                     entitlement.getIssuedAt(),
-                                    store);
+                                    store,
+                                    tracking.describe(entitlement));
                         });
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isCompleted(UUID distributorId) {
+        return entitlements
+                .findByDistributorId(distributorId)
+                .map(RewardEntitlement::isCompleted)
+                .orElse(false);
     }
 
     /**

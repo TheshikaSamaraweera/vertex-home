@@ -27,6 +27,7 @@ export function PortalShell() {
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
 
   const active = me.data?.access === 'ACTIVE';
+  const completed = me.data?.access === 'COMPLETED';
 
   const items: Array<{ to: string; label: string; icon: IconName; end?: boolean }> = active
     ? [
@@ -37,7 +38,13 @@ export function PortalShell() {
         { to: '/portal/details', label: t('My details'), icon: 'user' },
         { to: '/portal/registration', label: t('Registration'), icon: 'clipboard' },
       ]
-    : [
+    : completed
+      ? [
+          // The account is closed: its record, and the packs for whoever registers next.
+          { to: '/portal', label: t('Dashboard'), icon: 'dashboard', end: true },
+          { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
+        ]
+      : [
         { to: '/portal/registration', label: t('Business registration'), icon: 'clipboard' },
         // Open before approval, so a new customer can see what each pack holds before choosing.
         { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
@@ -157,6 +164,26 @@ export function RequireActive({ children }: { children: React.ReactNode }) {
   // been approved" to somebody whose registration was approved months ago is both wrong and
   // insulting. They need to know their time ran out and that nothing was lost.
   const expired = me.data?.access === 'EXPIRED';
+  const completed = me.data?.access === 'COMPLETED';
+
+  if (completed) {
+    return (
+      <div className="mx-auto max-w-lg rounded-3xl border border-white/70 bg-white/85 p-8 text-center shadow-[0_10px_30px_-12px_rgba(16,24,40,0.18)]">
+        <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-oksoft text-ok">
+          <Icon name="check" className="h-6 w-6" />
+        </span>
+        <Badge tone="ok">{t('Business account complete')}</Badge>
+        <p className="mt-3 text-sm text-ink2">
+          {t('Your item pack has been handed over, so this account is closed. Its history is on your dashboard.')}
+        </p>
+        <NavLink to="/portal">
+          <Button variant="primary" size="sm" className="mt-4">
+            {t('Go to my dashboard')}
+          </Button>
+        </NavLink>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-lg rounded-3xl border border-white/70 bg-white/85 p-8 text-center shadow-[0_10px_30px_-12px_rgba(16,24,40,0.18)]">

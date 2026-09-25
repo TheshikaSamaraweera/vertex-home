@@ -42,6 +42,11 @@ export function NotificationBell({ historyPath }: { historyPath: string }) {
       link: notification.link || undefined,
       tone: notification.kind.includes('REJECTED') ? 'danger' : 'ok',
     });
+    if (notification.kind === 'REWARD_TRACKING' || notification.kind === 'REWARD_ISSUED') {
+      // The customer's dashboard and the office's tracking page both show where the pack is.
+      void queryClient.invalidateQueries({ queryKey: ['portal', 'me'] });
+      void queryClient.invalidateQueries({ queryKey: ['rewards'] });
+    }
     if (notification.kind === 'REGISTRATION_SUBMITTED') {
       void queryClient.invalidateQueries({ queryKey: onboardingKeys.queue });
       void queryClient.invalidateQueries({ queryKey: ['admin', 'distributors'] });

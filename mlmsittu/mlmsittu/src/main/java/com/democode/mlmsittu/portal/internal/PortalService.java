@@ -69,7 +69,15 @@ public class PortalService {
 
         PortalAccess access = accessFor(registration, distributor);
 
-        if (access != PortalAccess.ACTIVE) {
+        // A completed pack closes the account whatever else is true of it — including an expiry
+        // date that has since passed. They are told what they finished, not that they lapsed.
+        if (distributor.isPresent()
+                && "active".equals(distributor.get().status())
+                && rewards.isCompleted(distributor.get().id())) {
+            access = PortalAccess.COMPLETED;
+        }
+
+        if (access != PortalAccess.ACTIVE && access != PortalAccess.COMPLETED) {
             return locked(user, access, registration);
         }
 
@@ -83,7 +91,7 @@ public class PortalService {
         List<DistributorNode> children = hierarchy.children(node.id());
 
         return new PortalView(
-                PortalAccess.ACTIVE,
+                access,
                 user.id(),
                 user.fullName(),
                 user.email(),
@@ -205,14 +213,23 @@ public class PortalService {
      * available, because a locked-out applicant still has to be told <em>why</em>.
      */
     public UUID requireActiveDistributor(UUID userId) {
-        return hierarchy
-                .findByUserId(userId)
-                .filter(node -> "active".equals(node.status()))
-                .map(DistributorNode::id)
-                .orElseThrow(
-                        () ->
-                                new ForbiddenException(
-                                        "REGISTRATION_NOT_APPROVED",
-                                        "Your business registration has not been approved yet."));
+        UUID distributorId =
+                hierarchy
+                        .findByUserId(userId)
+                        .filter(node -> "active".equals(node.status()))
+                        .map(DistributorNode::id)
+                        .orElseThrow(
+                                () ->
+                                        new ForbiddenException(
+                                                "REGISTRATION_NOT_APPROVED",
+                                                "Your business registration has not been approved"
+                                                        + " yet."));
+        if (rewards.isCompleted(distributorId)) {
+            throw new ForbiddenException(
+                    "BUSINESS_ACCOUNT_COMPLETED",
+                    "This business account is complete — its item pack has been handed over.");
+        }
+        return distributorId;
     }
+
 }

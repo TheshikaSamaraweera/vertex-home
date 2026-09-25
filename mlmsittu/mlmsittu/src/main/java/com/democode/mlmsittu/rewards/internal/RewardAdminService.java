@@ -12,7 +12,11 @@ import com.democode.mlmsittu.inventory.api.LocationDirectory.LocationRef;
 import com.democode.mlmsittu.inventory.api.StockLedger;
 import com.democode.mlmsittu.inventory.api.StockPosting;
 import com.democode.mlmsittu.inventory.api.StockView;
+import com.democode.mlmsittu.rewards.api.RewardStatus.PackLine;
+import com.democode.mlmsittu.rewards.api.RewardStatus.Tracking;
 import com.democode.mlmsittu.rewards.internal.domain.RewardEntitlement;
+import com.democode.mlmsittu.rewards.internal.domain.RewardTrackingEvent;
+import com.democode.mlmsittu.rewards.internal.repo.RewardTrackingEventRepository;
 import com.democode.mlmsittu.rewards.internal.repo.RewardEntitlementRepository;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
 import com.democode.mlmsittu.shared.audit.api.Audited;
@@ -20,6 +24,7 @@ import com.democode.mlmsittu.shared.error.ConflictException;
 import com.democode.mlmsittu.shared.error.NotFoundException;
 import com.democode.mlmsittu.shared.notify.NotificationSender;
 import com.democode.mlmsittu.shared.notify.Notifications;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -56,6 +61,8 @@ public class RewardAdminService {
     private final ReferralHierarchy hierarchy;
     private final UserDirectory users;
     private final NotificationSender notifications;
+    private final RewardTrackingEventRepository events;
+    private final TrackingDescriber tracking;
 
     public RewardAdminService(
             RewardEntitlementRepository entitlements,
@@ -66,8 +73,12 @@ public class RewardAdminService {
             ReferralHierarchy hierarchy,
             UserDirectory users,
             NotificationSender notifications,
-            Notifications inApp) {
+            Notifications inApp,
+            RewardTrackingEventRepository events,
+            TrackingDescriber tracking) {
         this.entitlements = entitlements;
+        this.events = events;
+        this.tracking = tracking;
         this.inApp = inApp;
         this.itemSets = itemSets;
         this.items = items;
@@ -126,7 +137,11 @@ public class RewardAdminService {
             String issuedFromLocationName,
             String issuedByName,
             String note,
-            List<PackStoreOption> stores) {}
+            List<PackStoreOption> stores,
+            UUID itemSetImageId,
+            List<PackLine> packItems,
+            /** Null until issued; then where the pack is on its way to the customer. */
+            Tracking tracking) {}
 
     @Transactional(readOnly = true)
     public List<RewardEntitlementView> list(String status) {
@@ -140,6 +155,16 @@ public class RewardAdminService {
     @Transactional(readOnly = true)
     public RewardEntitlementView get(UUID id) {
         return describe(require(id));
+    }
+
+    /** Issued packs on the tracking page; {@code stage} null or blank for every stage. */
+    @Transactional(readOnly = true)
+    public List<RewardEntitlementView> listTracked(String stage) {
+        return entitlements
+                .findTracked(stage == null || stage.isBlank() ? null : stage)
+                .stream()
+                .map(this::describe)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -241,8 +266,22 @@ public class RewardAdminService {
         // two items in opposite sequence.
         ledger.postAll(postings);
 
+        // Issuing is where tracking starts: a number the customer can quote, and the first stage —
+        // waiting for them to say how they will receive it. The number is drawn before the row
+        // changes: the sequence query flushes pending changes, and a row marked issued but not yet
+        // tracked is exactly what the table refuses.
+        String trackingNumber =
+                "PK-%d-%06d".formatted(Year.now().getValue(), entitlements.nextTrackingSequence());
         entitlement.markIssued(store.id(), actorId, note);
+        entitlement.setTrackingNumber(trackingNumber);
+        entitlement.setTrackingStage(RewardEntitlement.AWAITING_METHOD);
         RewardEntitlement saved = entitlements.save(entitlement);
+        events.save(
+                new RewardTrackingEvent(
+                        saved.getId(),
+                        RewardEntitlement.AWAITING_METHOD,
+                        "Pack issued from " + store.name(),
+                        actorId));
 
         AuditContext.record(
                 saved.getId(),
@@ -283,16 +322,23 @@ public class RewardAdminService {
                             Pack  : %s — %s
                             From  : %s
 
-                            It is ready to collect. You can see this on your Rewards page in the
-                            distributor portal.
+                            Tracking number: %s
+
+                            Open your dashboard in the customer portal and choose how you would
+                            like to receive it — pickup from a warehouse, or delivery.
                             """
-                                    .formatted(pack.code(), pack.name(), store.name());
+                                    .formatted(
+                                            pack.code(),
+                                            pack.name(),
+                                            store.name(),
+                                            entitlement.getTrackingNumber());
                     inApp.raise(
                             user.id(),
                             Notifications.REWARD_ISSUED,
                             "Your item pack has been issued",
-                            pack.name() + " is ready to collect from " + store.name() + ".",
-                            "/portal/stages");
+                            pack.name()
+                                    + " is on its way. Choose pickup or delivery on your dashboard.",
+                            "/portal");
                     try {
                         notifications.sendEmail(user.email(), "Your item pack has been issued", body);
                     } catch (RuntimeException failure) {
@@ -367,7 +413,10 @@ public class RewardAdminService {
                                 .map(UserDirectory.UserRef::fullName)
                                 .orElse(null),
                 entitlement.getNote(),
-                stores);
+                stores,
+                pack == null ? null : pack.imageId(),
+                tracking.lines(pack),
+                tracking.describe(entitlement));
     }
 
     /**

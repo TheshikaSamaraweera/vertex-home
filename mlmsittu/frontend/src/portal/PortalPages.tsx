@@ -8,6 +8,7 @@ import { AnnouncementCard } from '../pages/AnnouncementsPage';
 import { expiryStatus } from '../lib/expiry';
 import { REFERRAL_STAGES } from '../lib/stages';
 import { CopyButton, GlassCard, PersonAvatar, ProgressRing, SectionTitle } from './portalUi';
+import { CompletedAccount, PackJourneyCard } from './PortalPackJourney';
 
 /**
  * The four screens a distributor gets once their registration is approved.
@@ -59,6 +60,15 @@ export function PortalDashboard() {
   // spinner.
   if (me.isLoading) {
     return <Spinner />;
+  }
+  // Once the pack has been handed over the account is closed, and the dashboard becomes its record.
+  if (me.data?.access === 'COMPLETED') {
+    return (
+      <>
+        <CompletedAccount me={me.data} />
+        <Announcements />
+      </>
+    );
   }
   if (me.data && me.data.access !== 'ACTIVE') {
     return <Navigate to="/portal/registration" replace />;
@@ -135,7 +145,7 @@ export function PortalDashboard() {
         <Stat icon="calendar" tone="pink" label={t('Member since')} value={dateOf(me.data?.approvedAt ?? me.data?.joinedAt)} small />
       </div>
 
-      <RewardCard />
+      {me.data && <PackJourneyCard me={me.data} />}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <GlassCard>
@@ -751,75 +761,5 @@ function PersonNode({
       <p className="mt-2 w-full truncate text-sm font-semibold text-ink">{name}</p>
       <p className="font-mono text-xs font-semibold text-brand">{businessId || '—'}</p>
     </div>
-  );
-}
-
-/**
- * The item pack, once it has been earned.
- *
- * Deliberately absent until there is something to say. A card reading "you have no reward yet" on
- * somebody's first day is a reminder that they have not achieved anything, which is not what a
- * dashboard is for — the journey below already shows how far along they are.
- *
- * Two states, and the difference matters to the reader: **ready to collect** means an
- * administrator still has to hand it over, and **collected** records that they have.
- */
-function RewardCard() {
-  const { t } = useTranslation();
-  const me = usePortalMe();
-  const reward = me.data?.reward;
-
-  if (!reward) {
-    return null;
-  }
-
-  const issued = reward.status === 'issued';
-
-  return (
-    <section
-      className={
-        'relative mt-5 overflow-hidden rounded-3xl p-6 sm:p-7 ' +
-        (issued
-          ? 'bg-linear-to-r from-[#e7f7ec] to-[#dff3f0] ring-1 ring-ok/20'
-          : 'bg-linear-to-r from-[#fff3d4] via-[#ffe6b0] to-[#ffd98a] shadow-[0_16px_36px_-18px_rgba(224,154,26,0.75)]')
-      }
-    >
-      <div aria-hidden className="pointer-events-none absolute -top-10 -right-6 h-40 w-40 rounded-full bg-white/40" />
-      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
-        <span
-          className={
-            'flex h-14 w-14 flex-none items-center justify-center rounded-2xl text-white shadow-sm sm:h-16 sm:w-16 ' +
-            (issued ? 'bg-linear-to-br from-[#34d399] to-[#059669]' : 'bg-linear-to-br from-[#f6c453] to-[#e0891a]')
-          }
-        >
-          <Icon name={issued ? 'check' : 'gift'} className="h-8 w-8" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold tracking-[0.14em] text-ink2 uppercase">
-            {issued ? t('Your item pack') : t('You have earned your item pack')}
-          </p>
-          <p className="mt-1 text-xl font-extrabold tracking-tight text-ink">
-            {reward.itemSetName}
-            <span className="ml-2 font-mono text-xs font-semibold text-ink3">{reward.itemSetCode}</span>
-          </p>
-          <p className="mt-1 text-sm text-ink2">
-            {issued
-              ? t('Issued on {{when}} from {{store}}.', {
-                  when: reward.issuedAt ? new Date(reward.issuedAt).toLocaleString() : '—',
-                  store: reward.issuedFromStore ?? '—',
-                })
-              : t('Every level is complete. An administrator will hand it over — there is nothing to pay and nothing for you to do.')}
-          </p>
-        </div>
-        <span
-          className={
-            'self-start rounded-full px-3.5 py-1.5 text-xs font-bold sm:self-center ' +
-            (issued ? 'bg-white text-ok' : 'bg-white text-[#b86e0c] shadow-sm')
-          }
-        >
-          {issued ? t('Collected') : t('Ready to collect')}
-        </span>
-      </div>
-    </section>
   );
 }

@@ -144,6 +144,36 @@
         }
       }
     },
+    "/api/v1/portal/reward/receive-method": {
+      "put": {
+        "tags": [
+          "portal-controller"
+        ],
+        "operationId": "chooseReceiveMethod",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveMethodRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/locations/{id}": {
       "get": {
         "tags": [
@@ -572,6 +602,47 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/rewards/{id}/receive-method": {
+      "put": {
+        "tags": [
+          "reward-controller"
+        ],
+        "operationId": "setReceiveMethod",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReceiveMethodRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardEntitlementView"
                 }
               }
             }
@@ -2614,6 +2685,47 @@
         }
       }
     },
+    "/api/v1/admin/rewards/{id}/stage": {
+      "post": {
+        "tags": [
+          "reward-controller"
+        ],
+        "operationId": "changeStage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardEntitlementView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/rewards/{id}/issue": {
       "post": {
         "tags": [
@@ -2636,6 +2748,47 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/IssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RewardEntitlementView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/rewards/{id}/complete": {
+      "post": {
+        "tags": [
+          "reward-controller"
+        ],
+        "operationId": "complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteRequest"
               }
             }
           },
@@ -4088,6 +4241,26 @@
         }
       }
     },
+    "/api/v1/portal/reward/pickup-points": {
+      "get": {
+        "tags": [
+          "portal-controller"
+        ],
+        "operationId": "pickupPoints",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponsePickupPoint"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portal/referrals": {
       "get": {
         "tags": [
@@ -4978,6 +5151,36 @@
         }
       }
     },
+    "/api/v1/admin/rewards/tracking": {
+      "get": {
+        "tags": [
+          "reward-controller"
+        ],
+        "operationId": "tracked",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseRewardEntitlementView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/registrations/{id}": {
       "get": {
         "tags": [
@@ -5390,6 +5593,393 @@
             "items": {
               "$ref": "#/components/schemas/PurchaseOrderLineResponse"
             }
+          }
+        }
+      },
+      "ReceiveMethodRequest": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string"
+          },
+          "pickupLocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "deliveryAddress": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          },
+          "deliveryContact": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "DistributorNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "referredBy": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "path": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "directChildCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "depth": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stagesCompleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bonusEligible": {
+            "type": "boolean"
+          },
+          "itemSetId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PackLine": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PortalView": {
+        "type": "object",
+        "properties": {
+          "access": {
+            "type": "string",
+            "enum": [
+              "REGISTRATION_REQUIRED",
+              "PENDING_REVIEW",
+              "CHANGES_REQUESTED",
+              "REJECTED",
+              "ACTIVE",
+              "EXPIRED",
+              "COMPLETED"
+            ]
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "joinedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationStatus"
+          },
+          "distributorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stages": {
+            "$ref": "#/components/schemas/StageProgress"
+          },
+          "parent": {
+            "$ref": "#/components/schemas/DistributorNode"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DistributorNode"
+            }
+          },
+          "reward": {
+            "$ref": "#/components/schemas/RewardSnapshot"
+          }
+        }
+      },
+      "RegistrationStatus": {
+        "type": "object",
+        "properties": {
+          "registrationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "submittedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reviewedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "referrerBusinessId": {
+            "type": "string"
+          },
+          "nicLast4": {
+            "type": "string"
+          },
+          "rejectionReason": {
+            "type": "string"
+          },
+          "rejectionNote": {
+            "type": "string"
+          },
+          "underReview": {
+            "type": "boolean"
+          },
+          "timeline": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            }
+          }
+        }
+      },
+      "RewardSnapshot": {
+        "type": "object",
+        "properties": {
+          "entitlementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "itemSetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemSetCode": {
+            "type": "string"
+          },
+          "itemSetName": {
+            "type": "string"
+          },
+          "itemSetDescription": {
+            "type": "string"
+          },
+          "itemSetImageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackLine"
+            }
+          },
+          "becameEligibleAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "issuedFromStore": {
+            "type": "string"
+          },
+          "tracking": {
+            "$ref": "#/components/schemas/Tracking"
+          }
+        }
+      },
+      "StageProgress": {
+        "type": "object",
+        "properties": {
+          "distributorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stagesCompleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalStages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "bonusStageEligible": {
+            "type": "boolean"
+          },
+          "allStagesCompletedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TimelineEntry": {
+        "type": "object",
+        "properties": {
+          "fromStatus": {
+            "type": "string"
+          },
+          "toStatus": {
+            "type": "string"
+          },
+          "comment": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Tracking": {
+        "type": "object",
+        "properties": {
+          "trackingNumber": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "receiveMethod": {
+            "type": "string"
+          },
+          "pickupLocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "pickupLocationName": {
+            "type": "string"
+          },
+          "pickupLocationAddress": {
+            "type": "string"
+          },
+          "deliveryAddress": {
+            "type": "string"
+          },
+          "deliveryContact": {
+            "type": "string"
+          },
+          "receiveMethodSetAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receiveMethodSetByName": {
+            "type": "string"
+          },
+          "handoverLocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "handoverLocationName": {
+            "type": "string"
+          },
+          "handoverLocationAddress": {
+            "type": "string"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedByName": {
+            "type": "string"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrackingStep"
+            }
+          }
+        }
+      },
+      "TrackingStep": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -5823,6 +6413,141 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "PackComponent": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "itemName": {
+            "type": "string"
+          },
+          "required": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "available": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "enough": {
+            "type": "boolean"
+          }
+        }
+      },
+      "PackStoreOption": {
+        "type": "object",
+        "properties": {
+          "locationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locationCode": {
+            "type": "string"
+          },
+          "locationName": {
+            "type": "string"
+          },
+          "canFulfilWholePack": {
+            "type": "boolean"
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackComponent"
+            }
+          }
+        }
+      },
+      "RewardEntitlementView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "becameEligibleAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "distributorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "distributorName": {
+            "type": "string"
+          },
+          "distributorEmail": {
+            "type": "string"
+          },
+          "distributorMobile": {
+            "type": "string"
+          },
+          "itemSetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "itemSetCode": {
+            "type": "string"
+          },
+          "itemSetName": {
+            "type": "string"
+          },
+          "anyStoreCanFulfil": {
+            "type": "boolean"
+          },
+          "issuedFromLocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "issuedFromLocationName": {
+            "type": "string"
+          },
+          "issuedByName": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "stores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackStoreOption"
+            }
+          },
+          "itemSetImageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "packItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackLine"
+            }
+          },
+          "tracking": {
+            "$ref": "#/components/schemas/Tracking"
           }
         }
       },
@@ -7174,6 +7899,22 @@
           }
         }
       },
+      "StageRequest": {
+        "type": "object",
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
       "IssueRequest": {
         "type": "object",
         "properties": {
@@ -7191,127 +7932,22 @@
           "locationId"
         ]
       },
-      "PackComponent": {
-        "type": "object",
-        "properties": {
-          "itemId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "sku": {
-            "type": "string"
-          },
-          "itemName": {
-            "type": "string"
-          },
-          "required": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "available": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "enough": {
-            "type": "boolean"
-          }
-        }
-      },
-      "PackStoreOption": {
+      "CompleteRequest": {
         "type": "object",
         "properties": {
           "locationId": {
             "type": "string",
             "format": "uuid"
           },
-          "locationCode": {
-            "type": "string"
-          },
-          "locationName": {
-            "type": "string"
-          },
-          "canFulfilWholePack": {
-            "type": "boolean"
-          },
-          "components": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PackComponent"
-            }
-          }
-        }
-      },
-      "RewardEntitlementView": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status": {
-            "type": "string"
-          },
-          "becameEligibleAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "issuedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "distributorId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "userId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "businessId": {
-            "type": "string"
-          },
-          "distributorName": {
-            "type": "string"
-          },
-          "distributorEmail": {
-            "type": "string"
-          },
-          "distributorMobile": {
-            "type": "string"
-          },
-          "itemSetId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "itemSetCode": {
-            "type": "string"
-          },
-          "itemSetName": {
-            "type": "string"
-          },
-          "anyStoreCanFulfil": {
-            "type": "boolean"
-          },
-          "issuedFromLocationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "issuedFromLocationName": {
-            "type": "string"
-          },
-          "issuedByName": {
-            "type": "string"
-          },
           "note": {
-            "type": "string"
-          },
-          "stores": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PackStoreOption"
-            }
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 0
           }
-        }
+        },
+        "required": [
+          "locationId"
+        ]
       },
       "OnBehalfRequest": {
         "type": "object",
@@ -8277,59 +8913,35 @@
           }
         }
       },
-      "DistributorNode": {
+      "PagedResponsePickupPoint": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PickupPoint"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      },
+      "PickupPoint": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid"
           },
-          "businessId": {
+          "code": {
             "type": "string"
           },
-          "userId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "fullName": {
+          "name": {
             "type": "string"
           },
-          "referredBy": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "path": {
+          "address": {
             "type": "string"
-          },
-          "status": {
-            "type": "string"
-          },
-          "directChildCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "depth": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "approvedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "stagesCompleted": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "bonusEligible": {
-            "type": "boolean"
-          },
-          "itemSetId": {
-            "type": "string",
-            "format": "uuid"
           }
         }
       },
@@ -8344,191 +8956,6 @@
           },
           "nextCursor": {
             "type": "string"
-          }
-        }
-      },
-      "PortalView": {
-        "type": "object",
-        "properties": {
-          "access": {
-            "type": "string",
-            "enum": [
-              "REGISTRATION_REQUIRED",
-              "PENDING_REVIEW",
-              "CHANGES_REQUESTED",
-              "REJECTED",
-              "ACTIVE",
-              "EXPIRED"
-            ]
-          },
-          "userId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "fullName": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "mobile": {
-            "type": "string"
-          },
-          "emailVerified": {
-            "type": "boolean"
-          },
-          "joinedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "registration": {
-            "$ref": "#/components/schemas/RegistrationStatus"
-          },
-          "distributorId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "businessId": {
-            "type": "string"
-          },
-          "approvedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "stages": {
-            "$ref": "#/components/schemas/StageProgress"
-          },
-          "parent": {
-            "$ref": "#/components/schemas/DistributorNode"
-          },
-          "children": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DistributorNode"
-            }
-          },
-          "reward": {
-            "$ref": "#/components/schemas/RewardSnapshot"
-          }
-        }
-      },
-      "RegistrationStatus": {
-        "type": "object",
-        "properties": {
-          "registrationId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status": {
-            "type": "string"
-          },
-          "submittedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "reviewedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "referrerBusinessId": {
-            "type": "string"
-          },
-          "nicLast4": {
-            "type": "string"
-          },
-          "rejectionReason": {
-            "type": "string"
-          },
-          "rejectionNote": {
-            "type": "string"
-          },
-          "underReview": {
-            "type": "boolean"
-          },
-          "timeline": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TimelineEntry"
-            }
-          }
-        }
-      },
-      "RewardSnapshot": {
-        "type": "object",
-        "properties": {
-          "entitlementId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status": {
-            "type": "string"
-          },
-          "itemSetId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "itemSetCode": {
-            "type": "string"
-          },
-          "itemSetName": {
-            "type": "string"
-          },
-          "becameEligibleAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "issuedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "issuedFromStore": {
-            "type": "string"
-          }
-        }
-      },
-      "StageProgress": {
-        "type": "object",
-        "properties": {
-          "distributorId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "stagesCompleted": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalStages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "bonusStageEligible": {
-            "type": "boolean"
-          },
-          "allStagesCompletedAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "TimelineEntry": {
-        "type": "object",
-        "properties": {
-          "fromStatus": {
-            "type": "string"
-          },
-          "toStatus": {
-            "type": "string"
-          },
-          "comment": {
-            "type": "string"
-          },
-          "at": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },

@@ -28,6 +28,15 @@ public class RewardEntitlement {
     public static final String ISSUED = "issued";
     public static final String CANCELLED = "cancelled";
 
+    // Tracking stages, once issued. See V34__reward_tracking.sql.
+    public static final String AWAITING_METHOD = "awaiting_method";
+    public static final String PREPARING = "preparing";
+    public static final String DISPATCHED = "dispatched";
+    public static final String COMPLETED = "completed";
+
+    public static final String PICKUP = "pickup";
+    public static final String DELIVERY = "delivery";
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false, updatable = false)
@@ -64,6 +73,42 @@ public class RewardEntitlement {
     @Column(name = "note", length = 500)
     private String note;
 
+    @Column(name = "tracking_number", length = 32)
+    private String trackingNumber;
+
+    /** Null until issued; then one of the four tracking stages. */
+    @Column(name = "tracking_stage", length = 24)
+    private String trackingStage;
+
+    /** {@code pickup} or {@code delivery}; null until somebody chooses. */
+    @Column(name = "receive_method", length = 16)
+    private String receiveMethod;
+
+    @Column(name = "pickup_location_id")
+    private UUID pickupLocationId;
+
+    @Column(name = "delivery_address", length = 500)
+    private String deliveryAddress;
+
+    @Column(name = "delivery_contact", length = 32)
+    private String deliveryContact;
+
+    @Column(name = "receive_method_set_at")
+    private Instant receiveMethodSetAt;
+
+    @Column(name = "receive_method_set_by")
+    private UUID receiveMethodSetBy;
+
+    /** The warehouse the pack was finally handed over from. */
+    @Column(name = "handover_location_id")
+    private UUID handoverLocationId;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+    @Column(name = "completed_by")
+    private UUID completedBy;
+
     public boolean isIssued() {
         return ISSUED.equals(status);
     }
@@ -74,5 +119,31 @@ public class RewardEntitlement {
         this.issuedBy = actorId;
         this.issuedFromLocationId = locationId;
         this.note = note;
+    }
+
+    public boolean isCompleted() {
+        return COMPLETED.equals(trackingStage);
+    }
+
+    public boolean hasReceiveMethod() {
+        return receiveMethod != null;
+    }
+
+    /** Pickup keeps only the warehouse, delivery only the address — never a mix of both. */
+    public void setReceiving(
+            String method, UUID pickupLocation, String address, String contact, UUID actorId) {
+        this.receiveMethod = method;
+        this.pickupLocationId = PICKUP.equals(method) ? pickupLocation : null;
+        this.deliveryAddress = DELIVERY.equals(method) ? address : null;
+        this.deliveryContact = DELIVERY.equals(method) ? contact : null;
+        this.receiveMethodSetAt = Instant.now();
+        this.receiveMethodSetBy = actorId;
+    }
+
+    public void markCompleted(UUID locationId, UUID actorId) {
+        this.trackingStage = COMPLETED;
+        this.handoverLocationId = locationId;
+        this.completedAt = Instant.now();
+        this.completedBy = actorId;
     }
 }

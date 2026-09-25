@@ -428,6 +428,7 @@ function IssueModal({
 }) {
   const { t } = useTranslation();
   const issue = useIssueRewardPack();
+  const navigate = useNavigate();
 
   const usable = (entitlement.stores ?? []).filter((store) => store.canFulfilWholePack);
   const [locationId, setLocationId] = useState(usable[0]?.locationId ?? '');
@@ -442,7 +443,8 @@ function IssueModal({
           if (!entitlement.id || !locationId) return;
           issue.mutate(
             { id: entitlement.id, locationId, note: note || undefined },
-            { onSuccess: onClose },
+            // Issued packs are tracked on their own page, so go straight to this one there.
+            { onSuccess: (issued) => navigate(`/reward-tracking?id=${issued.id ?? ''}`) },
           );
         }}
       >
@@ -455,6 +457,9 @@ function IssueModal({
         </p>
         <p className="text-xs text-ink3">
           {t('This takes every component out of the store below, straight away. It cannot be undone — a mistake has to be corrected with a stock adjustment.')}
+        </p>
+        <p className="text-xs text-ink3">
+          {t('The pack then gets a tracking number and moves to Pack tracking, where the customer chooses pickup or delivery.')}
         </p>
 
         <Field label={t('Issue from')} hint={t('Only stores holding the whole pack are listed')}>

@@ -23,6 +23,7 @@ import { HierarchyPage } from './pages/HierarchyPage';
 import { DistributorsPage, DistributorProfilePage } from './pages/DistributorsPage';
 import { ReferralCardsPrintPage } from './pages/ReferralCardsPrintPage';
 import { RewardsPage } from './pages/RewardsPage';
+import { RewardTrackingPage } from './pages/RewardTrackingPage';
 import { PortalLoginPage, PortalSignupPage } from './portal/PortalAuth';
 import { PortalShell, RequireActive } from './portal/PortalShell';
 import {
@@ -150,6 +151,7 @@ export function App() {
         <Route path="/distributors/:id" element={<DistributorProfilePage />} />
         <Route path="/hierarchy" element={<HierarchyPage />} />
         <Route path="/rewards" element={<RewardsPage />} />
+        <Route path="/reward-tracking" element={<RewardTrackingPage />} />
         <Route path="/referral-cards/:batchId" element={<ReferralCardsPrintPage />} />
         <Route path="/my-registration" element={<RegisterBusinessPage />} />
         <Route path="/users" element={<UsersPage />} />

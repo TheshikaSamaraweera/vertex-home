@@ -43,6 +43,6 @@ public class Location {
     private Instant createdAt = Instant.now();
 
     public LocationRef toRef() {
-        return new LocationRef(id, code, name, defaultLocation, active);
+        return new LocationRef(id, code, name, defaultLocation, active, address);
     }
 }

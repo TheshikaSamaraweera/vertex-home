@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/reward/receive-method": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["chooseReceiveMethod"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/locations/{id}": {
         parameters: {
             query?: never;
@@ -125,6 +141,22 @@ export interface paths {
         };
         get?: never;
         put: operations["replaceRoles"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rewards/{id}/receive-method": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setReceiveMethod"];
         post?: never;
         delete?: never;
         options?: never;
@@ -900,6 +932,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/rewards/{id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["changeStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/rewards/{id}/issue": {
         parameters: {
             query?: never;
@@ -910,6 +958,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/rewards/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["complete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1588,6 +1652,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/reward/pickup-points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["pickupPoints"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal/referrals": {
         parameters: {
             query?: never;
@@ -2068,6 +2148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/rewards/tracking": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["tracked"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/registrations/{id}": {
         parameters: {
             query?: never;
@@ -2229,6 +2325,154 @@ export interface components {
             arrivalAttestedName?: string;
             lines?: components["schemas"]["PurchaseOrderLineResponse"][];
         };
+        ReceiveMethodRequest: {
+            method: string;
+            /** Format: uuid */
+            pickupLocationId?: string;
+            deliveryAddress?: string;
+            deliveryContact?: string;
+        };
+        DistributorNode: {
+            /** Format: uuid */
+            id?: string;
+            businessId?: string;
+            /** Format: uuid */
+            userId?: string;
+            fullName?: string;
+            /** Format: uuid */
+            referredBy?: string;
+            path?: string;
+            status?: string;
+            /** Format: int32 */
+            directChildCount?: number;
+            /** Format: int32 */
+            depth?: number;
+            /** Format: date-time */
+            approvedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: int32 */
+            stagesCompleted?: number;
+            bonusEligible?: boolean;
+            /** Format: uuid */
+            itemSetId?: string;
+        };
+        PackLine: {
+            /** Format: uuid */
+            itemId?: string;
+            sku?: string;
+            name?: string;
+            description?: string;
+            /** Format: uuid */
+            imageId?: string;
+            /** Format: int32 */
+            quantity?: number;
+        };
+        PortalView: {
+            /** @enum {string} */
+            access?: "REGISTRATION_REQUIRED" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "REJECTED" | "ACTIVE" | "EXPIRED" | "COMPLETED";
+            /** Format: uuid */
+            userId?: string;
+            fullName?: string;
+            email?: string;
+            mobile?: string;
+            emailVerified?: boolean;
+            /** Format: date-time */
+            joinedAt?: string;
+            registration?: components["schemas"]["RegistrationStatus"];
+            /** Format: uuid */
+            distributorId?: string;
+            businessId?: string;
+            /** Format: date-time */
+            approvedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            stages?: components["schemas"]["StageProgress"];
+            parent?: components["schemas"]["DistributorNode"];
+            children?: components["schemas"]["DistributorNode"][];
+            reward?: components["schemas"]["RewardSnapshot"];
+        };
+        RegistrationStatus: {
+            /** Format: uuid */
+            registrationId?: string;
+            status?: string;
+            /** Format: date-time */
+            submittedAt?: string;
+            /** Format: date-time */
+            reviewedAt?: string;
+            referrerBusinessId?: string;
+            nicLast4?: string;
+            rejectionReason?: string;
+            rejectionNote?: string;
+            underReview?: boolean;
+            timeline?: components["schemas"]["TimelineEntry"][];
+        };
+        RewardSnapshot: {
+            /** Format: uuid */
+            entitlementId?: string;
+            status?: string;
+            /** Format: uuid */
+            itemSetId?: string;
+            itemSetCode?: string;
+            itemSetName?: string;
+            itemSetDescription?: string;
+            /** Format: uuid */
+            itemSetImageId?: string;
+            items?: components["schemas"]["PackLine"][];
+            /** Format: date-time */
+            becameEligibleAt?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            issuedFromStore?: string;
+            tracking?: components["schemas"]["Tracking"];
+        };
+        StageProgress: {
+            /** Format: uuid */
+            distributorId?: string;
+            /** Format: int32 */
+            stagesCompleted?: number;
+            /** Format: int32 */
+            totalStages?: number;
+            bonusStageEligible?: boolean;
+            /** Format: date-time */
+            allStagesCompletedAt?: string;
+        };
+        TimelineEntry: {
+            fromStatus?: string;
+            toStatus?: string;
+            comment?: string;
+            /** Format: date-time */
+            at?: string;
+        };
+        Tracking: {
+            trackingNumber?: string;
+            stage?: string;
+            receiveMethod?: string;
+            /** Format: uuid */
+            pickupLocationId?: string;
+            pickupLocationName?: string;
+            pickupLocationAddress?: string;
+            deliveryAddress?: string;
+            deliveryContact?: string;
+            /** Format: date-time */
+            receiveMethodSetAt?: string;
+            receiveMethodSetByName?: string;
+            /** Format: uuid */
+            handoverLocationId?: string;
+            handoverLocationName?: string;
+            handoverLocationAddress?: string;
+            /** Format: date-time */
+            completedAt?: string;
+            completedByName?: string;
+            history?: components["schemas"]["TrackingStep"][];
+        };
+        TrackingStep: {
+            stage?: string;
+            note?: string;
+            actorName?: string;
+            /** Format: date-time */
+            at?: string;
+        };
         StoreRequest: {
             code: string;
             name: string;
@@ -2370,6 +2614,57 @@ export interface components {
             roles?: string[];
             /** Format: date-time */
             createdAt?: string;
+        };
+        PackComponent: {
+            /** Format: uuid */
+            itemId?: string;
+            sku?: string;
+            itemName?: string;
+            /** Format: int32 */
+            required?: number;
+            /** Format: int32 */
+            available?: number;
+            enough?: boolean;
+        };
+        PackStoreOption: {
+            /** Format: uuid */
+            locationId?: string;
+            locationCode?: string;
+            locationName?: string;
+            canFulfilWholePack?: boolean;
+            components?: components["schemas"]["PackComponent"][];
+        };
+        RewardEntitlementView: {
+            /** Format: uuid */
+            id?: string;
+            status?: string;
+            /** Format: date-time */
+            becameEligibleAt?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            /** Format: uuid */
+            distributorId?: string;
+            /** Format: uuid */
+            userId?: string;
+            businessId?: string;
+            distributorName?: string;
+            distributorEmail?: string;
+            distributorMobile?: string;
+            /** Format: uuid */
+            itemSetId?: string;
+            itemSetCode?: string;
+            itemSetName?: string;
+            anyStoreCanFulfil?: boolean;
+            /** Format: uuid */
+            issuedFromLocationId?: string;
+            issuedFromLocationName?: string;
+            issuedByName?: string;
+            note?: string;
+            stores?: components["schemas"]["PackStoreOption"][];
+            /** Format: uuid */
+            itemSetImageId?: string;
+            packItems?: components["schemas"]["PackLine"][];
+            tracking?: components["schemas"]["Tracking"];
         };
         MembershipPeriodRequest: {
             /** Format: int32 */
@@ -2842,57 +3137,19 @@ export interface components {
             id?: string;
             email?: string;
         };
+        StageRequest: {
+            stage: string;
+            note?: string;
+        };
         IssueRequest: {
             /** Format: uuid */
             locationId: string;
             note?: string;
         };
-        PackComponent: {
+        CompleteRequest: {
             /** Format: uuid */
-            itemId?: string;
-            sku?: string;
-            itemName?: string;
-            /** Format: int32 */
-            required?: number;
-            /** Format: int32 */
-            available?: number;
-            enough?: boolean;
-        };
-        PackStoreOption: {
-            /** Format: uuid */
-            locationId?: string;
-            locationCode?: string;
-            locationName?: string;
-            canFulfilWholePack?: boolean;
-            components?: components["schemas"]["PackComponent"][];
-        };
-        RewardEntitlementView: {
-            /** Format: uuid */
-            id?: string;
-            status?: string;
-            /** Format: date-time */
-            becameEligibleAt?: string;
-            /** Format: date-time */
-            issuedAt?: string;
-            /** Format: uuid */
-            distributorId?: string;
-            /** Format: uuid */
-            userId?: string;
-            businessId?: string;
-            distributorName?: string;
-            distributorEmail?: string;
-            distributorMobile?: string;
-            /** Format: uuid */
-            itemSetId?: string;
-            itemSetCode?: string;
-            itemSetName?: string;
-            anyStoreCanFulfil?: boolean;
-            /** Format: uuid */
-            issuedFromLocationId?: string;
-            issuedFromLocationName?: string;
-            issuedByName?: string;
+            locationId: string;
             note?: string;
-            stores?: components["schemas"]["PackStoreOption"][];
         };
         OnBehalfRequest: {
             /** Format: uuid */
@@ -3252,105 +3509,20 @@ export interface components {
             data?: string[];
             nextCursor?: string;
         };
-        DistributorNode: {
+        PagedResponsePickupPoint: {
+            data?: components["schemas"]["PickupPoint"][];
+            nextCursor?: string;
+        };
+        PickupPoint: {
             /** Format: uuid */
             id?: string;
-            businessId?: string;
-            /** Format: uuid */
-            userId?: string;
-            fullName?: string;
-            /** Format: uuid */
-            referredBy?: string;
-            path?: string;
-            status?: string;
-            /** Format: int32 */
-            directChildCount?: number;
-            /** Format: int32 */
-            depth?: number;
-            /** Format: date-time */
-            approvedAt?: string;
-            /** Format: date-time */
-            expiresAt?: string;
-            /** Format: int32 */
-            stagesCompleted?: number;
-            bonusEligible?: boolean;
-            /** Format: uuid */
-            itemSetId?: string;
+            code?: string;
+            name?: string;
+            address?: string;
         };
         PagedResponseDistributorNode: {
             data?: components["schemas"]["DistributorNode"][];
             nextCursor?: string;
-        };
-        PortalView: {
-            /** @enum {string} */
-            access?: "REGISTRATION_REQUIRED" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "REJECTED" | "ACTIVE" | "EXPIRED";
-            /** Format: uuid */
-            userId?: string;
-            fullName?: string;
-            email?: string;
-            mobile?: string;
-            emailVerified?: boolean;
-            /** Format: date-time */
-            joinedAt?: string;
-            registration?: components["schemas"]["RegistrationStatus"];
-            /** Format: uuid */
-            distributorId?: string;
-            businessId?: string;
-            /** Format: date-time */
-            approvedAt?: string;
-            /** Format: date-time */
-            expiresAt?: string;
-            stages?: components["schemas"]["StageProgress"];
-            parent?: components["schemas"]["DistributorNode"];
-            children?: components["schemas"]["DistributorNode"][];
-            reward?: components["schemas"]["RewardSnapshot"];
-        };
-        RegistrationStatus: {
-            /** Format: uuid */
-            registrationId?: string;
-            status?: string;
-            /** Format: date-time */
-            submittedAt?: string;
-            /** Format: date-time */
-            reviewedAt?: string;
-            referrerBusinessId?: string;
-            nicLast4?: string;
-            rejectionReason?: string;
-            rejectionNote?: string;
-            underReview?: boolean;
-            timeline?: components["schemas"]["TimelineEntry"][];
-        };
-        RewardSnapshot: {
-            /** Format: uuid */
-            entitlementId?: string;
-            status?: string;
-            /** Format: uuid */
-            itemSetId?: string;
-            itemSetCode?: string;
-            itemSetName?: string;
-            /** Format: date-time */
-            becameEligibleAt?: string;
-            /** Format: date-time */
-            issuedAt?: string;
-            issuedFromStore?: string;
-        };
-        StageProgress: {
-            /** Format: uuid */
-            distributorId?: string;
-            /** Format: int32 */
-            stagesCompleted?: number;
-            /** Format: int32 */
-            totalStages?: number;
-            bonusStageEligible?: boolean;
-            /** Format: date-time */
-            allStagesCompletedAt?: string;
-        };
-        TimelineEntry: {
-            fromStatus?: string;
-            toStatus?: string;
-            comment?: string;
-            /** Format: date-time */
-            at?: string;
         };
         Catalogue: {
             /** Format: uuid */
@@ -3696,6 +3868,30 @@ export interface operations {
             };
         };
     };
+    chooseReceiveMethod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveMethodRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PortalView"];
+                };
+            };
+        };
+    };
     getStore: {
         parameters: {
             query?: never;
@@ -3998,6 +4194,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["UserSummary"];
+                };
+            };
+        };
+    };
+    setReceiveMethod: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiveMethodRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RewardEntitlementView"];
                 };
             };
         };
@@ -5458,6 +5680,32 @@ export interface operations {
             };
         };
     };
+    changeStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RewardEntitlementView"];
+                };
+            };
+        };
+    };
     issue: {
         parameters: {
             query?: never;
@@ -5470,6 +5718,32 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["IssueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["RewardEntitlementView"];
+                };
+            };
+        };
+    };
+    complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteRequest"];
             };
         };
         responses: {
@@ -6497,6 +6771,26 @@ export interface operations {
             };
         };
     };
+    pickupPoints: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponsePickupPoint"];
+                };
+            };
+        };
+    };
     referrals: {
         parameters: {
             query?: never;
@@ -7144,6 +7438,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["WaitingCount"];
+                };
+            };
+        };
+    };
+    tracked: {
+        parameters: {
+            query?: {
+                stage?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponseRewardEntitlementView"];
                 };
             };
         };
