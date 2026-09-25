@@ -628,6 +628,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/items/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadItemImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/item-sets": {
         parameters: {
             query?: never;
@@ -910,6 +926,22 @@ export interface paths {
         get: operations["queue"];
         put?: never;
         post: operations["submitForUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/registrations/{id}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revealSensitive"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1572,6 +1604,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/pictures/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["picture"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal/me": {
         parameters: {
             query?: never;
@@ -1580,6 +1628,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/item-packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["itemPacks_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1628,6 +1692,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/items/image/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["itemImage"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2190,6 +2270,8 @@ export interface components {
             wholesalePrice?: number;
             /** Format: int32 */
             reorderLevel?: number;
+            /** Format: uuid */
+            imageId?: string;
         };
         ItemResponse: {
             /** Format: uuid */
@@ -2206,6 +2288,8 @@ export interface components {
             /** Format: int32 */
             reorderLevel?: number;
             active?: boolean;
+            /** Format: uuid */
+            imageId?: string;
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -2610,6 +2694,16 @@ export interface components {
             openingQuantity?: number;
             /** Format: int32 */
             reorderLevel?: number;
+            /** Format: uuid */
+            imageId?: string;
+        };
+        StoredDocument: {
+            /** Format: uuid */
+            id?: string;
+            objectKey?: string;
+            contentType?: string;
+            /** Format: int64 */
+            byteSize?: number;
         };
         CreateItemSetRequest: {
             code: string;
@@ -2619,14 +2713,6 @@ export interface components {
             /** Format: uuid */
             imageId?: string;
             components: components["schemas"]["ComponentRequest"][];
-        };
-        StoredDocument: {
-            /** Format: uuid */
-            id?: string;
-            objectKey?: string;
-            contentType?: string;
-            /** Format: int64 */
-            byteSize?: number;
         };
         CreateGoodsReceiptRequest: {
             /** Format: uuid */
@@ -2824,6 +2910,10 @@ export interface components {
             bankAccountNumber?: string;
             /** Format: uuid */
             itemSetId?: string;
+        };
+        SensitiveDetails: {
+            nicNumber?: string;
+            bankAccountNumber?: string;
         };
         RejectRequest: {
             reason: string;
@@ -3208,6 +3298,8 @@ export interface components {
             businessId?: string;
             /** Format: date-time */
             approvedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
             stages?: components["schemas"]["StageProgress"];
             parent?: components["schemas"]["DistributorNode"];
             children?: components["schemas"]["DistributorNode"][];
@@ -3259,6 +3351,35 @@ export interface components {
             comment?: string;
             /** Format: date-time */
             at?: string;
+        };
+        Catalogue: {
+            /** Format: uuid */
+            selectedPackId?: string;
+            packs?: components["schemas"]["Pack"][];
+        };
+        Pack: {
+            /** Format: uuid */
+            id?: string;
+            code?: string;
+            name?: string;
+            description?: string;
+            price?: number;
+            /** Format: uuid */
+            imageId?: string;
+            selected?: boolean;
+            locked?: boolean;
+            items?: components["schemas"]["PackItem"][];
+        };
+        PackItem: {
+            /** Format: uuid */
+            itemId?: string;
+            sku?: string;
+            name?: string;
+            description?: string;
+            /** Format: uuid */
+            imageId?: string;
+            /** Format: int32 */
+            quantity?: number;
         };
         SseEmitter: {
             /** Format: int64 */
@@ -3326,6 +3447,7 @@ export interface components {
             setId?: string;
             code?: string;
             name?: string;
+            description?: string;
             setPrice?: number;
             /** Format: uuid */
             imageId?: string;
@@ -4818,6 +4940,33 @@ export interface operations {
             };
         };
     };
+    uploadItemImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["StoredDocument"];
+                };
+            };
+        };
+    };
     list_1: {
         parameters: {
             query?: {
@@ -5375,6 +5524,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SubmissionAccepted"];
+                };
+            };
+        };
+    };
+    revealSensitive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SensitiveDetails"];
                 };
             };
         };
@@ -6346,6 +6517,28 @@ export interface operations {
             };
         };
     };
+    picture: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+        };
+    };
     me: {
         parameters: {
             query?: never;
@@ -6362,6 +6555,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["PortalView"];
+                };
+            };
+        };
+    };
+    itemPacks_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Catalogue"];
                 };
             };
         };
@@ -6426,6 +6639,28 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": components["schemas"]["SseEmitter"];
+                };
+            };
+        };
+    };
+    itemImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };

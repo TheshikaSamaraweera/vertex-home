@@ -1902,6 +1902,44 @@
         }
       }
     },
+    "/api/v1/items/image": {
+      "post": {
+        "tags": [
+          "catalogue-controller"
+        ],
+        "operationId": "uploadItemImage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                },
+                "required": [
+                  "file"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredDocument"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/item-sets": {
       "get": {
         "tags": [
@@ -2658,6 +2696,37 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/SubmissionAccepted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/registrations/{id}/reveal": {
+      "post": {
+        "tags": [
+          "onboarding-controller"
+        ],
+        "operationId": "revealSensitive",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SensitiveDetails"
                 }
               }
             }
@@ -4039,6 +4108,38 @@
         }
       }
     },
+    "/api/v1/portal/pictures/{id}": {
+      "get": {
+        "tags": [
+          "portal-controller"
+        ],
+        "operationId": "picture",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/portal/me": {
       "get": {
         "tags": [
@@ -4052,6 +4153,26 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PortalView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portal/item-packs": {
+      "get": {
+        "tags": [
+          "portal-controller"
+        ],
+        "operationId": "itemPacks_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalogue"
                 }
               }
             }
@@ -4135,6 +4256,38 @@
               "text/event-stream": {
                 "schema": {
                   "$ref": "#/components/schemas/SseEmitter"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/items/image/{id}": {
+      "get": {
+        "tags": [
+          "catalogue-controller"
+        ],
+        "operationId": "itemImage",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
                 }
               }
             }
@@ -5370,6 +5523,10 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -5415,6 +5572,10 @@
           },
           "active": {
             "type": "boolean"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
           },
           "createdAt": {
             "type": "string",
@@ -6532,6 +6693,10 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "required": [
@@ -6539,6 +6704,25 @@
           "sku",
           "unitCost"
         ]
+      },
+      "StoredDocument": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "objectKey": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "byteSize": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "CreateItemSetRequest": {
         "type": "object",
@@ -6580,25 +6764,6 @@
           "name",
           "setPrice"
         ]
-      },
-      "StoredDocument": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "objectKey": {
-            "type": "string"
-          },
-          "contentType": {
-            "type": "string"
-          },
-          "byteSize": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
       },
       "CreateGoodsReceiptRequest": {
         "type": "object",
@@ -7209,6 +7374,17 @@
           "slipDocumentId",
           "userId"
         ]
+      },
+      "SensitiveDetails": {
+        "type": "object",
+        "properties": {
+          "nicNumber": {
+            "type": "string"
+          },
+          "bankAccountNumber": {
+            "type": "string"
+          }
+        }
       },
       "RejectRequest": {
         "type": "object",
@@ -8219,6 +8395,10 @@
             "type": "string",
             "format": "date-time"
           },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
           "stages": {
             "$ref": "#/components/schemas/StageProgress"
           },
@@ -8349,6 +8529,84 @@
           "at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "Catalogue": {
+        "type": "object",
+        "properties": {
+          "selectedPackId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "packs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Pack"
+            }
+          }
+        }
+      },
+      "Pack": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "price": {
+            "type": "number"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "selected": {
+            "type": "boolean"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackItem"
+            }
+          }
+        }
+      },
+      "PackItem": {
+        "type": "object",
+        "properties": {
+          "itemId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "imageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "quantity": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -8527,6 +8785,9 @@
             "type": "string"
           },
           "name": {
+            "type": "string"
+          },
+          "description": {
             "type": "string"
           },
           "setPrice": {

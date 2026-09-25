@@ -74,6 +74,6 @@ public class ItemSet {
     }
 
     public ItemSetRef toRef() {
-        return new ItemSetRef(id, code, name, setPrice, active, imageId, componentMap());
+        return new ItemSetRef(id, code, name, description, setPrice, active, imageId, componentMap());
     }
 }

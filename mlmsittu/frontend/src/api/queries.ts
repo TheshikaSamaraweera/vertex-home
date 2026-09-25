@@ -417,23 +417,24 @@ export const useRunReorderScan = () =>
     keys.reorderAlerts,
   ]);
 
-/** Where a set picture is fetched from. No token — see the controller. */
-export const itemSetImageUrl = (imageId: string) => `/api/v1/item-sets/image/${imageId}`;
+/** Where an item picture is fetched from, for staff. No token — see the controller. */
+export const itemImageUrl = (imageId: string) => `/api/v1/items/image/${imageId}`;
+
+/** Uploads an item picture and returns its id, which the item's create or update then carries. */
+export async function uploadItemImage(file: File): Promise<string> {
+  return uploadPicture('/api/v1/items/image', file);
+}
 
 /**
- * Uploads a set picture and returns its id, which the set's create or update then carries.
+ * Posts one picture as multipart and returns the stored id.
  *
  * Raw fetch rather than the api helper, which sets a JSON content type — the browser has to set
  * its own multipart boundary, and overriding it makes the request unparseable server-side.
  */
-export async function uploadItemSetImage(file: File): Promise<string> {
+async function uploadPicture(path: string, file: File): Promise<string> {
   const form = new FormData();
   form.append('file', file);
-  const response = await fetch('/api/v1/item-sets/image', {
-    method: 'POST',
-    credentials: 'include',
-    body: form,
-  });
+  const response = await fetch(path, { method: 'POST', credentials: 'include', body: form });
   const payload = await response.json().catch(() => undefined);
   if (!response.ok) {
     throw Object.assign(new Error(payload?.detail ?? 'Upload failed'), {
@@ -441,6 +442,14 @@ export async function uploadItemSetImage(file: File): Promise<string> {
     });
   }
   return payload.id as string;
+}
+
+/** Where a set picture is fetched from. No token — see the controller. */
+export const itemSetImageUrl = (imageId: string) => `/api/v1/item-sets/image/${imageId}`;
+
+/** Uploads a set picture and returns its id, which the set's create or update then carries. */
+export async function uploadItemSetImage(file: File): Promise<string> {
+  return uploadPicture('/api/v1/item-sets/image', file);
 }
 
 export const useCreateItemSet = () =>

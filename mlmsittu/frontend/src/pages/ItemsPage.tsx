@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import {
   useCategories,
   useCreateCategory,
+  itemImageUrl,
+  uploadItemImage,
   useCreateItem,
   useDeleteItem,
   useItemsPage,
@@ -16,6 +18,7 @@ import {
   useUpdateItem,
 } from '../api/queries';
 import type { Item } from '../api/types';
+import { Icon } from '../components/icons';
 import { useDebounced, usePager } from '../lib/paging';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -197,7 +200,23 @@ export function ItemsPage() {
                     <tr key={item.id} className={item.active ? 'hover:bg-panel2' : 'opacity-60'}>
                       <Td className="font-mono text-xs">{item.sku}</Td>
                       <Td>
-                        <span className="text-ink">{item.name}</span>
+                        <span className="inline-flex items-center gap-2.5">
+                          {item.imageId ? (
+                            <img
+                              src={itemImageUrl(item.imageId)}
+                              alt=""
+                              className="h-9 w-9 flex-none rounded-lg border border-rule object-cover"
+                            />
+                          ) : (
+                            <span
+                              aria-hidden
+                              className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-panel2 text-ink3"
+                            >
+                              <Icon name="package" className="h-4 w-4" />
+                            </span>
+                          )}
+                          <span className="text-ink">{item.name}</span>
+                        </span>
                         {!item.active && (
                           <Badge tone="danger">
                             <span className="ml-0">{t('deactivated')}</span>
@@ -447,6 +466,26 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
 
   const [priceError, setPriceError] = useState<unknown>(null);
 
+  // The picture is uploaded on its own, before the item is saved, and the item then carries its
+  // id. Prefilled on an edit, because the form sends the whole item and an empty field would
+  // delete the picture.
+  const [imageId, setImageId] = useState<string | null>(existing?.imageId ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<unknown>(null);
+
+  async function pickImage(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      setImageId(await uploadItemImage(file));
+    } catch (caught) {
+      setUploadError(caught);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const saveError = editing ? update.error : create.error;
   const fieldErrors = saveError instanceof ApiError ? saveError.fieldErrors : {};
   const saving = create.isPending || update.isPending;
@@ -471,6 +510,7 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
           retailPrice: form.retailPrice ? Number(form.retailPrice) : null,
           wholesalePrice: form.wholesalePrice ? Number(form.wholesalePrice) : null,
           reorderLevel: Number(form.reorderLevel),
+          imageId,
         },
       });
       itemId = existing.id;
@@ -488,6 +528,7 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
         retailPrice: canQuote && form.retailPrice ? Number(form.retailPrice) : undefined,
         wholesalePrice: canQuote && form.wholesalePrice ? Number(form.wholesalePrice) : undefined,
         reorderLevel: Number(form.reorderLevel),
+        imageId,
       });
       itemId = item.id!;
     }
@@ -651,6 +692,34 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
           </Field>
         </div>
 
+        <Field
+          label={t('Picture')}
+          hint={t('Optional. JPEG or PNG, up to 10 MB. Customers see it on the item pack pages.')}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="file"
+              accept="image/jpeg,image/png"
+              onChange={(event) => void pickImage(event.target.files?.[0])}
+              className="w-full rounded-lg border border-rulestrong bg-panel px-3 py-2 text-sm text-ink2 file:mr-3 file:rounded-md file:border-0 file:bg-brandsoft file:px-3 file:py-1 file:font-semibold file:text-brand"
+            />
+            {uploading && <span className="text-xs text-ink3">{t('Uploading…')}</span>}
+            {imageId && !uploading && (
+              <div className="flex items-center gap-2">
+                <img
+                  src={itemImageUrl(imageId)}
+                  alt=""
+                  className="h-14 w-14 rounded-lg border border-rule object-cover"
+                />
+                <Button type="button" size="sm" variant="danger" onClick={() => setImageId(null)}>
+                  {t('Remove')}
+                </Button>
+              </div>
+            )}
+          </div>
+        </Field>
+        {uploadError != null && <ErrorBanner error={uploadError} />}
+
         <div>
           <p className="mb-1 text-xs font-semibold tracking-wide text-ink2 uppercase">
             {t('Supplier prices')}
@@ -751,7 +820,7 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
           <Button type="button" variant="ghost" onClick={onClose}>
             {t('Cancel')}
           </Button>
-          <Button type="submit" variant="primary" disabled={saving}>
+          <Button type="submit" variant="primary" disabled={saving || uploading}>
             {editing
               ? saving
                 ? t('Saving…')

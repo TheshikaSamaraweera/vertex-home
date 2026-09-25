@@ -3,10 +3,21 @@ package com.democode.mlmsittu.portal.internal.web;
 import com.democode.mlmsittu.hierarchy.api.DistributorNode;
 import com.democode.mlmsittu.identity.api.CurrentUser;
 import com.democode.mlmsittu.portal.api.PortalView;
+import com.democode.mlmsittu.portal.internal.PackCatalogueService;
 import com.democode.mlmsittu.portal.internal.PortalService;
 import com.democode.mlmsittu.shared.api.PagedResponse;
+import com.democode.mlmsittu.shared.error.ApiException;
+import com.democode.mlmsittu.shared.storage.api.DocumentVault;
+import com.democode.mlmsittu.shared.storage.api.ServedDocument;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,12 +39,58 @@ import org.springframework.web.bind.annotation.RestController;
 @PreAuthorize("hasRole('DISTRIBUTOR')")
 public class PortalController {
 
+    /** The picture kinds a customer may read: pack and item photos, nothing else. */
+    private static final List<String> PICTURE_KINDS = List.of("item_set", "item");
+
     private final PortalService portal;
+    private final PackCatalogueService packs;
+    private final DocumentVault vault;
     private final CurrentUser currentUser;
 
-    public PortalController(PortalService portal, CurrentUser currentUser) {
+    public PortalController(
+            PortalService portal,
+            PackCatalogueService packs,
+            DocumentVault vault,
+            CurrentUser currentUser) {
         this.portal = portal;
+        this.packs = packs;
+        this.vault = vault;
         this.currentUser = currentUser;
+    }
+
+    /**
+     * Every active item pack, with its contents — or, once the customer's registration has chosen
+     * one, that pack in full and the others locked. Open before registration is approved; see
+     * {@link PackCatalogueService}.
+     */
+    @GetMapping("/item-packs")
+    public PackCatalogueService.Catalogue itemPacks() {
+        return packs.forCustomer(currentUser.requireId());
+    }
+
+    /**
+     * A pack or item photo.
+     *
+     * <p>The staff endpoints for these pictures are staff-only, so the portal serves them itself.
+     * Only the two picture kinds are readable here — {@link DocumentVault#readPublic} checks the
+     * stored kind, so no id, guessed or leaked, can fetch a NIC scan or a bank slip through this.
+     */
+    @GetMapping("/pictures/{id}")
+    public ResponseEntity<byte[]> picture(@PathVariable UUID id) {
+        ApiException notFound = null;
+        for (String kind : PICTURE_KINDS) {
+            try {
+                ServedDocument served = vault.readPublic(id, kind);
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(served.contentType()))
+                        .cacheControl(
+                                CacheControl.maxAge(365, TimeUnit.DAYS).cachePrivate().immutable())
+                        .body(served.content());
+            } catch (ApiException wrongKind) {
+                notFound = wrongKind;
+            }
+        }
+        throw notFound;
     }
 
     /**

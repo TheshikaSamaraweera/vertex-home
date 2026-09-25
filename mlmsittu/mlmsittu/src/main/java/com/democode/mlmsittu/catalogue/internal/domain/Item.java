@@ -66,6 +66,10 @@ public class Item {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
+    /** A picture in the document vault, of kind {@code item}. Optional. */
+    @Column(name = "image_id")
+    private UUID imageId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -78,6 +82,7 @@ public class Item {
     }
 
     public ItemRef toRef() {
-        return new ItemRef(id, sku, name, unitCost, sellingPrice, reorderLevel, active);
+        return new ItemRef(
+                id, sku, name, description, imageId, unitCost, sellingPrice, reorderLevel, active);
     }
 }

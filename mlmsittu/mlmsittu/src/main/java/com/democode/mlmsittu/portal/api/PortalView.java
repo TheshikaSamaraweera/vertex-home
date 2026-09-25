@@ -42,6 +42,11 @@ public record PortalView(
         UUID distributorId,
         String businessId,
         Instant approvedAt,
+        /**
+         * When the membership lapses and the portal closes, printed on the customer's membership
+         * card. Null for a membership with no end date.
+         */
+        Instant expiresAt,
         StageProgress stages,
         DistributorNode parent,
         List<DistributorNode> children,

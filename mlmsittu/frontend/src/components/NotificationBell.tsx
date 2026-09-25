@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { onboardingKeys } from '../api/onboarding';
 import { Icon } from './icons';
 import {
   useMarkAllNotificationsRead,
@@ -22,6 +24,7 @@ export function NotificationBell({ historyPath }: { historyPath: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { show } = useToasts();
+  const queryClient = useQueryClient();
   const { data } = useNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
@@ -30,15 +33,20 @@ export function NotificationBell({ historyPath }: { historyPath: string }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   // Live arrivals become toasts. The list itself is refetched by the hook, so this only decides
-  // what is shown in the corner.
-  useNotificationStream((notification) =>
+  // what is shown in the corner — and, for a new registration, refreshes the screens that list
+  // applicants, so a reviewer already looking at the queue sees it appear without reloading.
+  useNotificationStream((notification) => {
     show({
       title: notification.title,
       body: notification.body,
       link: notification.link || undefined,
       tone: notification.kind.includes('REJECTED') ? 'danger' : 'ok',
-    }),
-  );
+    });
+    if (notification.kind === 'REGISTRATION_SUBMITTED') {
+      void queryClient.invalidateQueries({ queryKey: onboardingKeys.queue });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'distributors'] });
+    }
+  });
 
   // Click outside, and Escape. A panel that can only be closed by clicking the button again is a
   // panel people leave open by accident and then lose their click to.

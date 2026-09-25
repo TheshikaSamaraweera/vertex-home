@@ -14,6 +14,10 @@ public record ItemRef(
         UUID id,
         String sku,
         String name,
+        /** What it is, in a customer's words. Shown on the item pack pages. */
+        String description,
+        /** Its picture, a document of kind {@code item}; null when there is none. */
+        UUID imageId,
         BigDecimal unitCost,
         BigDecimal sellingPrice,
         int reorderLevel,

@@ -278,7 +278,10 @@ public class OnboardingController {
     @GetMapping("/admin/registrations")
     @PreAuthorize("hasAnyRole('KYC_REVIEWER', 'SUPER_ADMIN')")
     public PagedResponse<RegistrationRepository.RegistrationRow> queue() {
-        return PagedResponse.of(registrations.queue());
+        return PagedResponse.of(
+                registrations.queue().stream()
+                        .map(RegistrationRepository.RegistrationRow::masked)
+                        .toList());
     }
 
     public record RegistrationDetailResponse(
@@ -288,7 +291,19 @@ public class OnboardingController {
     @GetMapping("/admin/registrations/{id}")
     @PreAuthorize("hasAnyRole('KYC_REVIEWER', 'SUPER_ADMIN')")
     public RegistrationDetailResponse detail(@PathVariable UUID id) {
-        return new RegistrationDetailResponse(registrations.get(id), registrations.timeline(id));
+        return new RegistrationDetailResponse(
+                registrations.get(id).masked(), registrations.timeline(id));
+    }
+
+    /**
+     * The full NIC and bank account numbers of one application, for the reviewer who asks.
+     * Audited on every call — see {@code RegistrationService#revealSensitive}. A POST, not a GET,
+     * so that a prefetch, a link preview or a browser history entry can never trigger a reveal.
+     */
+    @PostMapping("/admin/registrations/{id}/reveal")
+    @PreAuthorize("hasAnyRole('KYC_REVIEWER', 'SUPER_ADMIN')")
+    public RegistrationService.SensitiveDetails revealSensitive(@PathVariable UUID id) {
+        return registrations.revealSensitive(id, currentUser.requireId());
     }
 
     @PostMapping("/admin/registrations/{id}/claim")

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
 import {
@@ -78,7 +79,9 @@ export function RegisterBusinessPage() {
   const [bankName, setBankName] = useState('');
   const [bankBranch, setBankBranch] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
-  const [itemSetId, setItemSetId] = useState('');
+  // "Register with this pack" on the item packs page arrives with ?pack=, already chosen here.
+  const [searchParams] = useSearchParams();
+  const [itemSetId, setItemSetId] = useState(() => searchParams.get('pack') ?? '');
 
   // An administrator can fill this in for somebody else. The client asked for it because most of
   // their distributors are not comfortable with a signup form and an email link — so somebody at
@@ -576,9 +579,13 @@ function ItemPackPicker({
   onChange: (id: string) => void;
 }) {
   const { t } = useTranslation();
+  const { hasRole } = useAuth();
   const packs = useItemPackOptions();
 
   const chosen = (packs.data ?? []).find((pack) => pack.id === value);
+  // The catalogue is a portal page; an administrator filling this in for someone else is not in
+  // the portal, so the link is for customers only.
+  const isCustomer = !hasRole('ADMIN');
 
   return (
     <div className="flex flex-col gap-3">
@@ -598,10 +605,16 @@ function ItemPackPicker({
 
       {chosen && (
         <div className="rounded-lg border border-brand/25 bg-brandsoft p-3 text-xs text-ink2">
-          {t('Refer four people and {{name}} becomes yours to claim. An administrator hands it over — nothing is charged for it.', {
+          {t('Refer five people and {{name}} becomes yours to claim. An administrator hands it over — nothing is charged for it.', {
             name: chosen.name,
           })}
         </div>
+      )}
+
+      {isCustomer && (
+        <Link to="/portal/item-packs" className="text-sm font-semibold text-brand hover:underline">
+          {t('See what is in each pack')} →
+        </Link>
       )}
     </div>
   );

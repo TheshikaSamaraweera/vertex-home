@@ -85,3 +85,23 @@ export const ACCESS_COPY: Record<PortalAccess, { title: string; body: string }> 
     body: 'Your registration is approved.',
   },
 };
+
+// ---------------------------------------------------------------- item packs
+
+export type PackCatalogue = Schemas['Catalogue'];
+export type Pack = Schemas['Pack'];
+export type PackItem = Schemas['PackItem'];
+
+/**
+ * Every item pack, as this customer may see it: all of them in full until their registration
+ * names one, then that one in full and the rest locked (the server withholds their contents).
+ * Open before registration is approved.
+ */
+export const usePortalItemPacks = () =>
+  useQuery({
+    queryKey: ['portal', 'item-packs'],
+    queryFn: () => api.get<PackCatalogue>('/api/v1/portal/item-packs'),
+  });
+
+/** A pack or item picture, served by the portal for customers. */
+export const portalPictureUrl = (id: string) => `/api/v1/portal/pictures/${id}`;

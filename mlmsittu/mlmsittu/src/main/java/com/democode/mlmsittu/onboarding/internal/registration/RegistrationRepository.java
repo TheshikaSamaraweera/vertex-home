@@ -37,7 +37,32 @@ public class RegistrationRepository {
             Instant reviewedAt,
             String rejectionReason,
             String rejectionNote,
-            Instant createdAt) {}
+            Instant createdAt) {
+
+        /**
+         * The same row with the bank account number cut to its last four digits.
+         *
+         * <p>What the review screens are sent. The full number is only for the moment a reviewer
+         * asks for it — see {@code RegistrationService#revealSensitive} — so it does not sit in
+         * every queue response, browser cache and screenshot of the review page.
+         */
+        public RegistrationRow masked() {
+            return new RegistrationRow(
+                    id, userId, applicantName, applicantEmail, referrerBusinessId,
+                    referrerDistributorId, status, fullAddress, bankName, bankBranch,
+                    maskAccount(bankAccountNumber), itemSetId, nicDocumentId, slipDocumentId,
+                    identityDocumentId, nicLast4, claimedBy, claimedByName, claimedAt, submittedAt,
+                    reviewedBy, reviewedAt, rejectionReason, rejectionNote, createdAt);
+        }
+
+        private static String maskAccount(String number) {
+            if (number == null || number.isBlank()) {
+                return number;
+            }
+            String digits = number.trim();
+            return digits.length() <= 4 ? "••••" : "••••" + digits.substring(digits.length() - 4);
+        }
+    }
 
     private static final String SELECT =
             """

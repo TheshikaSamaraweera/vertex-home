@@ -31,6 +31,15 @@ export const useReviewQueue = () =>
     refetchInterval: 20_000,
   });
 
+/**
+ * The full NIC and bank account numbers of one application.
+ *
+ * Not a query and never cached: each call is a deliberate reveal, recorded in the audit log with
+ * who asked and when, and the numbers live only in the component that asked until it lets go.
+ */
+export const revealRegistrationDetails = (id: string) =>
+  api.post<Schemas['SensitiveDetails']>(`/api/v1/admin/registrations/${id}/reveal`);
+
 export const useRegistrationDetail = (id: string | null) =>
   useQuery({
     queryKey: onboardingKeys.detail(id ?? ''),

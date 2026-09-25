@@ -32,11 +32,16 @@ export function PortalShell() {
     ? [
         { to: '/portal', label: t('Dashboard'), icon: 'dashboard', end: true },
         { to: '/portal/stages', label: t('My stages'), icon: 'trophy' },
+        { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
         { to: '/portal/referrals', label: t('My referrals'), icon: 'network' },
         { to: '/portal/details', label: t('My details'), icon: 'user' },
         { to: '/portal/registration', label: t('Registration'), icon: 'clipboard' },
       ]
-    : [{ to: '/portal/registration', label: t('Business registration'), icon: 'clipboard' }];
+    : [
+        { to: '/portal/registration', label: t('Business registration'), icon: 'clipboard' },
+        // Open before approval, so a new customer can see what each pack holds before choosing.
+        { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
+      ];
 
   const nav = (
     <ul className="flex gap-1 overflow-x-auto rounded-full bg-white/70 p-1 ring-1 ring-white shadow-[0_4px_16px_-8px_rgba(16,24,40,0.2)] backdrop-blur">

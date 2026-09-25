@@ -32,6 +32,7 @@ public class RegistrationDirectoryService implements RegistrationDirectory {
                 row.nicLast4(),
                 row.rejectionReason(),
                 row.rejectionNote(),
+                row.itemSetId(),
                 row.submittedAt(),
                 row.reviewedAt(),
                 registrations.timelineOf(row.id()).stream()

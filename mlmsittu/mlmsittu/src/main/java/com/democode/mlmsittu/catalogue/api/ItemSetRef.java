@@ -16,6 +16,8 @@ public record ItemSetRef(
         UUID id,
         String code,
         String name,
+        /** What the pack is for, shown to customers choosing one. */
+        String description,
         BigDecimal setPrice,
         boolean active,
         UUID imageId,

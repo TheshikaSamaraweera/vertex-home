@@ -132,6 +132,7 @@ public class AvailabilityService {
                 set.id(),
                 set.code(),
                 set.name(),
+                set.description(),
                 set.setPrice(),
                 set.imageId(),
                 locationId,

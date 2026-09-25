@@ -5,6 +5,7 @@ import { ErrorBanner, Spinner } from '../components/ui';
 import { Icon, type IconName } from '../components/icons';
 import { useLiveAnnouncements } from '../api/announcements';
 import { AnnouncementCard } from '../pages/AnnouncementsPage';
+import { expiryStatus } from '../lib/expiry';
 import { REFERRAL_STAGES } from '../lib/stages';
 import { CopyButton, GlassCard, PersonAvatar, ProgressRing, SectionTitle } from './portalUi';
 
@@ -123,6 +124,7 @@ export function PortalDashboard() {
           name={me.data?.fullName ?? ''}
           businessId={me.data?.businessId ?? ''}
           since={me.data?.approvedAt ?? me.data?.joinedAt}
+          expires={me.data?.expiresAt}
         />
       </div>
 
@@ -215,12 +217,24 @@ function MembershipCard({
   name,
   businessId,
   since,
+  expires,
 }: {
   name: string;
   businessId: string;
   since?: string | null;
+  /** When the membership lapses; null for one with no end date. */
+  expires?: string | null;
 }) {
   const { t } = useTranslation();
+  // The date goes amber inside 30 days and red inside 7, so a renewal is asked for before the
+  // portal closes rather than discovered after.
+  const expiry = expiryStatus(expires);
+  const expiryTone =
+    expiry.band === 'urgent' || expiry.band === 'expired'
+      ? 'text-[#ffb4a8]'
+      : expiry.band === 'soon'
+        ? 'text-[#ffd98a]'
+        : 'text-white';
   return (
     <section className="relative flex min-h-[240px] flex-col justify-between overflow-hidden rounded-3xl bg-linear-to-br from-[#0f1b2d] via-[#123a44] to-[#0b5f56] p-6 text-white shadow-[0_20px_40px_-18px_rgba(15,27,45,0.7)]">
       <div aria-hidden className="pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full bg-[#38b2a3]/25 blur-2xl" />
@@ -249,9 +263,24 @@ function MembershipCard({
           <p className="text-[10px] font-bold tracking-[0.16em] text-white/60 uppercase">{t('Name')}</p>
           <p className="truncate text-sm font-semibold">{name}</p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] font-bold tracking-[0.16em] text-white/60 uppercase">{t('Since')}</p>
-          <p className="text-sm font-semibold">{dateOf(since)}</p>
+        <div className="flex gap-5 text-right">
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.16em] text-white/60 uppercase">{t('Since')}</p>
+            <p className="text-sm font-semibold">{dateOf(since)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold tracking-[0.16em] text-white/60 uppercase">
+              {t('Valid until')}
+            </p>
+            <p className={`text-sm font-semibold ${expiryTone}`}>
+              {expires ? dateOf(expires) : t('No end date')}
+            </p>
+            {(expiry.band === 'soon' || expiry.band === 'urgent') && (
+              <p className={`text-[11px] font-semibold ${expiryTone}`}>
+                {t('{{days}} days left', { days: expiry.days })}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </section>

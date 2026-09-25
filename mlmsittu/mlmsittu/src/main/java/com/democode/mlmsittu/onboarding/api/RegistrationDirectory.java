@@ -43,6 +43,8 @@ public interface RegistrationDirectory {
             String nicLast4,
             String rejectionReason,
             String rejectionNote,
+            /** The item pack chosen on the form; null when none was chosen. */
+            UUID itemSetId,
             Instant submittedAt,
             Instant reviewedAt,
             List<TimelineEntry> timeline) {}

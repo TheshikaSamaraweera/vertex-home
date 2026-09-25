@@ -49,7 +49,9 @@ public final class CatalogueDtos {
             /** Opening balance. Null or zero still establishes an empty position at the location. */
             @Min(value = 0, message = "MUST_NOT_BE_NEGATIVE") Integer openingQuantity,
 
-            @Min(value = 0, message = "MUST_NOT_BE_NEGATIVE") int reorderLevel) {}
+            @Min(value = 0, message = "MUST_NOT_BE_NEGATIVE") int reorderLevel,
+            /** From {@code POST /items/image}; null for no picture. */
+            UUID imageId) {}
 
     public record UpdateItemRequest(
             @NotBlank(message = "REQUIRED") @Size(max = 255) String name,
@@ -73,7 +75,9 @@ public final class CatalogueDtos {
             @DecimalMin(value = "0.00", message = "MUST_NOT_BE_NEGATIVE")
                     @Digits(integer = 12, fraction = 2, message = "MAX_TWO_DECIMALS")
                     BigDecimal wholesalePrice,
-            @Min(value = 0, message = "MUST_NOT_BE_NEGATIVE") int reorderLevel) {}
+            @Min(value = 0, message = "MUST_NOT_BE_NEGATIVE") int reorderLevel,
+            /** From {@code POST /items/image}; null for no picture. */
+            UUID imageId) {}
 
     public record ItemResponse(
             UUID id,
@@ -87,6 +91,7 @@ public final class CatalogueDtos {
             BigDecimal wholesalePrice,
             int reorderLevel,
             boolean active,
+            UUID imageId,
             Instant createdAt,
             Instant updatedAt) {
 
@@ -103,6 +108,7 @@ public final class CatalogueDtos {
                     item.getWholesalePrice(),
                     item.getReorderLevel(),
                     item.isActive(),
+                    item.getImageId(),
                     item.getCreatedAt(),
                     item.getUpdatedAt());
         }

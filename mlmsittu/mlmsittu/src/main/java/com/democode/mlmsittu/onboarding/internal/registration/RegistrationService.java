@@ -2,6 +2,7 @@ package com.democode.mlmsittu.onboarding.internal.registration;
 
 import com.democode.mlmsittu.hierarchy.api.DistributorNode;
 import com.democode.mlmsittu.hierarchy.api.ReferralHierarchy;
+import com.democode.mlmsittu.identity.api.UserDirectory;
 import com.democode.mlmsittu.onboarding.internal.nic.NicProtection;
 import com.democode.mlmsittu.onboarding.internal.registration.RegistrationRepository.RegistrationRow;
 import com.democode.mlmsittu.shared.audit.api.AuditContext;
@@ -49,6 +50,7 @@ public class RegistrationService {
     private final JdbcTemplate jdbc;
     private final Notifications notifications;
     private final ReferralCardService cards;
+    private final UserDirectory users;
 
     public RegistrationService(
             RegistrationRepository registrations,
@@ -56,14 +58,19 @@ public class RegistrationService {
             NicProtection nic,
             JdbcTemplate jdbc,
             Notifications notifications,
-            ReferralCardService cards) {
+            ReferralCardService cards,
+            UserDirectory users) {
         this.registrations = registrations;
         this.distributors = distributors;
         this.nic = nic;
         this.jdbc = jdbc;
         this.notifications = notifications;
         this.cards = cards;
+        this.users = users;
     }
+
+    /** Who hears about a new application: everybody who can review one. */
+    private static final List<String> REVIEWER_ROLES = List.of("KYC_REVIEWER", "ADMIN", "SUPER_ADMIN");
 
     public record SubmissionRequest(
             String nicNumber,
@@ -172,7 +179,38 @@ public class RegistrationService {
                 registrationId,
                 null,
                 Map.of("referrer", isRoot ? "(none — root)" : referrer.businessId()));
+        notifyReviewers(userId);
         return registrationId;
+    }
+
+    /**
+     * Tells every reviewer that an application is waiting.
+     *
+     * <p>Nothing did before: a new registration sat in the queue until somebody happened to open
+     * the review screen. Each notification is pushed once this transaction commits, so a reviewer
+     * with the app open gets the toast the moment the application exists — never for one that was
+     * rolled back — and everybody else finds it in the bell.
+     *
+     * <p>Active accounts only, each person once however many of the roles they hold, and never the
+     * applicant themselves (an administrator registering their own business).
+     */
+    private void notifyReviewers(UUID applicantId) {
+        String applicant =
+                users.findById(applicantId).map(UserDirectory.UserRef::fullName).orElse("Someone");
+        List<UUID> reviewers =
+                REVIEWER_ROLES.stream()
+                        .flatMap(role -> users.findByRole(role).stream())
+                        .filter(user -> "active".equals(user.status()))
+                        .map(UserDirectory.UserRef::id)
+                        .filter(id -> !id.equals(applicantId))
+                        .distinct()
+                        .toList();
+        notifications.raiseAll(
+                reviewers,
+                Notifications.REGISTRATION_SUBMITTED,
+                "New registration waiting for review",
+                applicant + " has submitted a business registration.",
+                "/registrations");
     }
 
     /**
@@ -214,6 +252,44 @@ public class RegistrationService {
     @Transactional(readOnly = true)
     public RegistrationRow get(UUID id) {
         return registrations.findById(id).orElseThrow(this::notFound);
+    }
+
+    /** The two numbers the review screens keep hidden, returned only on request. */
+    public record SensitiveDetails(String nicNumber, String bankAccountNumber) {}
+
+    /**
+     * The full NIC number and bank account number of one application.
+     *
+     * <p>Hidden on the review screens by default — the list and the detail carry only the last four
+     * digits of each — and revealed only when a reviewer presses to see them. Every reveal is
+     * written to the audit log with who looked and when, whether the numbers were then used or
+     * not: these are the two most sensitive fields in the system, and "who has seen this
+     * person's NIC" must have an answer. The values themselves are never put in the log.
+     *
+     * <p>The NIC is decrypted here, in the one place that needs the plaintext; it is stored only as
+     * an AES-GCM ciphertext and a keyed hash.
+     */
+    // Not readOnly: the audit row for the reveal is written inside this transaction, and
+    // PostgreSQL refuses an INSERT in a read-only one — which is exactly how the first version of
+    // this failed, caught by CustomerPacksAndReviewTest.
+    @Transactional
+    @Audited(action = "REGISTRATION_SENSITIVE_REVEALED", entityType = "registration")
+    public SensitiveDetails revealSensitive(UUID registrationId, UUID reviewerId) {
+        RegistrationRow row = get(registrationId);
+        assertNotSelfReview(row, reviewerId);
+
+        String nicNumber = null;
+        if (row.identityDocumentId() != null) {
+            byte[] encrypted =
+                    jdbc.queryForObject(
+                            "SELECT nic_encrypted FROM identity_document WHERE id = ?",
+                            byte[].class,
+                            row.identityDocumentId());
+            nicNumber = encrypted == null ? null : nic.decrypt(encrypted);
+        }
+
+        AuditContext.record(registrationId, null, Map.of("revealed", "nic,bank_account"));
+        return new SensitiveDetails(nicNumber, row.bankAccountNumber());
     }
 
     @Transactional(readOnly = true)

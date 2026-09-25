@@ -327,6 +327,9 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
 
   const [code, setCode] = useState(existing?.code ?? '');
   const [name, setName] = useState(existing?.name ?? '');
+  // Prefilled like everything else here: the form sends the whole set, so an empty field would
+  // wipe a description that is already there. Customers read it on the item pack pages.
+  const [description, setDescription] = useState(existing?.description ?? '');
   // Prefilled when editing. Starting empty silently wiped the price on every edit: the field
   // looked untouched, but the form posts Number('') === 0 and destroyed the value anyway.
   const [setPrice, setSetPrice] = useState(
@@ -364,6 +367,7 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
 
   const body = {
     name,
+    description: description.trim() || undefined,
     setPrice: Number(setPrice),
     imageId,
     components: usable.map((component) => ({
@@ -414,6 +418,20 @@ function SetModal({ existing, onClose }: { existing?: SetAvailability; onClose: 
             />
           </Field>
         </div>
+
+        <Field
+          label={t('Description')}
+          hint={t('Shown to customers choosing a pack: who it is for and what it gives them.')}
+        >
+          <textarea
+            rows={3}
+            maxLength={1000}
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            className="w-full rounded-lg border border-rulestrong bg-panel px-3 py-2 text-sm text-ink shadow-xs transition-[border-color,box-shadow] placeholder:text-ink3 focus:border-brand focus:ring-4 focus:ring-brandsoft focus:outline-none"
+            placeholder={t('Everything a young family needs to furnish a living room…')}
+          />
+        </Field>
 
         <Field label={t('Picture')} hint={t('Optional. JPEG or PNG, up to 10 MB.')}>
           <div className="flex flex-wrap items-center gap-3">

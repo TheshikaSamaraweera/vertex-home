@@ -12,13 +12,22 @@ import com.democode.mlmsittu.catalogue.internal.web.dto.CatalogueDtos.UpdateItem
 import com.democode.mlmsittu.identity.api.CurrentUser;
 import com.democode.mlmsittu.shared.api.Cursor;
 import com.democode.mlmsittu.shared.api.PagedResponse;
+import com.democode.mlmsittu.shared.error.ApiException;
 import com.democode.mlmsittu.shared.error.ForbiddenException;
+import com.democode.mlmsittu.shared.storage.api.DocumentVault;
+import com.democode.mlmsittu.shared.storage.api.ServedDocument;
+import com.democode.mlmsittu.shared.storage.api.StoredDocument;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +39,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Catalogue endpoints.
@@ -64,16 +74,19 @@ public class CatalogueController {
     private final ItemProvisioningService provisioning;
     private final CategoryService categoryService;
     private final CurrentUser currentUser;
+    private final DocumentVault vault;
 
     public CatalogueController(
             ItemService itemService,
             ItemProvisioningService provisioning,
             CategoryService categoryService,
-            CurrentUser currentUser) {
+            CurrentUser currentUser,
+            DocumentVault vault) {
         this.itemService = itemService;
         this.provisioning = provisioning;
         this.categoryService = categoryService;
         this.currentUser = currentUser;
+        this.vault = vault;
     }
 
     // ------------------------------------------------------------------ items
@@ -95,7 +108,8 @@ public class CatalogueController {
                                 sellingPriceOf(body.sellingPrice(), body.retailPrice()),
                                 body.retailPrice(),
                                 body.wholesalePrice(),
-                                body.reorderLevel()),
+                                body.reorderLevel(),
+                                body.imageId()),
                         new ItemProvisioningService.OpeningStock(
                                 body.locationId(),
                                 body.openingQuantity() == null ? 0 : body.openingQuantity()),
@@ -161,7 +175,8 @@ public class CatalogueController {
                                 sellingPriceOf(body.sellingPrice(), body.retailPrice()),
                                 body.retailPrice(),
                                 body.wholesalePrice(),
-                                body.reorderLevel())));
+                                body.reorderLevel(),
+                                body.imageId())));
     }
 
     /**
@@ -240,6 +255,43 @@ public class CatalogueController {
     @PreAuthorize("hasRole('INVENTORY_CLERK')")
     public ItemResponse activateItem(@PathVariable UUID id) {
         return ItemResponse.from(itemService.setActive(id, true));
+    }
+
+    // ------------------------------------------------------------------ item pictures
+
+    /** The vault's kind for item pictures. Served without a token, so checked on every read. */
+    private static final String IMAGE_KIND = "item";
+
+    /**
+     * Stores an item picture and returns its id, which the create or update request then carries.
+     * Uploaded before the item is saved, so a slow upload does not hold the form.
+     */
+    @PostMapping("/items/image")
+    @PreAuthorize("hasRole('INVENTORY_CLERK')")
+    public StoredDocument uploadItemImage(@RequestParam("file") MultipartFile file) {
+        try {
+            return vault.store(
+                    file.getBytes(), file.getContentType(), IMAGE_KIND, currentUser.requireId());
+        } catch (IOException unreadable) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST, "UPLOAD_UNREADABLE", "That file could not be read.");
+        }
+    }
+
+    /**
+     * An item picture, for staff. Customers read the same pictures through the portal.
+     *
+     * <p>No token and no access log: a photo of a chair is nobody's personal data. {@link
+     * DocumentVault#readPublic} refuses anything not of kind {@code item}, so this cannot serve a
+     * NIC scan by id.
+     */
+    @GetMapping("/items/image/{id}")
+    public ResponseEntity<byte[]> itemImage(@PathVariable UUID id) {
+        ServedDocument served = vault.readPublic(id, IMAGE_KIND);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(served.contentType()))
+                .cacheControl(CacheControl.maxAge(365, TimeUnit.DAYS).cachePrivate().immutable())
+                .body(served.content());
     }
 
     // ------------------------------------------------------------------ categories

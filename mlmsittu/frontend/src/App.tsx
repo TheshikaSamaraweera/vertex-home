@@ -31,6 +31,7 @@ import {
   PortalReferrals,
   PortalStages,
 } from './portal/PortalPages';
+import { PortalItemPacks } from './portal/PortalItemPacks';
 import { PortalRegistration } from './portal/PortalRegistration';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
@@ -120,6 +121,8 @@ export function App() {
             }
           />
           <Route path="/portal/registration" element={<PortalRegistration />} />
+          {/* Not behind RequireActive: customers browse the packs before choosing one. */}
+          <Route path="/portal/item-packs" element={<PortalItemPacks />} />
           <Route path="/portal/notifications" element={<NotificationsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/portal" replace />} />

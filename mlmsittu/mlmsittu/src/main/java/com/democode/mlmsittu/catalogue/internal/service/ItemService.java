@@ -54,7 +54,32 @@ public class ItemService implements ItemCatalogue {
             BigDecimal sellingPrice,
             BigDecimal retailPrice,
             BigDecimal wholesalePrice,
-            int reorderLevel) {}
+            int reorderLevel,
+            /** The item's picture; null for none. */
+            UUID imageId) {
+
+        /** Without a picture — the shape every caller used before items had one. */
+        public ItemDetails(
+                String name,
+                String description,
+                UUID categoryId,
+                BigDecimal unitCost,
+                BigDecimal sellingPrice,
+                BigDecimal retailPrice,
+                BigDecimal wholesalePrice,
+                int reorderLevel) {
+            this(
+                    name,
+                    description,
+                    categoryId,
+                    unitCost,
+                    sellingPrice,
+                    retailPrice,
+                    wholesalePrice,
+                    reorderLevel,
+                    null);
+        }
+    }
 
     // ------------------------------------------------------------------ published api
 
@@ -259,6 +284,7 @@ public class ItemService implements ItemCatalogue {
         item.setRetailPrice(details.retailPrice());
         item.setWholesalePrice(details.wholesalePrice());
         item.setReorderLevel(details.reorderLevel());
+        item.setImageId(details.imageId());
     }
 
     private Item persist(Item item) {

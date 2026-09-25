@@ -62,7 +62,16 @@ public class NotificationStream {
         byUser.computeIfAbsent(userId, key -> new CopyOnWriteArrayList<>()).add(emitter);
 
         emitter.onCompletion(() -> remove(userId, emitter));
-        emitter.onTimeout(() -> remove(userId, emitter));
+        // Complete it, not only forget it. Left open, the timeout surfaces as an
+        // AsyncRequestTimeoutException, and the global handler then tries to write a JSON problem
+        // document onto a text/event-stream response — which fails and logs a stack trace for
+        // every open tab every half hour. Completing ends the response cleanly; the browser's
+        // EventSource reconnects on its own, as it always did.
+        emitter.onTimeout(
+                () -> {
+                    remove(userId, emitter);
+                    emitter.complete();
+                });
         emitter.onError(error -> remove(userId, emitter));
 
         try {

@@ -17,6 +17,8 @@ public record SetAvailability(
         UUID setId,
         String code,
         String name,
+        /** Carried so the set form can edit it without wiping it. */
+        String description,
         /** The set's own price, so a screen showing sets need not fetch each one to display it. */
         java.math.BigDecimal setPrice,
         /** The set's picture, or null. Carried here because the sets screen reads this feed. */
