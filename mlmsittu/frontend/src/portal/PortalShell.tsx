@@ -7,6 +7,9 @@ import { SignOutDialog } from '../components/SignOutDialog';
 import { PersonAvatar } from './portalUi';
 import { useAuth } from '../auth/AuthContext';
 import { usePortalMe } from '../api/portal';
+import { useUnseenOffers } from './PortalOffers';
+import { CtaAudienceContext } from '../components/Promotions';
+import type { CtaTarget } from '../api/announcements';
 import { Badge, Button, ErrorBanner, Spinner } from '../components/ui';
 
 /**
@@ -29,11 +32,30 @@ export function PortalShell() {
   const active = me.data?.access === 'ACTIVE';
   const completed = me.data?.access === 'COMPLETED';
 
-  const items: Array<{ to: string; label: string; icon: IconName; end?: boolean }> = active
+  const unseenOffers = useUnseenOffers();
+
+  // Which pages an offer's button may send this customer to: only ones they can use.
+  const access = me.data?.access;
+  const canOpen = (target: CtaTarget) => {
+    switch (target) {
+      case 'registration':
+        return access === 'REGISTRATION_REQUIRED' || access === 'CHANGES_REQUESTED';
+      case 'referrals':
+      case 'stages':
+        return access === 'ACTIVE';
+      default:
+        return true;
+    }
+  };
+
+  const offers = { to: '/portal/offers', label: t('Offers'), icon: 'megaphone' as IconName, badge: unseenOffers };
+
+  const items: Array<{ to: string; label: string; icon: IconName; end?: boolean; badge?: number }> = active
     ? [
         { to: '/portal', label: t('Dashboard'), icon: 'dashboard', end: true },
         { to: '/portal/stages', label: t('My stages'), icon: 'trophy' },
         { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
+        offers,
         { to: '/portal/referrals', label: t('My referrals'), icon: 'network' },
         { to: '/portal/details', label: t('My details'), icon: 'user' },
         { to: '/portal/registration', label: t('Registration'), icon: 'clipboard' },
@@ -43,11 +65,13 @@ export function PortalShell() {
           // The account is closed: its record, and the packs for whoever registers next.
           { to: '/portal', label: t('Dashboard'), icon: 'dashboard', end: true },
           { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
+          offers,
         ]
       : [
         { to: '/portal/registration', label: t('Business registration'), icon: 'clipboard' },
         // Open before approval, so a new customer can see what each pack holds before choosing.
         { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
+        offers,
       ];
 
   const nav = (
@@ -66,6 +90,11 @@ export function PortalShell() {
           >
             <Icon name={item.icon} className="h-4 w-4" />
             {item.label}
+            {item.badge ? (
+              <span className="nums ml-0.5 min-w-[18px] rounded-full bg-[#ef4444] px-1.5 text-center text-[10px] leading-[18px] font-bold text-white">
+                {item.badge}
+              </span>
+            ) : null}
           </NavLink>
         </li>
       ))}
@@ -134,7 +163,9 @@ export function PortalShell() {
         ) : me.error ? (
           <ErrorBanner error={me.error} onRetry={() => void me.refetch()} />
         ) : (
-          <Outlet />
+          <CtaAudienceContext.Provider value={canOpen}>
+            <Outlet />
+          </CtaAudienceContext.Provider>
         )}
       </main>
 

@@ -3,10 +3,12 @@ package com.democode.mlmsittu.onboarding;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.democode.mlmsittu.hierarchy.internal.DistributorService;
 import com.democode.mlmsittu.identity.internal.domain.AppUser;
 import com.democode.mlmsittu.identity.internal.domain.UserStatus;
 import com.democode.mlmsittu.identity.internal.repo.AppUserRepository;
 import com.democode.mlmsittu.onboarding.internal.announce.AnnouncementService;
+import com.democode.mlmsittu.onboarding.internal.announce.AnnouncementService.Fields;
 import com.democode.mlmsittu.shared.error.ApiException;
 import java.time.Instant;
 import java.util.UUID;
@@ -36,6 +38,7 @@ class AnnouncementTest {
     @Autowired private AppUserRepository users;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private DistributorService distributors;
 
     @Test
     @DisplayName("a draft reaches nobody until it is published")
@@ -152,6 +155,113 @@ class AnnouncementTest {
 
         assertThat(announcements.listLive()).noneMatch(a -> a.id().equals(id));
         assertThat(announcements.get(id).title()).isEqualTo("Was up, again");
+    }
+
+    // ==============================================================================
+    // Marketing
+    // ==============================================================================
+
+    @Test
+    @DisplayName("a members-only post is hidden from somebody not yet approved; an everyone post is not")
+    void audienceDecidesWhoSees() {
+        UUID author = newUser();
+        UUID forMembers = publish(marketing("Members only", "members", null, null), author);
+        UUID forEveryone = publish(marketing("For everyone", "everyone", null, null), author);
+        UUID applicant = newUser();
+        UUID member = newMember();
+
+        assertThat(announcements.listLiveFor(applicant))
+                .extracting(AnnouncementService.Announcement::id)
+                .contains(forEveryone)
+                .doesNotContain(forMembers);
+        assertThat(announcements.listLiveFor(member))
+                .extracting(AnnouncementService.Announcement::id)
+                .contains(forEveryone, forMembers);
+    }
+
+    @Test
+    @DisplayName("a button opens a portal page by name — never a URL, and never half set")
+    void buttonsOnlyOpenPortalPages() {
+        UUID author = newUser();
+
+        UUID ok = announcements.create(marketing("Shop packs", "everyone", "See packs", "item_packs"), author);
+        assertThat(announcements.get(ok).ctaTarget()).isEqualTo("item_packs");
+
+        assertThatThrownBy(
+                        () ->
+                                announcements.create(
+                                        marketing("Phish", "everyone", "Claim", "https://evil.example"),
+                                        author))
+                .isInstanceOf(ApiException.class)
+                .satisfies(t -> assertThat(((ApiException) t).getCode()).isEqualTo("INVALID_CTA_TARGET"));
+        assertThatThrownBy(
+                        () -> announcements.create(marketing("Half", "everyone", "Click", null), author))
+                .isInstanceOf(ApiException.class)
+                .satisfies(t -> assertThat(((ApiException) t).getCode()).isEqualTo("CTA_INCOMPLETE"));
+    }
+
+    @Test
+    @DisplayName("views and clicks count people, not page loads")
+    void engagementCountsPeopleOnce() {
+        UUID id = publish(marketing("Counted", "everyone", "See packs", "item_packs"), newUser());
+        UUID first = newUser();
+        UUID second = newUser();
+
+        announcements.recordEngagement(id, first, "view");
+        announcements.recordEngagement(id, first, "view");
+        announcements.recordEngagement(id, second, "view");
+        announcements.recordEngagement(id, first, "click");
+
+        var counted = announcements.get(id);
+        assertThat(counted.views()).isEqualTo(2);
+        assertThat(counted.clicks()).isEqualTo(1);
+        assertThat(announcements.listLiveFor(first))
+                .filteredOn(a -> a.id().equals(id))
+                .singleElement()
+                .satisfies(a -> assertThat(a.seen()).isTrue());
+    }
+
+    @Test
+    @DisplayName("nobody can register engagement with a post they cannot see")
+    void engagementNeedsAVisiblePost() {
+        UUID id = publish(marketing("Members only", "members", null, null), newUser());
+
+        assertThatThrownBy(() -> announcements.recordEngagement(id, newUser(), "view"))
+                .isInstanceOf(ApiException.class);
+    }
+
+    @Test
+    @DisplayName("an edit through the old call keeps the post's banner, audience and button")
+    void theOldEditKeepsMarketingSettings() {
+        UUID id =
+                announcements.create(
+                        new Fields("Sale", null, GOOD_BODY, null, null, "offer", true, "everyone", "See packs", "item_packs"),
+                        newUser());
+
+        announcements.update(id, "Sale, reworded", null, GOOD_BODY, null, null);
+
+        var after = announcements.get(id);
+        assertThat(after.featured()).isTrue();
+        assertThat(after.category()).isEqualTo("offer");
+        assertThat(after.audience()).isEqualTo("everyone");
+        assertThat(after.ctaTarget()).isEqualTo("item_packs");
+    }
+
+    private static Fields marketing(String title, String audience, String ctaLabel, String ctaTarget) {
+        return new Fields(title, null, GOOD_BODY, null, null, "offer", true, audience, ctaLabel, ctaTarget);
+    }
+
+    private UUID publish(Fields fields, UUID author) {
+        UUID id = announcements.create(fields, author);
+        announcements.publish(id);
+        return id;
+    }
+
+    private UUID newMember() {
+        UUID userId = newUser();
+        UUID distributorId = distributors.createPending(userId, null);
+        distributors.attachToReferrer(distributorId, null);
+        return userId;
     }
 
     private UUID newUser() {

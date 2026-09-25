@@ -26,6 +26,7 @@ import { RewardsPage } from './pages/RewardsPage';
 import { RewardTrackingPage } from './pages/RewardTrackingPage';
 import { PortalLoginPage, PortalSignupPage } from './portal/PortalAuth';
 import { PortalShell, RequireActive } from './portal/PortalShell';
+import { PortalOffers } from './portal/PortalOffers';
 import {
   PortalDashboard,
   PortalDetails,
@@ -124,6 +125,8 @@ export function App() {
           <Route path="/portal/registration" element={<PortalRegistration />} />
           {/* Not behind RequireActive: customers browse the packs before choosing one. */}
           <Route path="/portal/item-packs" element={<PortalItemPacks />} />
+          {/* Open to every customer; the server filters each post by its audience. */}
+          <Route path="/portal/offers" element={<PortalOffers />} />
           <Route path="/portal/notifications" element={<NotificationsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/portal" replace />} />

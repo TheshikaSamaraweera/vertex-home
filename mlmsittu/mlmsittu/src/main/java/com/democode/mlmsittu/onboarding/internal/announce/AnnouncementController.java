@@ -57,7 +57,18 @@ public class AnnouncementController {
     @GetMapping("/announcements")
     @PreAuthorize("isAuthenticated()")
     public PagedResponse<AnnouncementService.Announcement> live() {
-        return PagedResponse.of(announcements.listLive());
+        // Filtered to the caller's audience, with their own seen marks.
+        return PagedResponse.of(announcements.listLiveFor(currentUser.requireId()));
+    }
+
+    /** @param kind {@code view} or {@code click} */
+    public record EngagementRequest(@NotBlank(message = "REQUIRED") String kind) {}
+
+    /** A customer saw a post, or pressed its button. Counted once per person each. */
+    @PostMapping("/announcements/{id}/engagement")
+    @PreAuthorize("isAuthenticated()")
+    public void engagement(@PathVariable UUID id, @Valid @RequestBody EngagementRequest body) {
+        announcements.recordEngagement(id, currentUser.requireId(), body.kind());
     }
 
     // ------------------------------------------------------------------ administration
@@ -79,19 +90,28 @@ public class AnnouncementController {
             @Size(max = 300) String subtitle,
             @NotBlank(message = "REQUIRED") String body,
             UUID imageId,
-            Instant expiresAt) {}
+            Instant expiresAt,
+            /** news, offer, new_arrival or event; null for news */
+            @Size(max = 16) String category,
+            /** shown in the banner at the top of the customer's dashboard */
+            boolean featured,
+            /** everyone or members; null for members */
+            @Size(max = 16) String audience,
+            @Size(max = 40) String ctaLabel,
+            /** a portal page by name — see AnnouncementService.CTA_TARGETS */
+            @Size(max = 24) String ctaTarget) {
+
+        AnnouncementService.Fields fields() {
+            return new AnnouncementService.Fields(
+                    title, subtitle, body, imageId, expiresAt, category, featured, audience,
+                    ctaLabel, ctaTarget);
+        }
+    }
 
     @PostMapping("/admin/announcements")
     @PreAuthorize("hasRole('ADMIN')")
     public AnnouncementService.Announcement create(@Valid @RequestBody AnnouncementRequest body) {
-        UUID id =
-                announcements.create(
-                        body.title(),
-                        body.subtitle(),
-                        body.body(),
-                        body.imageId(),
-                        body.expiresAt(),
-                        currentUser.requireId());
+        UUID id = announcements.create(body.fields(), currentUser.requireId());
         return announcements.get(id);
     }
 
@@ -99,8 +119,7 @@ public class AnnouncementController {
     @PreAuthorize("hasRole('ADMIN')")
     public AnnouncementService.Announcement update(
             @PathVariable UUID id, @Valid @RequestBody AnnouncementRequest body) {
-        announcements.update(
-                id, body.title(), body.subtitle(), body.body(), body.imageId(), body.expiresAt());
+        announcements.update(id, body.fields());
         return announcements.get(id);
     }
 

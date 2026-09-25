@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { DashboardPromotions } from './PortalOffers';
 import { ACCESS_COPY, usePortalMe, type PortalAccess } from '../api/portal';
 import { RegisterBusinessPage } from '../pages/RegisterBusinessPage';
 import { Badge, Card, humanStatus, PageHeader, Spinner, statusTone } from '../components/ui';
@@ -38,6 +39,9 @@ export function PortalRegistration() {
         // quietly and once loudly, reads as two different messages that happen to agree.
         description={notStarted ? undefined : copy.body}
       />
+
+      {/* Offers open to everyone — often the reason somebody finishes registering. */}
+      <DashboardPromotions compact />
 
       {notStarted && (
         <div className="mb-5 rounded-lg border-2 border-brand bg-brandsoft px-5 py-4">

@@ -61,6 +61,25 @@ public class AnnouncementService {
 
     // ------------------------------------------------------------------ shapes
 
+    public static final List<String> CATEGORIES = List.of("news", "offer", "new_arrival", "event");
+    public static final List<String> AUDIENCES = List.of("everyone", "members");
+
+    /**
+     * Where a button may go: pages of the portal, by name. Never a URL — a notice carries no link
+     * anybody else chose, and the frontend maps each name to its own route.
+     */
+    public static final List<String> CTA_TARGETS =
+            List.of("item_packs", "registration", "referrals", "stages", "offers");
+
+    /**
+     * @param category {@code news}, {@code offer}, {@code new_arrival} or {@code event}
+     * @param featured shown in the banner at the top of the customer's dashboard
+     * @param audience {@code everyone} or {@code members}
+     * @param ctaTarget one of {@link #CTA_TARGETS}; null with {@code ctaLabel} for no button
+     * @param views how many people have seen it — once each. Null in a customer's view.
+     * @param clicks how many people pressed its button — once each. Null in a customer's view.
+     * @param seen whether this customer has seen it. Null in the office's view.
+     */
     public record Announcement(
             UUID id,
             String title,
@@ -70,38 +89,96 @@ public class AnnouncementService {
             Instant publishedAt,
             Instant expiresAt,
             String authorName,
-            Instant createdAt) {}
+            Instant createdAt,
+            String category,
+            boolean featured,
+            String audience,
+            String ctaLabel,
+            String ctaTarget,
+            Long views,
+            Long clicks,
+            Boolean seen) {}
+
+    /** Everything an administrator writes. The marketing fields default to a plain notice. */
+    public record Fields(
+            String title,
+            String subtitle,
+            String body,
+            UUID imageId,
+            Instant expiresAt,
+            String category,
+            boolean featured,
+            String audience,
+            String ctaLabel,
+            String ctaTarget) {
+
+        /** A plain notice for members, as announcements were before V35. */
+        public static Fields plain(
+                String title, String subtitle, String body, UUID imageId, Instant expiresAt) {
+            return new Fields(
+                    title, subtitle, body, imageId, expiresAt, "news", false, "members", null, null);
+        }
+    }
 
     // ------------------------------------------------------------------ writing
 
-    @Transactional
-    @Audited(action = "ANNOUNCEMENT_CREATED", entityType = "announcement", auditFailures = true)
     public UUID create(
             String title, String subtitle, String body, UUID imageId, Instant expiresAt, UUID authorId) {
+        return create(Fields.plain(title, subtitle, body, imageId, expiresAt), authorId);
+    }
 
-        validateBody(body);
+    @Transactional
+    @Audited(action = "ANNOUNCEMENT_CREATED", entityType = "announcement", auditFailures = true)
+    public UUID create(Fields fields, UUID authorId) {
+        Fields clean = validate(fields);
 
         UUID id =
                 jdbc.queryForObject(
                         """
-                        INSERT INTO announcement (title, subtitle, body, image_id, expires_at, created_by)
-                        VALUES (?, ?, CAST(? AS JSONB), ?, ?, ?)
+                        INSERT INTO announcement (title, subtitle, body, image_id, expires_at,
+                                                  category, featured, audience, cta_label,
+                                                  cta_target, created_by)
+                        VALUES (?, ?, CAST(? AS JSONB), ?, ?, ?, ?, ?, ?, ?, ?)
                         RETURNING id
                         """,
                         UUID.class,
-                        title.trim(),
-                        blankToNull(subtitle),
-                        body,
-                        imageId,
-                        expiresAt == null ? null : java.sql.Timestamp.from(expiresAt),
+                        clean.title(),
+                        clean.subtitle(),
+                        clean.body(),
+                        clean.imageId(),
+                        timestamp(clean.expiresAt()),
+                        clean.category(),
+                        clean.featured(),
+                        clean.audience(),
+                        clean.ctaLabel(),
+                        clean.ctaTarget(),
                         authorId);
 
-        AuditContext.record(id, null, Map.of("title", title.trim()));
+        AuditContext.record(id, null, Map.of("title", clean.title()));
         return id;
     }
 
+    public void update(
+            UUID id, String title, String subtitle, String body, UUID imageId, Instant expiresAt) {
+        // The old call keeps whatever marketing settings the notice already has.
+        Announcement current = get(id);
+        update(
+                id,
+                new Fields(
+                        title,
+                        subtitle,
+                        body,
+                        imageId,
+                        expiresAt,
+                        current.category(),
+                        current.featured(),
+                        current.audience(),
+                        current.ctaLabel(),
+                        current.ctaTarget()));
+    }
+
     /**
-     * Changes the wording, picture or end date. Never whether it is out.
+     * Changes the wording, picture, end date or presentation. Never whether it is out.
      *
      * <p>Publishing is its own step, and an edit must not be a second way round it. An announcement
      * that has been taken down keeps its end date whatever the form sends: the editor pre-fills
@@ -110,10 +187,8 @@ public class AnnouncementService {
      */
     @Transactional
     @Audited(action = "ANNOUNCEMENT_UPDATED", entityType = "announcement", auditFailures = true)
-    public void update(
-            UUID id, String title, String subtitle, String body, UUID imageId, Instant expiresAt) {
-
-        validateBody(body);
+    public void update(UUID id, Fields fields) {
+        Fields clean = validate(fields);
 
         int updated =
                 jdbc.update(
@@ -126,20 +201,27 @@ public class AnnouncementService {
                                        THEN expires_at
                                    ELSE ?
                                END,
+                               category = ?, featured = ?, audience = ?,
+                               cta_label = ?, cta_target = ?,
                                updated_at = now()
                          WHERE id = ?
                         """,
-                        title.trim(),
-                        blankToNull(subtitle),
-                        body,
-                        imageId,
-                        expiresAt == null ? null : java.sql.Timestamp.from(expiresAt),
+                        clean.title(),
+                        clean.subtitle(),
+                        clean.body(),
+                        clean.imageId(),
+                        timestamp(clean.expiresAt()),
+                        clean.category(),
+                        clean.featured(),
+                        clean.audience(),
+                        clean.ctaLabel(),
+                        clean.ctaTarget(),
                         id);
 
         if (updated == 0) {
             throw new NotFoundException("ANNOUNCEMENT_NOT_FOUND", "No such announcement.");
         }
-        AuditContext.record(id, null, Map.of("title", title.trim()));
+        AuditContext.record(id, null, Map.of("title", clean.title()));
     }
 
     /**
@@ -148,18 +230,17 @@ public class AnnouncementService {
      * <p>Separate from creating it, so an administrator writing a long notice over two sittings is
      * not broadcasting the half-finished version in between. Publishing is also what raises the
      * notification, so the bell rings once — at the moment the thing became real — rather than on
-     * every save.
+     * every save. It rings for the audience the post is for, and nobody else.
      */
     @Transactional
     @Audited(action = "ANNOUNCEMENT_PUBLISHED", entityType = "announcement", auditFailures = true)
     public void publish(UUID id) {
-        List<String> titles =
+        List<Map<String, Object>> rows =
                 jdbc.queryForList(
-                        "SELECT title FROM announcement WHERE id = ? AND published_at IS NULL",
-                        String.class,
+                        "SELECT title, audience FROM announcement WHERE id = ? AND published_at IS NULL",
                         id);
 
-        if (titles.isEmpty()) {
+        if (rows.isEmpty()) {
             // Either it does not exist or it is already out. Both mean "do not send it again",
             // and sending a second notification for one notice is the thing to avoid here.
             throw new ApiException(
@@ -167,25 +248,38 @@ public class AnnouncementService {
                     "ALREADY_PUBLISHED",
                     "That announcement has already been published.");
         }
+        String title = (String) rows.get(0).get("title");
+        String audience = (String) rows.get(0).get("audience");
 
         jdbc.update("UPDATE announcement SET published_at = now(), updated_at = now() WHERE id = ?", id);
 
-        // Every active customer. Not staff: this is a notice for the people the business sells to,
-        // and an administrator already knows — they wrote it.
-        List<UUID> customers =
-                jdbc.queryForList(
-                        """
-                        SELECT DISTINCT d.user_id
-                          FROM distributor d
-                         WHERE d.status = 'active' AND d.deleted_at IS NULL
-                           AND (d.expires_at IS NULL OR d.expires_at > now())
-                        """,
-                        UUID.class);
+        // Customers, not staff: this is for the people the business sells to, and an
+        // administrator already knows — they wrote it.
+        List<UUID> recipients =
+                "everyone".equals(audience)
+                        ? jdbc.queryForList(
+                                """
+                                SELECT u.id
+                                  FROM app_user u
+                                 WHERE u.status = 'active'
+                                   AND EXISTS (SELECT 1 FROM user_role ur JOIN app_role r ON r.id = ur.role_id
+                                                WHERE ur.user_id = u.id AND r.code = 'DISTRIBUTOR')
+                                   AND NOT EXISTS (SELECT 1 FROM user_role ur JOIN app_role r ON r.id = ur.role_id
+                                                    WHERE ur.user_id = u.id AND r.code <> 'DISTRIBUTOR')
+                                """,
+                                UUID.class)
+                        : jdbc.queryForList(
+                                """
+                                SELECT DISTINCT d.user_id
+                                  FROM distributor d
+                                 WHERE d.status = 'active' AND d.deleted_at IS NULL
+                                   AND (d.expires_at IS NULL OR d.expires_at > now())
+                                """,
+                                UUID.class);
 
-        notifications.raiseAll(
-                customers, Notifications.ANNOUNCEMENT, titles.get(0), null, "/portal");
+        notifications.raiseAll(recipients, Notifications.ANNOUNCEMENT, title, null, "/portal/offers");
 
-        AuditContext.record(id, null, Map.of("recipients", String.valueOf(customers.size())));
+        AuditContext.record(id, null, Map.of("recipients", String.valueOf(recipients.size())));
     }
 
     /** Takes it down without deleting it, so the record of what was said survives. */
@@ -204,25 +298,64 @@ public class AnnouncementService {
         AuditContext.record(id, null, null);
     }
 
+    // ------------------------------------------------------------------ engagement
+
+    /**
+     * Records that a customer saw a post, or pressed its button. Once per person each — the numbers
+     * are people reached, not page loads — and only for a post that customer can actually see.
+     */
+    @Transactional
+    public void recordEngagement(UUID announcementId, UUID userId, String kind) {
+        if (!"view".equals(kind) && !"click".equals(kind)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_KIND", "Unknown engagement.");
+        }
+        boolean visible =
+                listLiveFor(userId).stream().anyMatch(a -> a.id().equals(announcementId));
+        if (!visible) {
+            throw new NotFoundException("ANNOUNCEMENT_NOT_FOUND", "No such announcement.");
+        }
+        jdbc.update(
+                """
+                INSERT INTO announcement_engagement (announcement_id, user_id, kind)
+                VALUES (?, ?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+                announcementId,
+                userId,
+                kind);
+    }
+
     // ------------------------------------------------------------------ reading
 
-    /** Everything, drafts included. For the administrator's list. */
+    private static final String SELECT =
+            """
+            SELECT a.id, a.title, a.subtitle, a.body::TEXT AS body, a.image_id,
+                   a.published_at, a.expires_at, u.full_name AS author_name, a.created_at,
+                   a.category, a.featured, a.audience, a.cta_label, a.cta_target
+            """;
+
+    /** Everything, drafts included, with reach and clicks. For the administrator's list. */
     @Transactional(readOnly = true)
     public List<Announcement> listAll() {
         return jdbc.query(
-                """
-                SELECT a.id, a.title, a.subtitle, a.body::TEXT AS body, a.image_id,
-                       a.published_at, a.expires_at, u.full_name AS author_name, a.created_at
-                  FROM announcement a
-                  JOIN app_user u ON u.id = a.created_by
-                 ORDER BY a.created_at DESC
-                 LIMIT 200
-                """,
+                SELECT
+                        + """
+                        ,
+                        (SELECT count(*) FROM announcement_engagement e
+                          WHERE e.announcement_id = a.id AND e.kind = 'view') AS views,
+                        (SELECT count(*) FROM announcement_engagement e
+                          WHERE e.announcement_id = a.id AND e.kind = 'click') AS clicks,
+                        NULL::BOOLEAN AS seen
+                          FROM announcement a
+                          JOIN app_user u ON u.id = a.created_by
+                         ORDER BY a.created_at DESC
+                         LIMIT 200
+                        """,
                 this::mapRow);
     }
 
     /**
-     * What a customer sees: published, not expired, newest first.
+     * Every live post, whatever its audience: published, not expired, newest first.
      *
      * <p>Expiry is compared to the clock here rather than by a job that flips a flag, for the same
      * reason membership expiry is — a date passing is not an event anybody performs, and a sweep
@@ -231,30 +364,64 @@ public class AnnouncementService {
     @Transactional(readOnly = true)
     public List<Announcement> listLive() {
         return jdbc.query(
-                """
-                SELECT a.id, a.title, a.subtitle, a.body::TEXT AS body, a.image_id,
-                       a.published_at, a.expires_at, u.full_name AS author_name, a.created_at
-                  FROM announcement a
-                  JOIN app_user u ON u.id = a.created_by
-                 WHERE a.published_at IS NOT NULL
-                   AND (a.expires_at IS NULL OR a.expires_at > now())
-                 ORDER BY a.published_at DESC
-                 LIMIT 20
-                """,
+                SELECT
+                        + """
+                        , NULL::BIGINT AS views, NULL::BIGINT AS clicks, NULL::BOOLEAN AS seen
+                          FROM announcement a
+                          JOIN app_user u ON u.id = a.created_by
+                         WHERE a.published_at IS NOT NULL
+                           AND (a.expires_at IS NULL OR a.expires_at > now())
+                         ORDER BY a.featured DESC, a.published_at DESC
+                         LIMIT 50
+                        """,
                 this::mapRow);
+    }
+
+    /**
+     * What one signed-in person sees: the live posts for their audience, and whether they have
+     * seen each. A member sees everything; somebody not yet approved sees only posts for everyone.
+     */
+    @Transactional(readOnly = true)
+    public List<Announcement> listLiveFor(UUID userId) {
+        return jdbc.query(
+                SELECT
+                        + """
+                        , NULL::BIGINT AS views, NULL::BIGINT AS clicks,
+                        EXISTS (SELECT 1 FROM announcement_engagement e
+                                 WHERE e.announcement_id = a.id AND e.user_id = ?
+                                   AND e.kind = 'view') AS seen
+                          FROM announcement a
+                          JOIN app_user u ON u.id = a.created_by
+                         WHERE a.published_at IS NOT NULL
+                           AND (a.expires_at IS NULL OR a.expires_at > now())
+                           AND (a.audience = 'everyone'
+                                OR EXISTS (SELECT 1 FROM distributor d
+                                            WHERE d.user_id = ? AND d.status = 'active'
+                                              AND d.deleted_at IS NULL))
+                         ORDER BY a.featured DESC, a.published_at DESC
+                         LIMIT 50
+                        """,
+                this::mapRow,
+                userId,
+                userId);
     }
 
     @Transactional(readOnly = true)
     public Announcement get(UUID id) {
         List<Announcement> found =
                 jdbc.query(
-                        """
-                        SELECT a.id, a.title, a.subtitle, a.body::TEXT AS body, a.image_id,
-                               a.published_at, a.expires_at, u.full_name AS author_name, a.created_at
-                          FROM announcement a
-                          JOIN app_user u ON u.id = a.created_by
-                         WHERE a.id = ?
-                        """,
+                        SELECT
+                                + """
+                                ,
+                                (SELECT count(*) FROM announcement_engagement e
+                                  WHERE e.announcement_id = a.id AND e.kind = 'view') AS views,
+                                (SELECT count(*) FROM announcement_engagement e
+                                  WHERE e.announcement_id = a.id AND e.kind = 'click') AS clicks,
+                                NULL::BOOLEAN AS seen
+                                  FROM announcement a
+                                  JOIN app_user u ON u.id = a.created_by
+                                 WHERE a.id = ?
+                                """,
                         this::mapRow,
                         id);
         if (found.isEmpty()) {
@@ -273,15 +440,64 @@ public class AnnouncementService {
                 instant(rs.getTimestamp("published_at")),
                 instant(rs.getTimestamp("expires_at")),
                 rs.getString("author_name"),
-                instant(rs.getTimestamp("created_at")));
+                instant(rs.getTimestamp("created_at")),
+                rs.getString("category"),
+                rs.getBoolean("featured"),
+                rs.getString("audience"),
+                rs.getString("cta_label"),
+                rs.getString("cta_target"),
+                rs.getObject("views", Long.class),
+                rs.getObject("clicks", Long.class),
+                rs.getObject("seen", Boolean.class));
     }
 
     private static Instant instant(java.sql.Timestamp value) {
         return value == null ? null : value.toInstant();
     }
 
+    private static java.sql.Timestamp timestamp(Instant value) {
+        return value == null ? null : java.sql.Timestamp.from(value);
+    }
+
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** Checks and tidies everything an administrator sent. */
+    private Fields validate(Fields fields) {
+        validateBody(fields.body());
+        String category = fields.category() == null ? "news" : fields.category();
+        String audience = fields.audience() == null ? "members" : fields.audience();
+        if (!CATEGORIES.contains(category)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CATEGORY", "Unknown category.");
+        }
+        if (!AUDIENCES.contains(audience)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_AUDIENCE", "Unknown audience.");
+        }
+        String ctaLabel = blankToNull(fields.ctaLabel());
+        String ctaTarget = blankToNull(fields.ctaTarget());
+        if ((ctaLabel == null) != (ctaTarget == null)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "CTA_INCOMPLETE",
+                    "A button needs both its text and where it goes.");
+        }
+        if (ctaTarget != null && !CTA_TARGETS.contains(ctaTarget)) {
+            // Not a URL, and not anything but a page of the portal: see CTA_TARGETS.
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST, "INVALID_CTA_TARGET", "A button can only open a portal page.");
+        }
+        return new Fields(
+                fields.title().trim(),
+                blankToNull(fields.subtitle()),
+                fields.body(),
+                fields.imageId(),
+                fields.expiresAt(),
+                category,
+                fields.featured(),
+                audience,
+                ctaLabel,
+                ctaTarget);
     }
 
     // ------------------------------------------------------------------ the guard

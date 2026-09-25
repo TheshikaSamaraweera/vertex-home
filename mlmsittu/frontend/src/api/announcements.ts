@@ -12,6 +12,60 @@ export type Announcement = {
   expiresAt: string | null;
   authorName: string;
   createdAt: string;
+  category: AnnouncementCategory;
+  /** Shown in the banner carousel at the top of the customer's dashboard. */
+  featured: boolean;
+  audience: AnnouncementAudience;
+  ctaLabel: string | null;
+  ctaTarget: CtaTarget | null;
+  /** People reached, once each. Office view only. */
+  views?: number | null;
+  clicks?: number | null;
+  /** Whether this customer has seen it. Customer view only. */
+  seen?: boolean | null;
+};
+
+export type AnnouncementCategory = 'news' | 'offer' | 'new_arrival' | 'event';
+export type AnnouncementAudience = 'everyone' | 'members';
+/** A portal page by name. The server accepts nothing else — a button is never a URL. */
+export type CtaTarget = 'item_packs' | 'registration' | 'referrals' | 'stages' | 'offers';
+
+export const CATEGORY_META: Record<
+  AnnouncementCategory,
+  { label: string; chip: string; gradient: string; icon: 'megaphone' | 'gift' | 'sparkles' | 'calendar' }
+> = {
+  offer: {
+    label: 'Offer',
+    chip: 'bg-[#fff1e6] text-[#c2410c]',
+    gradient: 'from-[#f97316] to-[#e11d48]',
+    icon: 'gift',
+  },
+  new_arrival: {
+    label: 'New arrival',
+    chip: 'bg-[#eef1ff] text-[#4f5bd5]',
+    gradient: 'from-[#6366f1] to-[#0ea5e9]',
+    icon: 'sparkles',
+  },
+  event: {
+    label: 'Event',
+    chip: 'bg-[#fdf2f8] text-[#be185d]',
+    gradient: 'from-[#db2777] to-[#9333ea]',
+    icon: 'calendar',
+  },
+  news: {
+    label: 'News',
+    chip: 'bg-brandsoft text-brand',
+    gradient: 'from-[#0b7a6e] to-[#3f5bd8]',
+    icon: 'megaphone',
+  },
+};
+
+export const CTA_TARGETS: Record<CtaTarget, { label: string; path: string }> = {
+  item_packs: { label: 'Item packs', path: '/portal/item-packs' },
+  registration: { label: 'Business registration', path: '/portal/registration' },
+  referrals: { label: 'My referrals', path: '/portal/referrals' },
+  stages: { label: 'My stages', path: '/portal/stages' },
+  offers: { label: 'Offers & news', path: '/portal/offers' },
 };
 
 /** Where an announcement picture is fetched from. No token: see the controller. */
@@ -55,6 +109,11 @@ export type AnnouncementDraft = {
   body: string;
   imageId?: string | null;
   expiresAt?: string | null;
+  category: AnnouncementCategory;
+  featured: boolean;
+  audience: AnnouncementAudience;
+  ctaLabel?: string | null;
+  ctaTarget?: CtaTarget | null;
 };
 
 function useAnnouncementMutation<TArgs>(fn: (args: TArgs) => Promise<unknown>) {
@@ -118,4 +177,13 @@ export async function uploadAnnouncementImage(file: File): Promise<string> {
     });
   }
   return payload.id as string;
+}
+
+/**
+ * Tells the office a customer saw a post, or pressed its button. Fire and forget: counting must
+ * never get in the way of reading. The server counts each person once, so repeats are harmless.
+ */
+export function recordEngagement(id: string, kind: 'view' | 'click') {
+  if (id === 'preview') return;
+  void api.post(`/api/v1/announcements/${id}/engagement`, { kind }).catch(() => undefined);
 }

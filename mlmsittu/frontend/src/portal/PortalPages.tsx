@@ -3,8 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { usePortalMe, usePortalReferrals, type DistributorNode } from '../api/portal';
 import { ErrorBanner, Spinner } from '../components/ui';
 import { Icon, type IconName } from '../components/icons';
-import { useLiveAnnouncements } from '../api/announcements';
-import { AnnouncementCard } from '../pages/AnnouncementsPage';
+import { DashboardPromotions, OffersStrip } from './PortalOffers';
 import { expiryStatus } from '../lib/expiry';
 import { REFERRAL_STAGES } from '../lib/stages';
 import { CopyButton, GlassCard, PersonAvatar, ProgressRing, SectionTitle } from './portalUi';
@@ -24,29 +23,6 @@ import { CompletedAccount, PackJourneyCard } from './PortalPackJourney';
 const dateOf = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '—';
 
-/**
- * What the office is saying, newest first.
- *
- * <p>Renders nothing at all when there is nothing to say — an empty "no announcements" panel is a
- * permanent hole in the page in exchange for information nobody needed.
- */
-function Announcements() {
-  const { t } = useTranslation();
-  const { data } = useLiveAnnouncements();
-  if (!data || data.length === 0) return null;
-
-  return (
-    <section className="mt-8">
-      <SectionTitle eyebrow={t('News')} title={t('From the office')} />
-      <div className="grid gap-5 md:grid-cols-2">
-        {data.map((announcement) => (
-          <AnnouncementCard key={announcement.id} announcement={announcement} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
 // ================================================================== dashboard
 
 export function PortalDashboard() {
@@ -65,8 +41,9 @@ export function PortalDashboard() {
   if (me.data?.access === 'COMPLETED') {
     return (
       <>
+        <DashboardPromotions compact />
         <CompletedAccount me={me.data} />
-        <Announcements />
+        <OffersStrip />
       </>
     );
   }
@@ -83,6 +60,9 @@ export function PortalDashboard() {
 
   return (
     <>
+      {/* The office's featured offers, first thing on the page: this is where marketing lives. */}
+      <DashboardPromotions />
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         {/* The hero: greeting, where they stand, and the two things they are likely to do next. */}
         <section className="relative overflow-hidden rounded-3xl bg-linear-to-br from-[#0b7a6e] via-[#0f8d80] to-[#3f5bd8] p-7 text-white shadow-[0_20px_40px_-18px_rgba(11,122,110,0.65)] sm:p-8">
@@ -213,8 +193,8 @@ export function PortalDashboard() {
         </GlassCard>
       </div>
 
-      {/* Below the figures now: the figures are theirs, the notices are the office's. */}
-      <Announcements />
+      {/* Below the figures: the figures are theirs, the offers are the office's. */}
+      <OffersStrip />
     </>
   );
 }
