@@ -191,9 +191,22 @@ class ListPaginationTest {
     @DisplayName("a category filter narrows the catalogue page to that category")
     void categoryFilterNarrows() {
         String tag = unique();
+        // code_prefix is NOT NULL and unique per category — it is what item codes are built from.
+        // This test only needs something to filter by, so it takes the first free pair rather than
+        // a random one: this database is never reset, and 676 pairs collide sooner than you think.
         UUID chairs =
                 jdbc.queryForObject(
-                        "INSERT INTO category (code, name) VALUES (?, ?) RETURNING id",
+                        """
+                        INSERT INTO category (code, name, code_prefix)
+                        SELECT ?, ?, pair FROM (
+                            SELECT chr(65 + a) || chr(65 + b) AS pair
+                              FROM generate_series(0, 25) a, generate_series(0, 25) b
+                        ) candidates
+                         WHERE NOT EXISTS (
+                            SELECT 1 FROM category WHERE code_prefix = candidates.pair)
+                         LIMIT 1
+                        RETURNING id
+                        """,
                         UUID.class,
                         tag,
                         tag + " chairs");

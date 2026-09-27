@@ -51,7 +51,8 @@ public class RegistrationRepository {
             return new RegistrationRow(
                     id, userId, applicantName, applicantEmail, referrerBusinessId,
                     referrerDistributorId, status, fullAddress, bankName, bankBranch,
-                    maskAccount(bankAccountNumber), itemSetId, nicDocumentId, slipDocumentId,
+                    maskAccount(bankAccountNumber), itemSetId, nicDocumentId, nicBackDocumentId,
+                    slipDocumentId,
                     identityDocumentId, nicLast4, claimedBy, claimedByName, claimedAt, submittedAt,
                     reviewedBy, reviewedAt, rejectionReason, rejectionNote, createdAt);
         }

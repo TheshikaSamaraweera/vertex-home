@@ -215,12 +215,14 @@ class CustomerPacksAndReviewTest {
     /** A root registration: no referrer and no card, the path an administrator uses. */
     private UUID submit(UUID applicant, UUID itemSetId) {
         var nic = vault.store(smallJpeg(), "image/jpeg", "nic", applicant);
+        var nicBack = vault.store(smallJpeg(), "image/jpeg", "nic_back", applicant);
         var slip = vault.store(smallJpeg(), "image/jpeg", "bank_slip", applicant);
         return registrations.submit(
                 applicant,
                 new SubmissionRequest(
                         String.format("1990%08d", Math.abs(System.nanoTime()) % 100_000_000L),
                         nic.id(),
+                        nicBack.id(),
                         slip.id(),
                         null,
                         null,

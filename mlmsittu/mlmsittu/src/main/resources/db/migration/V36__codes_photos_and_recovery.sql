@@ -130,10 +130,14 @@ ALTER TABLE app_user ADD COLUMN profile_photo_id UUID REFERENCES stored_document
 
 -- A fifth document kind. Like an announcement image it is meant to be seen rather than guarded,
 -- but only by somebody signed in — see the controller, which checks the kind before serving.
+-- Every kind, not only the new ones. This constraint is replaced wholesale rather than added to,
+-- so the list has to repeat what V32 and V33 introduced ('item_set', 'item') — leaving them out
+-- would silently revoke them, and the failure surfaces only when somebody uploads a picture.
 ALTER TABLE stored_document DROP CONSTRAINT IF EXISTS chk_document_kind;
 ALTER TABLE stored_document
     ADD CONSTRAINT chk_document_kind
-    CHECK (kind IN ('nic', 'nic_back', 'bank_slip', 'announcement', 'profile', 'other'));
+    CHECK (kind IN ('nic', 'nic_back', 'bank_slip', 'announcement',
+                    'item_set', 'item', 'profile', 'other'));
 
 
 -- ----------------------------------------------------------------------------------------------

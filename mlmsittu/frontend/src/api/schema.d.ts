@@ -228,6 +228,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["uploadMyPhoto"];
+        delete: operations["removeMyPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/suppliers": {
         parameters: {
             query?: never;
@@ -884,6 +900,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -948,6 +980,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["forgotPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{id}/engagement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["engagement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/users": {
         parameters: {
             query?: never;
@@ -958,6 +1038,22 @@ export interface paths {
         get: operations["list_2"];
         put?: never;
         post: operations["createOnBehalf"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resetPassword_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1230,6 +1326,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["uploadImage_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/photo/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["photo"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2739,6 +2851,9 @@ export interface components {
             emailVerified?: boolean;
             mobileVerified?: boolean;
             totpEnabled?: boolean;
+            mustChangePassword?: boolean;
+            /** Format: uuid */
+            profilePhotoId?: string;
             roles?: string[];
             /** Format: date-time */
             createdAt?: string;
@@ -2830,6 +2945,11 @@ export interface components {
             imageId?: string;
             /** Format: date-time */
             expiresAt?: string;
+            category?: string;
+            featured?: boolean;
+            audience?: string;
+            ctaLabel?: string;
+            ctaTarget?: string;
         };
         Announcement: {
             /** Format: uuid */
@@ -2846,6 +2966,16 @@ export interface components {
             authorName?: string;
             /** Format: date-time */
             createdAt?: string;
+            category?: string;
+            featured?: boolean;
+            audience?: string;
+            ctaLabel?: string;
+            ctaTarget?: string;
+            /** Format: int64 */
+            views?: number;
+            /** Format: int64 */
+            clicks?: number;
+            seen?: boolean;
         };
         ScanResult: {
             /** Format: int32 */
@@ -3035,6 +3165,8 @@ export interface components {
             /** Format: uuid */
             nicDocumentId: string;
             /** Format: uuid */
+            nicBackDocumentId: string;
+            /** Format: uuid */
             slipDocumentId: string;
             referrerBusinessId: string;
             cardNumber: string;
@@ -3122,11 +3254,10 @@ export interface components {
             unreadCount?: number;
         };
         CreateItemRequest: {
-            sku: string;
             name: string;
             description?: string;
             /** Format: uuid */
-            categoryId?: string;
+            categoryId: string;
             unitCost: number;
             sellingPrice?: number;
             retailPrice?: number;
@@ -3247,15 +3378,19 @@ export interface components {
             name?: string;
             active?: boolean;
         };
+        CompleteResetRequest: {
+            token: string;
+            password: string;
+        };
+        AcknowledgementResponse: {
+            message?: string;
+        };
         RegisterRequest: {
             fullName: string;
             /** Format: email */
             email?: string;
             mobile?: string;
             password: string;
-        };
-        AcknowledgementResponse: {
-            message?: string;
         };
         LoginRequest: {
             identifier: string;
@@ -3273,6 +3408,16 @@ export interface components {
             challengeId: string;
             code: string;
         };
+        ResetRequest: {
+            identifier: string;
+        };
+        ChangePasswordRequest: {
+            currentPassword: string;
+            newPassword: string;
+        };
+        EngagementRequest: {
+            kind: string;
+        };
         CreateUserRequest: {
             fullName: string;
             /** Format: email */
@@ -3284,6 +3429,9 @@ export interface components {
             /** Format: uuid */
             id?: string;
             email?: string;
+        };
+        TemporaryPassword: {
+            password?: string;
         };
         StageRequest: {
             stage: string;
@@ -3305,6 +3453,8 @@ export interface components {
             nicNumber: string;
             /** Format: uuid */
             nicDocumentId: string;
+            /** Format: uuid */
+            nicBackDocumentId: string;
             /** Format: uuid */
             slipDocumentId: string;
             referrerBusinessId?: string;
@@ -3344,6 +3494,8 @@ export interface components {
             itemSetId?: string;
             /** Format: uuid */
             nicDocumentId?: string;
+            /** Format: uuid */
+            nicBackDocumentId?: string;
             /** Format: uuid */
             slipDocumentId?: string;
             /** Format: uuid */
@@ -4600,6 +4752,53 @@ export interface operations {
             };
         };
     };
+    uploadMyPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserSummary"];
+                };
+            };
+        };
+    };
+    removeMyPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UserSummary"];
+                };
+            };
+        };
+    };
     listSuppliers: {
         parameters: {
             query?: {
@@ -5810,6 +6009,30 @@ export interface operations {
             };
         };
     };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteResetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AcknowledgementResponse"];
+                };
+            };
+        };
+    };
     register: {
         parameters: {
             query?: never;
@@ -5900,6 +6123,78 @@ export interface operations {
             };
         };
     };
+    forgotPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AcknowledgementResponse"];
+                };
+            };
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AcknowledgementResponse"];
+                };
+            };
+        };
+    };
+    engagement: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngagementRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_2: {
         parameters: {
             query?: never;
@@ -5940,6 +6235,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["CreatedUser"];
+                };
+            };
+        };
+    };
+    resetPassword_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["TemporaryPassword"];
                 };
             };
         };
@@ -6431,6 +6748,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["StoredDocument"];
+                };
+            };
+        };
+    };
+    photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
                 };
             };
         };
