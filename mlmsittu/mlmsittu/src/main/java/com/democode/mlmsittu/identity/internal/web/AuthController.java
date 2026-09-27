@@ -10,6 +10,9 @@ import com.democode.mlmsittu.identity.internal.web.dto.TotpLoginRequest;
 import com.democode.mlmsittu.identity.internal.web.dto.UserSummary;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.democode.mlmsittu.identity.internal.service.PasswordResetService;
+import com.democode.mlmsittu.identity.api.CurrentUser;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -24,13 +27,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResets;
+    private final CurrentUser currentUser;
     private final UserAdminService userAdminService;
     private final AccountSignupService signupService;
 
     public AuthController(
             AuthService authService,
             UserAdminService userAdminService,
-            AccountSignupService signupService) {
+            AccountSignupService signupService,
+            PasswordResetService passwordResets,
+            CurrentUser currentUser) {
+        this.passwordResets = passwordResets;
+        this.currentUser = currentUser;
         this.authService = authService;
         this.userAdminService = userAdminService;
         this.signupService = signupService;
@@ -52,8 +61,11 @@ public class AuthController {
                     @jakarta.validation.constraints.Size(max = 320) String email,
             @jakarta.validation.constraints.Size(max = 24) String mobile,
             @jakarta.validation.constraints.NotBlank(message = "REQUIRED")
-                    @jakarta.validation.constraints.Size(min = 10, max = 200,
-                            message = "AT_LEAST_TEN_CHARACTERS") String password) {}
+                    // Bounds only, as a cheap guard against an absurd payload. The actual rule
+                    // lives in PasswordPolicy, which every path that sets a password consults —
+                    // an annotation here and there is how a policy ends up not applying to the
+                    // one route somebody actually uses.
+                    @jakarta.validation.constraints.Size(max = 200) String password) {}
 
     public record AcknowledgementResponse(String message) {}
 
@@ -80,7 +92,54 @@ public class AuthController {
      * <p>Always 200 on a valid password, even when more is required — the status code describes
      * the request, and "your password was right but you are not in yet" is not an error.
      */
-    @PostMapping("/login")
+// ------------------------------------------------------------------ forgotten passwords
+
+    public record ResetRequest(
+            @jakarta.validation.constraints.NotBlank(message = "REQUIRED")
+                    @jakarta.validation.constraints.Size(max = 320)
+                    String identifier) {}
+
+    /**
+     * Asks for a reset link.
+     *
+     * <p>Always the same answer. Whether the identifier matches an account, and whether that
+     * account has an email address to send to, are both things this must not reveal — a reset
+     * form that distinguishes them is a way to ask who has an account here, and the membership of
+     * a referral network is exactly the list worth harvesting.
+     */
+    @PostMapping("/forgot-password")
+    public AcknowledgementResponse forgotPassword(
+            @Valid @RequestBody ResetRequest body, HttpServletRequest request) {
+        passwordResets.requestReset(body.identifier(), request.getRemoteAddr());
+        return new AcknowledgementResponse(
+                "If that account exists and has an email address, a reset link is on its way. "
+                        + "If not, ask the office to reset it for you.");
+    }
+
+    public record CompleteResetRequest(
+            @jakarta.validation.constraints.NotBlank(message = "REQUIRED") String token,
+            @jakarta.validation.constraints.NotBlank(message = "REQUIRED") String password) {}
+
+    @PostMapping("/reset-password")
+    public AcknowledgementResponse resetPassword(@Valid @RequestBody CompleteResetRequest body) {
+        passwordResets.completeReset(body.token(), body.password());
+        return new AcknowledgementResponse("Your password has been changed. Sign in with it.");
+    }
+
+    public record ChangePasswordRequest(
+            @jakarta.validation.constraints.NotBlank(message = "REQUIRED") String currentPassword,
+            @jakarta.validation.constraints.NotBlank(message = "REQUIRED") String newPassword) {}
+
+    /** Changing your own password while signed in. */
+    @PostMapping("/change-password")
+    @PreAuthorize("isAuthenticated()")
+    public AcknowledgementResponse changePassword(@Valid @RequestBody ChangePasswordRequest body) {
+        passwordResets.changeOwnPassword(
+                currentUser.requireId(), body.currentPassword(), body.newPassword());
+        return new AcknowledgementResponse("Your password has been changed.");
+    }
+
+        @PostMapping("/login")
     public LoginResponse login(
             @Valid @RequestBody LoginRequest body,
             HttpServletRequest request,

@@ -291,6 +291,7 @@ class PortalAccessTest {
                 new SubmissionRequest(
                         "1990" + System.nanoTime() % 100_000_000L,
                         nic.id(),
+                        vault.store(smallJpeg(), "image/jpeg", "nic_back", applicant).id(),
                         slip.id(),
                         referrerBusinessId,
                         cardNumber,

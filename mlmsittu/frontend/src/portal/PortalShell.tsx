@@ -59,6 +59,7 @@ export function PortalShell() {
         { to: '/portal/referrals', label: t('My referrals'), icon: 'network' },
         { to: '/portal/details', label: t('My details'), icon: 'user' },
         { to: '/portal/registration', label: t('Registration'), icon: 'clipboard' },
+        { to: '/portal/account', label: t('My account'), icon: 'user' },
       ]
     : completed
       ? [
@@ -71,6 +72,9 @@ export function PortalShell() {
         { to: '/portal/registration', label: t('Business registration'), icon: 'clipboard' },
         // Open before approval, so a new customer can see what each pack holds before choosing.
         { to: '/portal/item-packs', label: t('Item packs'), icon: 'gift' },
+        // And before approval too: somebody signed in on a temporary password the office gave
+        // them has to be able to change it, and this is the screen that does it.
+        { to: '/portal/account', label: t('My account'), icon: 'user' },
         offers,
       ];
 
@@ -113,7 +117,7 @@ export function PortalShell() {
               MS
             </span>
             <div className="hidden min-w-0 sm:block">
-              <p className="truncate text-[15px] font-extrabold tracking-tight text-ink">MLM Sittu</p>
+              <p className="truncate text-[15px] font-extrabold tracking-tight text-ink">Vertex Home Solutions</p>
               <p className="truncate text-[11px] font-medium text-ink3">{t('Customer portal')}</p>
             </div>
           </div>
@@ -170,7 +174,7 @@ export function PortalShell() {
       </main>
 
       <footer className="mx-auto max-w-[1180px] px-4 pb-8 text-center text-xs text-ink3 sm:px-6">
-        © MLM Sittu · {t('Distribution and inventory platform')}
+        © Vertex Home Solutions · {t('Distribution and inventory platform')}
       </footer>
 
       {confirmingSignOut && <SignOutDialog onClose={() => setConfirmingSignOut(false)} />}

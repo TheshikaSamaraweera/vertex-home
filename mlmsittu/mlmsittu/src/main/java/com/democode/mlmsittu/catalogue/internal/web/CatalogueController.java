@@ -3,6 +3,7 @@ package com.democode.mlmsittu.catalogue.internal.web;
 import com.democode.mlmsittu.catalogue.internal.domain.Item;
 import com.democode.mlmsittu.catalogue.internal.service.CategoryService;
 import com.democode.mlmsittu.catalogue.internal.service.ItemProvisioningService;
+import com.democode.mlmsittu.catalogue.internal.service.ItemCodeAllocator;
 import com.democode.mlmsittu.catalogue.internal.service.ItemService;
 import com.democode.mlmsittu.catalogue.internal.web.dto.CatalogueDtos.CategoryResponse;
 import com.democode.mlmsittu.catalogue.internal.web.dto.CatalogueDtos.CreateCategoryRequest;
@@ -71,6 +72,7 @@ public class CatalogueController {
     private static final int MAX_PAGE = 500;
 
     private final ItemService itemService;
+    private final ItemCodeAllocator itemCodes;
     private final ItemProvisioningService provisioning;
     private final CategoryService categoryService;
     private final CurrentUser currentUser;
@@ -81,7 +83,9 @@ public class CatalogueController {
             ItemProvisioningService provisioning,
             CategoryService categoryService,
             CurrentUser currentUser,
-            DocumentVault vault) {
+            DocumentVault vault,
+            ItemCodeAllocator itemCodes) {
+        this.itemCodes = itemCodes;
         this.itemService = itemService;
         this.provisioning = provisioning;
         this.categoryService = categoryService;
@@ -99,7 +103,10 @@ public class CatalogueController {
 
         return ItemResponse.from(
                 provisioning.createWithOpeningStock(
-                        body.sku(),
+                        // Generated from the category, not taken from the request. A client that
+                        // sends one is ignored rather than trusted — the whole point is that two
+                        // clerks cannot invent the same code, or two spellings of one code.
+                        itemCodes.next(body.categoryId()),
                         new ItemService.ItemDetails(
                                 body.name(),
                                 body.description(),

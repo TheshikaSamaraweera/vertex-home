@@ -181,8 +181,17 @@ public class SecurityConfig {
                                                 // Each is rate limited and answers identically
                                                 // whether or not the address exists.
                                                 "/api/v1/auth/register",
-                                                "/api/v1/auth/verify-email",
-                                                "/api/v1/auth/resend-verification")
+                                                // Forgotten passwords. Somebody who cannot sign
+                                                // in cannot hold a session, so these cannot be
+                                                // authenticated — which is exactly why they are
+                                                // rate limited by both IP and identifier and
+                                                // answer identically whether the account exists.
+                                                //
+                                                // change-password is NOT here: it is for somebody
+                                                // already signed in and requires their current
+                                                // password as well.
+                                                "/api/v1/auth/forgot-password",
+                                                "/api/v1/auth/reset-password")
                                         .permitAll()
                                         .requestMatchers("/actuator/health", "/actuator/health/**")
                                         .permitAll()

@@ -152,6 +152,8 @@ public class OnboardingController {
     public record SubmitRegistrationRequest(
             @NotBlank(message = "REQUIRED") @Size(max = 20) String nicNumber,
             @NotNull(message = "REQUIRED") UUID nicDocumentId,
+            /** The reverse of the card: the address and the issue date are on that side. */
+            @NotNull(message = "REQUIRED") UUID nicBackDocumentId,
             @NotNull(message = "REQUIRED") UUID slipDocumentId,
             @NotBlank(message = "REQUIRED") String referrerBusinessId,
             // Required on the public form: an ordinary applicant got in by buying a card, and the
@@ -195,6 +197,7 @@ public class OnboardingController {
                         new SubmissionRequest(
                                 body.nicNumber(),
                                 body.nicDocumentId(),
+                                body.nicBackDocumentId(),
                                 body.slipDocumentId(),
                                 body.referrerBusinessId(),
                                 body.cardNumber(),
@@ -241,6 +244,7 @@ public class OnboardingController {
                         new RegistrationService.SubmissionRequest(
                                 body.nicNumber(),
                                 body.nicDocumentId(),
+                                body.nicBackDocumentId(),
                                 body.slipDocumentId(),
                                 body.referrerBusinessId(),
                                 body.cardNumber(),
@@ -266,6 +270,8 @@ public class OnboardingController {
             @NotNull(message = "REQUIRED") UUID userId,
             @NotBlank(message = "REQUIRED") @Size(max = 20) String nicNumber,
             @NotNull(message = "REQUIRED") UUID nicDocumentId,
+            /** The reverse of the card: the address and the issue date are on that side. */
+            @NotNull(message = "REQUIRED") UUID nicBackDocumentId,
             @NotNull(message = "REQUIRED") UUID slipDocumentId,
             @Size(max = 64) String referrerBusinessId,
             @Size(max = 32) String cardNumber,

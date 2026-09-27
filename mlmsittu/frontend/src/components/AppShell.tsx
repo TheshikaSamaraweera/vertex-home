@@ -126,6 +126,9 @@ export function AppShell() {
       heading: t('Administration'),
       items: [
         { to: '/users', label: t('Users and roles'), roles: ['SUPER_ADMIN'], icon: 'key' },
+        // No role: a photograph and a password are things anybody signed in might want to
+        // change about themselves.
+        { to: '/my-account', label: t('My account'), icon: 'user' },
       ],
     },
   ];
@@ -165,10 +168,10 @@ export function AppShell() {
           aria-hidden
           className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-linear-to-br from-brandbright to-brand text-[14px] font-extrabold text-white shadow-sm"
         >
-          MS
+          VH
         </span>
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-bold tracking-tight text-navink">MLM Sittu</p>
+          <p className="truncate text-[15px] font-bold tracking-tight text-navink">Vertex Home Solutions</p>
           <p className="truncate text-xs text-navink3">{t('Distribution & inventory')}</p>
         </div>
       </div>

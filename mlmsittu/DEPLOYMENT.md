@@ -1,4 +1,4 @@
-# Deploying MLM Sittu to EC2
+# Deploying Vertex Home Solutions to EC2
 
 Three containers on one instance: PostgreSQL, the Spring application, and nginx serving the
 frontend and proxying the API.

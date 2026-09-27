@@ -68,7 +68,7 @@ final class PurchaseOrderDocument {
         }
 
         text.append("\nPlease confirm receipt of this order and the delivery date.\n");
-        text.append("\nMLM Sittu\n");
+        text.append("\nVertex Home Solutions\n");
         return text.toString();
     }
 

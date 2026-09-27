@@ -6,6 +6,7 @@ import com.democode.mlmsittu.identity.internal.service.UserAdminService;
 import com.democode.mlmsittu.identity.internal.web.dto.UpdateRolesRequest;
 import com.democode.mlmsittu.identity.internal.web.dto.UserSummary;
 import com.democode.mlmsittu.shared.api.PagedResponse;
+import com.democode.mlmsittu.identity.internal.service.PasswordResetService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -41,9 +42,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserAdminController {
 
     private final UserAdminService userAdminService;
+    private final PasswordResetService passwordResets;
     private final AccountSignupService signups;
 
-    public UserAdminController(UserAdminService userAdminService, AccountSignupService signups) {
+    public UserAdminController(UserAdminService userAdminService, AccountSignupService signups,
+            PasswordResetService passwordResets) {
+        this.passwordResets = passwordResets;
         this.userAdminService = userAdminService;
         this.signups = signups;
     }
@@ -93,15 +97,31 @@ public class UserAdminController {
     }
 
     /**
-     * @param password a temporary one the administrator gives the person; there is no self-service
-     *     reset yet, so it is worth writing down at the desk
+     * @param password a temporary one the administrator gives the person. Worth writing down at
+     *     the desk: most customers have no email address and so cannot reset it themselves
      */
-    public record CreateUserRequest(
+/**
+     * Sets a temporary password for somebody who cannot reset it themselves.
+     *
+     * <p>The office route. Most customers here have no email address, so a self-service link
+     * reaches nobody — an administrator sets one and reads it out, and the account is made to
+     * change it at the next sign-in so a password somebody else chose does not become permanent.
+     *
+     * <p>Returned once and never stored readably. Lost before it is handed over means issuing
+     * another, not looking it up.
+     */
+    @PostMapping("/{id}/reset-password")
+    @PreAuthorize("hasRole('ADMIN')")
+    public PasswordResetService.TemporaryPassword resetPassword(@PathVariable UUID id) {
+        return passwordResets.resetByAdministrator(id);
+    }
+
+        public record CreateUserRequest(
             @NotBlank(message = "REQUIRED") @Size(max = 255) String fullName,
             @NotBlank(message = "REQUIRED") @Email(message = "INVALID_EMAIL") @Size(max = 320)
                     String email,
             @Size(max = 32) String mobile,
-            @NotBlank(message = "REQUIRED") @Size(min = 12, max = 128) String password) {}
+            @NotBlank(message = "REQUIRED") @Size(max = 128) String password) {}
 
     public record CreatedUser(UUID id, String email) {}
 }

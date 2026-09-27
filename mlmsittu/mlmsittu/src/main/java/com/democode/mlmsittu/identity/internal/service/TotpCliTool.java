@@ -22,7 +22,7 @@ public final class TotpCliTool {
             return;
         }
 
-        TotpService totp = new TotpService("MLM Sittu");
+        TotpService totp = new TotpService("Vertex Home Solutions");
         String secret = args[0].trim();
         long secondsIntoStep = System.currentTimeMillis() / 1000 % 30;
 

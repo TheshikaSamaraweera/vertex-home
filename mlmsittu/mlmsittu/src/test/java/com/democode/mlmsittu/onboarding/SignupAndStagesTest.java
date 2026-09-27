@@ -86,7 +86,7 @@ class SignupAndStagesTest {
         // database and then silently conflicts forever after — and register() is deliberately
         // silent about conflicts, so the failure surfaces as "no such user" three lines later.
         String mobile = "+9477" + (1000000 + RANDOM_SUFFIX.incrementAndGet());
-        signup.register("Nimal Perera", email, mobile, "correct-horse-battery", "127.0.0.1");
+        signup.register("Nimal Perera", email, mobile, "Horse1234", "127.0.0.1");
 
         AppUser created = users.findByEmail(email).orElseThrow();
         assertThat(created.statusValue())
@@ -98,7 +98,7 @@ class SignupAndStagesTest {
     @DisplayName("an email address alone is enough")
     void emailOnlyIsAccepted() {
         String email = "email-only-" + UUID.randomUUID() + "@test.local";
-        signup.register("Email Only", email, null, "correct-horse-battery", "127.0.0.11");
+        signup.register("Email Only", email, null, "Horse1234", "127.0.0.11");
 
         AppUser created = users.findByEmail(email).orElseThrow();
         assertThat(created.getMobile()).isNull();
@@ -110,7 +110,7 @@ class SignupAndStagesTest {
         // Most of this client's customers have no email address at all. Before this, the office
         // had to invent one for them.
         String mobile = "077" + (1000000 + RANDOM_SUFFIX.incrementAndGet());
-        signup.register("Phone Only", null, mobile, "correct-horse-battery", "127.0.0.12");
+        signup.register("Phone Only", null, mobile, "Horse1234", "127.0.0.12");
 
         AppUser created = users.findByMobile("+9477" + mobile.substring(3)).orElseThrow();
         assertThat(created.getEmail()).isNull();
@@ -120,7 +120,7 @@ class SignupAndStagesTest {
     @DisplayName("however the number is written, it is stored one way")
     void phoneNumbersAreNormalised() {
         int suffix = 1000000 + RANDOM_SUFFIX.incrementAndGet();
-        signup.register("Spaced Out", null, "077 " + suffix, "correct-horse-battery", "127.0.0.13");
+        signup.register("Spaced Out", null, "077 " + suffix, "Horse1234", "127.0.0.13");
 
         // Registered with spaces and a trunk zero; found by the canonical form. If these two ever
         // disagree, a customer who registered at the desk cannot log in and nothing says why.
@@ -133,7 +133,7 @@ class SignupAndStagesTest {
         assertThatThrownBy(
                         () ->
                                 signup.register(
-                                        "Anonymous", null, null, "correct-horse-battery",
+                                        "Anonymous", null, null, "Horse1234",
                                         "127.0.0.14"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(
@@ -147,12 +147,12 @@ class SignupAndStagesTest {
     void duplicatePhoneIsRejectedAtTheDesk() {
         int suffix = 1000000 + RANDOM_SUFFIX.incrementAndGet();
         String mobile = "077" + suffix;
-        signup.registerOnBehalf("First Holder", null, mobile, "correct-horse-battery");
+        signup.registerOnBehalf("First Holder", null, mobile, "Horse1234");
 
         assertThatThrownBy(
                         () ->
                                 signup.registerOnBehalf(
-                                        "Second Holder", null, mobile, "correct-horse-battery"))
+                                        "Second Holder", null, mobile, "Horse1234"))
                 .isInstanceOf(ApiException.class)
                 .satisfies(
                         thrown ->
@@ -166,10 +166,10 @@ class SignupAndStagesTest {
     @DisplayName("signing up with an address already in use reveals nothing")
     void duplicateSignupIsIndistinguishable() {
         String email = "dupe-" + UUID.randomUUID() + "@test.local";
-        signup.register("First Person", email, null, "correct-horse-battery", "127.0.0.4");
+        signup.register("First Person", email, null, "Horse1234", "127.0.0.4");
 
         // No exception, and no second account — the caller cannot tell the difference.
-        signup.register("Second Person", email, null, "different-password", "127.0.0.4");
+        signup.register("Second Person", email, null, "Different9", "127.0.0.4");
 
         Integer count =
                 jdbc.queryForObject(

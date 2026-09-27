@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
+import {
+  isAcceptablePassword,
+  MAX_LENGTH,
+  MIN_LENGTH,
+  PASSWORD_RULE,
+  passwordProblem,
+} from '../lib/password';
+// PasswordInput is theirs — a field with a show/hide toggle. Kept, and the policy below applies
+// to it exactly as it did to the plain Input.
 import { Button, ErrorBanner, Field, Input, Instructions, PasswordInput } from '../components/ui';
 
 /**
@@ -58,7 +67,7 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
     <div className="flex min-h-dvh items-center justify-center bg-ground px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-ink">MLM Sittu</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Vertex Home Solutions</h1>
           <p className="mt-1 text-sm text-ink2">{t('Create your account')}</p>
         </div>
 
@@ -101,17 +110,14 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
               <Field
                 label={t('Password')}
                 required
-                hint={t('At least 10 characters. Longer beats complicated.')}
-                error={
-                  password !== '' && password.length < 10
-                    ? t('Too short — {{count}} of 10 characters.', { count: password.length })
-                    : fieldErrors.password
-                }
+                hint={t(PASSWORD_RULE)}
+                error={passwordProblem(password) ?? fieldErrors.password}
               >
                 <PasswordInput
                   required
-                  minLength={10}
-                  aria-invalid={password !== '' && password.length < 10}
+                  minLength={MIN_LENGTH}
+                  maxLength={MAX_LENGTH}
+                  aria-invalid={passwordProblem(password) !== null}
                   autoComplete="new-password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
@@ -120,7 +126,7 @@ export function SignupPage({ onDone }: { onDone: () => void }) {
 
               <ErrorBanner error={error} />
 
-              <Button type="submit" variant="primary" disabled={busy || !hasIdentifier}>
+              <Button type="submit" variant="primary" disabled={busy || !hasIdentifier || !isAcceptablePassword(password)}>
                 {busy ? t('Creating…') : t('Create account')}
               </Button>
               <Button type="button" variant="ghost" onClick={onDone}>

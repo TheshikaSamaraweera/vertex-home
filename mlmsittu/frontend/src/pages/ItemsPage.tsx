@@ -516,10 +516,9 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
       itemId = existing.id;
     } else {
       const item = await create.mutateAsync({
-        sku: form.sku,
         name: form.name,
         description: form.description || undefined,
-        categoryId: form.categoryId || undefined,
+        categoryId: form.categoryId,
         locationId: form.locationId || undefined,
         openingQuantity: Number(form.openingQuantity || 0),
         unitCost: Number(form.unitCost),
@@ -558,27 +557,22 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
     <Modal title={editing ? t('Edit item') : t('New item')} onClose={onClose} wide>
       <form className="flex flex-col gap-4" onSubmit={(event) => void submit(event)}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label={t('Item code')}
-            hint={
-              editing
-                ? t('Fixed once created — orders and labels already carry it')
-                : t('Stored upper case — slv-001 and SLV-001 are one item')
-            }
-            error={fieldErrors.sku}
-          >
-            <Input
-              required
-              autoFocus={!editing}
-              disabled={editing}
-              value={form.sku}
-              onChange={(event) => set('sku')(event.target.value)}
-            />
-          </Field>
+          {/* Shown on an edit, absent on a create: the code is generated from the category now —
+              two letters and a number, BE0001 — because typing them produced SLV-001 beside
+              SLV001 and slv-1, and a code that is nearly right looks fine on a label and matches
+              nothing. It was already fixed once created; now it is never typed at all. */}
+          {editing && (
+            <Field
+              label={t('Item code')}
+              hint={t('Generated from the category, and fixed — orders and labels carry it')}
+            >
+              <Input disabled value={form.sku} readOnly />
+            </Field>
+          )}
           <Field label={t('Name')} error={fieldErrors.name}>
             <Input
               required
-              autoFocus={editing}
+              autoFocus
               value={form.name}
               onChange={(event) => set('name')(event.target.value)}
             />
@@ -593,12 +587,18 @@ function ItemModal({ existing, onClose }: { existing?: Item; onClose: () => void
         </Field>
 
         <div className={editing ? 'grid gap-4' : 'grid gap-4 sm:grid-cols-3'}>
-          <Field label={t('Category')}>
+          <Field
+            label={t('Category')}
+            required
+            hint={t('The item code comes from this — Bedroom gives BE0001')}
+            error={fieldErrors.categoryId}
+          >
             <Select
+              required
               value={form.categoryId}
               onChange={(event) => set('categoryId')(event.target.value)}
             >
-              <option value="">{t('Uncategorised')}</option>
+              <option value="">{t('Choose a category…')}</option>
               {(categories.data ?? []).map((category) => (
                 <option key={category.id} value={category.id ?? ''}>
                   {category.name}

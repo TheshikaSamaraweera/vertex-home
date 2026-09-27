@@ -173,7 +173,7 @@ public class RewardGrantService implements RewardGrants, RewardStatus {
 
                 Pack : %s
 
-                Open Rewards in MLM Sittu to check availability and issue it. No stock has moved.
+                Open Rewards in Vertex Home Solutions to check availability and issue it. No stock has moved.
                 """
                         .formatted(packName);
 

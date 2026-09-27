@@ -18,10 +18,13 @@ public final class CatalogueDtos {
     private CatalogueDtos() {}
 
     public record CreateItemRequest(
-            @NotBlank(message = "REQUIRED") @Size(max = 64) String sku,
             @NotBlank(message = "REQUIRED") @Size(max = 255) String name,
             @Size(max = 1000) String description,
-            UUID categoryId,
+            /**
+             * Required, because the item code is generated from it. Was optional while codes were
+             * typed by hand; an item with no category now has no code to be given.
+             */
+            @NotNull(message = "REQUIRED") UUID categoryId,
             @NotNull(message = "REQUIRED")
                     @DecimalMin(value = "0.00", message = "MUST_NOT_BE_NEGATIVE")
                     @Digits(integer = 12, fraction = 2, message = "MAX_TWO_DECIMALS")

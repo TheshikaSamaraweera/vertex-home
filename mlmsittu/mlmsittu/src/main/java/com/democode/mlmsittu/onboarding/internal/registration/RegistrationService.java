@@ -75,6 +75,8 @@ public class RegistrationService {
     public record SubmissionRequest(
             String nicNumber,
             UUID nicDocumentId,
+            /** The reverse of the card, which carries the address and the issue date. */
+            UUID nicBackDocumentId,
             UUID slipDocumentId,
             String referrerBusinessId,
             String cardNumber,
@@ -131,6 +133,15 @@ public class RegistrationService {
             }
         }
 
+        // Both sides. A reviewer checking somebody against their card needs the reverse too —
+        // it carries the address and the issue date, and half a card is half a check.
+        if (request.nicBackDocumentId() == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "NIC_BACK_REQUIRED",
+                    "Upload the back of the NIC as well as the front.");
+        }
+
         UUID identityDocumentId = storeIdentityDocument(userId, request.nicNumber());
 
         UUID registrationId;
@@ -149,6 +160,7 @@ public class RegistrationService {
                             request.bankAccountNumber(),
                             request.itemSetId(),
                             request.nicDocumentId(),
+                            request.nicBackDocumentId(),
                             request.slipDocumentId(),
                             identityDocumentId);
         } catch (DataIntegrityViolationException e) {

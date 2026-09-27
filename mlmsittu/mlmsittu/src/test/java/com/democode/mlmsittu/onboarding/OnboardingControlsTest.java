@@ -493,6 +493,10 @@ class OnboardingControlsTest {
                 new SubmissionRequest(
                         nicNumber,
                         nicDoc.id(),
+                        // The back of the card. A separate document, because the service now
+                        // requires both sides and a fixture that passed one twice would not be
+                        // testing the rule.
+                        documents.store(smallJpeg(), "image/jpeg", "nic_back", applicant).id(),
                         slipDoc.id(),
                         referrerBusinessId,
                         cardNumber,
@@ -514,6 +518,10 @@ class OnboardingControlsTest {
                 new SubmissionRequest(
                         nicNumber,
                         nicDoc.id(),
+                        // The back of the card. A separate document, because the service now
+                        // requires both sides and a fixture that passed one twice would not be
+                        // testing the rule.
+                        documents.store(smallJpeg(), "image/jpeg", "nic_back", applicant).id(),
                         slipDoc.id(),
                         referrerBusinessId,
                         cardNumber,

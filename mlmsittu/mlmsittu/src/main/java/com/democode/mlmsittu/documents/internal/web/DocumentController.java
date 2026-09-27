@@ -37,7 +37,7 @@ public class DocumentController {
      * Kinds a caller is allowed to declare. Free text here would let an uploader file a bank slip
      * under {@code nic} and land it in the KYC review queue's storage prefix.
      */
-    private static final Set<String> ACCEPTED_KINDS = Set.of("nic", "bank_slip", "other");
+    private static final Set<String> ACCEPTED_KINDS = Set.of("nic", "nic_back", "bank_slip", "other");
 
     private final DocumentVault vault;
     private final CurrentUser currentUser;

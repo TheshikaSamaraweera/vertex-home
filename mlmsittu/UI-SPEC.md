@@ -1,4 +1,4 @@
-# MLM Sittu — system reference for UI work
+# Vertex Home Solutions — system reference for UI work
 
 Everything a designer or front-end developer needs to rebuild the interface: who uses it, what
 every screen does, what data it shows, and which rules are not negotiable because the server
@@ -122,8 +122,10 @@ those with spaces or dashes are all the same number. Whatever the person types w
 - Wrong details give **one** message for both "no such account" and "wrong password" — never
   reveal which.
 - Staff roles get a TOTP step after the password; admins go straight in.
-- **There is no password reset.** An administrator resets it by hand. Do not design a "forgot
-  password" link that goes nowhere.
+- **Password reset has two routes.** Anyone with an email address gets a self-service link
+  (one hour, single use). Anyone without — most customers — is given a temporary password by an
+  administrator, and the account is flagged `mustChangePassword`: sign-in succeeds and **nothing
+  but the account page opens** until they choose their own.
 
 ---
 
@@ -386,6 +388,19 @@ deliberate friction on the part that decides what lands in every customer's brow
 
 **Announcement images are the only documents served without a token.** The endpoint checks the
 document *kind*, so a NIC scan can never be fetched through it.
+
+**Item codes are generated, never typed.** Two letters from the category plus a four-digit
+per-category counter — `BE0001`. Each category owns its prefix exclusively; a category whose
+natural two letters are taken is given another beginning with the same initial (Beverages `BE`,
+Bedroom `BD`). Category is therefore **required** when creating an item. Existing items keep the
+codes they have.
+
+**Passwords are 8–12 characters with at least one letter and one number.** One definition, in
+`PasswordPolicy.java` and mirrored in `lib/password.ts`; every path that sets a password consults
+it.
+
+**NIC needs both sides.** Front and back are separate uploads and both are required — the reverse
+carries the address and issue date.
 
 **Money is LKR**, `14,2` precision, and every price displayed with two decimals.
 

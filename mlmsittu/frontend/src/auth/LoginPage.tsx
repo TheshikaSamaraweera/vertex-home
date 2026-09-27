@@ -24,7 +24,13 @@ type Stage =
   | { name: 'code'; challengeId: string }
   | { name: 'enrol'; challengeId: string; secret: string; otpauthUri: string };
 
-export function LoginPage({ onSignup }: { onSignup?: () => void }) {
+export function LoginPage({
+  onSignup,
+  onForgotPassword,
+}: {
+  onSignup?: () => void;
+  onForgotPassword?: () => void;
+}) {
   const { t } = useTranslation();
   const { setUser } = useAuth();
 
@@ -103,7 +109,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[15px] font-extrabold text-brand shadow-sm">
             MS
           </span>
-          <span className="text-lg font-bold tracking-tight">MLM Sittu</span>
+          <span className="text-lg font-bold tracking-tight">Vertex Home Solutions</span>
         </div>
         <div className="relative max-w-md">
           <h2 className="text-[34px] leading-tight font-bold tracking-tight">
@@ -137,7 +143,7 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
               MS
             </span>
             <h1 className="text-[28px] font-bold tracking-tight text-ink">{t('Welcome back')}</h1>
-            <p className="mt-1.5 text-sm text-ink3">{t('Sign in to MLM Sittu to continue.')}</p>
+            <p className="mt-1.5 text-sm text-ink3">{t('Sign in to Vertex Home Solutions to continue.')}</p>
           </div>
 
           <div className="rounded-2xl border border-rule bg-panel p-6 shadow-card sm:p-7">
@@ -268,8 +274,20 @@ export function LoginPage({ onSignup }: { onSignup?: () => void }) {
             )}
           </div>
 
-          {onSignup && (
+          {onForgotPassword && (
             <p className="mt-6 text-center text-sm text-ink3">
+              <button
+                type="button"
+                onClick={onForgotPassword}
+                className="font-semibold text-brand hover:text-branddeep hover:underline"
+              >
+                {t('Forgotten your password?')}
+              </button>
+            </p>
+          )}
+
+          {onSignup && (
+            <p className="mt-3 text-center text-sm text-ink3">
               {t('New customer?')}{' '}
               <button
                 type="button"

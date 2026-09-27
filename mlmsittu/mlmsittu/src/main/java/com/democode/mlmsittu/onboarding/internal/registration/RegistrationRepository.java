@@ -26,6 +26,7 @@ public class RegistrationRepository {
             String bankAccountNumber,
             UUID itemSetId,
             UUID nicDocumentId,
+            UUID nicBackDocumentId,
             UUID slipDocumentId,
             UUID identityDocumentId,
             String nicLast4,
@@ -69,7 +70,7 @@ public class RegistrationRepository {
             SELECT r.id, r.user_id, u.full_name AS applicant_name, u.email AS applicant_email,
                    r.referrer_business_id, r.referrer_distributor_id, r.status,
                    r.full_address, r.bank_name, r.bank_branch, r.bank_account_number,
-                   r.item_set_id, r.nic_document_id, r.slip_document_id, r.identity_document_id,
+                   r.item_set_id, r.nic_document_id, r.nic_back_document_id, r.slip_document_id, r.identity_document_id,
                    idoc.nic_last4,
                    r.claimed_by, reviewer.full_name AS claimed_by_name, r.claimed_at,
                    r.submitted_at, r.reviewed_by, r.reviewed_at,
@@ -96,6 +97,7 @@ public class RegistrationRepository {
                             rs.getString("bank_account_number"),
                             rs.getObject("item_set_id", UUID.class),
                             rs.getObject("nic_document_id", UUID.class),
+                                rs.getObject("nic_back_document_id", UUID.class),
                             rs.getObject("slip_document_id", UUID.class),
                             rs.getObject("identity_document_id", UUID.class),
                             rs.getString("nic_last4"),
@@ -163,6 +165,7 @@ public class RegistrationRepository {
             String bankAccountNumber,
             UUID itemSetId,
             UUID nicDocumentId,
+            UUID nicBackDocumentId,
             UUID slipDocumentId,
             UUID identityDocumentId) {
 
@@ -171,8 +174,9 @@ public class RegistrationRepository {
                 INSERT INTO registration
                     (user_id, referrer_business_id, referrer_distributor_id, status,
                      full_address, bank_name, bank_branch, bank_account_number, item_set_id,
-                     nic_document_id, slip_document_id, identity_document_id, submitted_at)
-                VALUES (?, ?, ?, 'submitted', ?, ?, ?, ?, ?, ?, ?, ?, now())
+                     nic_document_id, nic_back_document_id, slip_document_id,
+                     identity_document_id, submitted_at)
+                VALUES (?, ?, ?, 'submitted', ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
                 RETURNING id
                 """,
                 UUID.class,
@@ -185,6 +189,7 @@ public class RegistrationRepository {
                 bankAccountNumber,
                 itemSetId,
                 nicDocumentId,
+                nicBackDocumentId,
                 slipDocumentId,
                 identityDocumentId);
     }

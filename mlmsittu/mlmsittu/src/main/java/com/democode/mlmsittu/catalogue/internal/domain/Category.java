@@ -29,6 +29,24 @@ public class Category {
     @Column(name = "name", nullable = false)
     private String name;
 
+    /**
+     * The two letters every item code in this category begins with.
+     *
+     * <p>Allocated once, at creation, and unique across categories — see {@code
+     * ItemCodeAllocator}. Not editable afterwards: changing it would orphan every code already
+     * printed on a label.
+     */
+    @Column(name = "code_prefix", nullable = false, updatable = false, length = 2)
+    private String codePrefix;
+
+    public String getCodePrefix() {
+        return codePrefix;
+    }
+
+    public void setCodePrefix(String codePrefix) {
+        this.codePrefix = codePrefix;
+    }
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 

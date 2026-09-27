@@ -18,8 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class CategoryService {
 
     private final CategoryRepository categories;
+    private final ItemCodeAllocator codes;
 
-    public CategoryService(CategoryRepository categories) {
+    public CategoryService(CategoryRepository categories, ItemCodeAllocator codes) {
+        this.codes = codes;
         this.categories = categories;
     }
 
@@ -29,6 +31,9 @@ public class CategoryService {
         Category category = new Category();
         category.setCode(code.trim().toUpperCase(Locale.ROOT));
         category.setName(name.trim());
+        // Every item in this category will carry these two letters. Decided here because this is
+        // the only moment a clash with an existing category can be resolved.
+        category.setCodePrefix(codes.allocatePrefix(name));
 
         try {
             Category saved = categories.saveAndFlush(category);

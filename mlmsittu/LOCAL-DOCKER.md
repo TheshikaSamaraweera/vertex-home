@@ -1,4 +1,4 @@
-# Running MLM Sittu in Docker, locally
+# Running Vertex Home Solutions in Docker, locally
 
 Backend, frontend and database in three containers on your own machine. Your native setup is not
 touched — PostgreSQL keeps 5432, the Gradle backend keeps 8080, Vite keeps 5173.

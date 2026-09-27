@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
 import { SignupPage } from './auth/SignupPage';
+import { ForgotPasswordPage } from './auth/ForgotPasswordPage';
 import { AppShell } from './components/AppShell';
 import { Spinner } from './components/ui';
 import { DashboardPage } from './pages/DashboardPage';
@@ -37,6 +38,7 @@ import { PortalItemPacks } from './portal/PortalItemPacks';
 import { PortalRegistration } from './portal/PortalRegistration';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
+import { MyAccountPage } from './pages/MyAccountPage';
 
 /**
  * Two applications, one bundle.
@@ -46,6 +48,11 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage';
  * what "home" means. Which one an authenticated person gets is decided by the role they hold, not
  * by the address they typed, so a distributor who bookmarks a staff URL still lands in the portal.
  */
+/** Back to the sign-in page from a route that has no session and no history worth keeping. */
+function navigateToSignIn() {
+  window.location.href = '/';
+}
+
 export function App() {
   const { user, loading, hasRole } = useAuth();
 
@@ -54,6 +61,7 @@ export function App() {
   // the moment they are created now, so nothing issues such a link and the path falls through to
   // sign-in like any other unknown one.
   const [showSignup, setShowSignup] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   // Waiting for the initial /auth/me. Rendering a login page here would flash it on every refresh
   // for anyone already signed in.
@@ -65,19 +73,46 @@ export function App() {
     );
   }
 
+  // ---- signed in on a password somebody else chose -------------------------------------------
+  //
+  // Checked before any routing. An administrator issued this password, wrote it on a slip and may
+  // have read it out across a counter; it must not become the password the account keeps. Letting
+  // them past this screen and merely nagging would mean most people never change it.
+  if (user?.mustChangePassword) {
+    // No shell and no navigation, because there is nowhere else to go. A page with a sidebar full
+    // of links that all lead back here would be a worse way of saying the same thing.
+    return (
+      <div className="mx-auto min-h-dvh max-w-3xl px-5 py-10">
+        <MyAccountPage />
+      </div>
+    );
+  }
+
   // ---- nobody signed in -------------------------------------------------------------------
   if (!user) {
     return (
       <Routes>
         <Route path="/portal/signup" element={<PortalSignupPage />} />
         <Route path="/portal/*" element={<PortalLoginPage />} />
+        {/* Its own route rather than another flag on the catch-all: a reset link arrives as a URL
+            with a token in it, and a URL has to survive being opened in a browser with no
+            session and no memory of which screen was showing. */}
+        <Route
+          path="/reset-password"
+          element={<ForgotPasswordPage onDone={() => navigateToSignIn()} />}
+        />
         <Route
           path="*"
           element={
-            showSignup ? (
+            showForgot ? (
+              <ForgotPasswordPage onDone={() => setShowForgot(false)} />
+            ) : showSignup ? (
               <SignupPage onDone={() => setShowSignup(false)} />
             ) : (
-              <LoginPage onSignup={() => setShowSignup(true)} />
+              <LoginPage
+                onSignup={() => setShowSignup(true)}
+                onForgotPassword={() => setShowForgot(true)}
+              />
             )
           }
         />
@@ -128,6 +163,7 @@ export function App() {
           {/* Open to every customer; the server filters each post by its audience. */}
           <Route path="/portal/offers" element={<PortalOffers />} />
           <Route path="/portal/notifications" element={<NotificationsPage />} />
+          <Route path="/portal/account" element={<MyAccountPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Routes>
@@ -160,6 +196,7 @@ export function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
+        <Route path="/my-account" element={<MyAccountPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

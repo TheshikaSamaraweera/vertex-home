@@ -9,6 +9,13 @@ import {
   useReferrerCheck,
 } from '../api/onboarding';
 import { inspectBusinessId } from '../lib/businessId';
+import {
+  isAcceptablePassword,
+  MAX_LENGTH,
+  MIN_LENGTH,
+  PASSWORD_RULE,
+  passwordProblem,
+} from '../lib/password';
 import { useAuth } from '../auth/AuthContext';
 import {
   Badge,
@@ -99,6 +106,7 @@ export function RegisterBusinessPage() {
     password: '',
   });
   const [nicFile, setNicFile] = useState<File | null>(null);
+  const [nicBackFile, setNicBackFile] = useState<File | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
 
   const [busy, setBusy] = useState(false);
@@ -137,7 +145,7 @@ export function RegisterBusinessPage() {
   const accountHasIdentifier = account.email.trim() !== '' || account.mobile.trim() !== '';
   const accountReady =
     !forSomeoneElse ||
-    Boolean(account.fullName.trim() && accountHasIdentifier && account.password.length >= 12);
+    Boolean(account.fullName.trim() && accountHasIdentifier && isAcceptablePassword(account.password));
 
   // A card is how an ordinary applicant gets in, so it is required unless this is a root — and a
   // root bought nothing from anybody.
@@ -149,6 +157,7 @@ export function RegisterBusinessPage() {
     nicNumber.trim() &&
     fullAddress.trim() &&
     nicFile &&
+    nicBackFile &&
     slipFile &&
     accountReady &&
     !busy;
@@ -161,11 +170,13 @@ export function RegisterBusinessPage() {
       // Documents first: an upload that fails on magic bytes or size should not leave a
       // half-built registration behind.
       const nicDocumentId = await uploadDocument(nicFile!, 'nic');
+      const nicBackDocumentId = await uploadDocument(nicBackFile!, 'nic_back');
       const slipDocumentId = await uploadDocument(slipFile!, 'bank_slip');
 
       const details = {
         nicNumber,
         nicDocumentId,
+        nicBackDocumentId,
         slipDocumentId,
         referrerBusinessId: referrerState.status === 'valid' ? referrerState.normalised : '',
         cardNumber: cardNumber.trim() || undefined,
@@ -472,19 +483,14 @@ export function RegisterBusinessPage() {
               <Field
                 label={t('Temporary password')}
                 required
-                hint={t('At least 12 characters. Write it down for them — there is no self-service reset.')}
-                error={
-                  account.password !== '' && account.password.length < 12
-                    ? t('Too short — {{count}} of 12 characters.', {
-                        count: account.password.length,
-                      })
-                    : undefined
-                }
+                hint={t(PASSWORD_RULE) + ' ' + t('Write it down for them.')}
+                error={passwordProblem(account.password) ?? undefined}
               >
                 <Input
                   required
-                  minLength={12}
-                  aria-invalid={account.password !== '' && account.password.length < 12}
+                  minLength={MIN_LENGTH}
+                  maxLength={MAX_LENGTH}
+                  aria-invalid={passwordProblem(account.password) !== null}
                   value={account.password}
                   onChange={(event) => setAccount({ ...account, password: event.target.value })}
                 />
@@ -504,7 +510,10 @@ export function RegisterBusinessPage() {
 
         <Card title={t('Documents')} subtitle={t('JPEG, PNG or PDF, up to 10 MB each')}>
           <div className="grid gap-4 p-4 sm:grid-cols-2">
-            <FilePicker label={t('NIC image')} file={nicFile} onPick={setNicFile} />
+            {/* Both sides. The reverse carries the address and the issue date, and a reviewer
+                checking somebody against their card needs it — half a card is half a check. */}
+            <FilePicker label={t('NIC — front')} file={nicFile} onPick={setNicFile} />
+            <FilePicker label={t('NIC — back')} file={nicBackFile} onPick={setNicBackFile} />
             <FilePicker label={t('Bank transfer slip')} file={slipFile} onPick={setSlipFile} />
           </div>
           <p className="px-4 pb-4 text-[11px] text-ink3">

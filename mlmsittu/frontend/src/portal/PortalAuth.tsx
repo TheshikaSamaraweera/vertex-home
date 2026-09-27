@@ -100,7 +100,7 @@ export function PortalLoginPage() {
   }
 
   return (
-    <PortalFrame title={t('Customer sign in')} subtitle={t('MLM Sittu')}>
+    <PortalFrame title={t('Customer sign in')} subtitle={t('Vertex Home Solutions')}>
       <form onSubmit={(event) => void submit(event)} className="flex flex-col gap-4">
         {/* One field, either identifier. Most customers here have no email address, so asking
             for one by name would read as "you cannot sign in" to exactly the people this portal

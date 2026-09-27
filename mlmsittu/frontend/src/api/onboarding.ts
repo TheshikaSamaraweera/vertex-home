@@ -122,7 +122,10 @@ export const useReferrerCheck = (businessId: string | null) =>
 // ---------------------------------------------------------------- documents
 
 /** Multipart, so it bypasses the JSON client. Cookies still travel with `credentials`. */
-export async function uploadDocument(file: File, kind: 'nic' | 'bank_slip'): Promise<string> {
+export async function uploadDocument(
+  file: File,
+  kind: 'nic' | 'nic_back' | 'bank_slip',
+): Promise<string> {
   const form = new FormData();
   form.append('file', file);
   form.append('kind', kind);

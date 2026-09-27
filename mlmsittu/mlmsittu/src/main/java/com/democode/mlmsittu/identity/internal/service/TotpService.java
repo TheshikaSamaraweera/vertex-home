@@ -42,7 +42,7 @@ public class TotpService {
 
     private final String issuer;
 
-    public TotpService(@Value("${security.totp.issuer:MLM Sittu}") String issuer) {
+    public TotpService(@Value("${security.totp.issuer:Vertex Home Solutions}") String issuer) {
         this.issuer = issuer;
     }
 

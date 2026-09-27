@@ -29,7 +29,7 @@ export function ReferralCardsPrintPage() {
   const { data, isLoading, error, refetch } = useReferralCardBatch(batchId ?? null);
 
   // The title becomes the header a browser prints and the default filename if somebody prints to
-  // PDF. "MLM Sittu" beats "localhost:8081/referral-cards/..." on a page handed to a customer.
+  // PDF. "Vertex Home Solutions" beats "localhost:8081/referral-cards/..." on a page handed to a customer.
   useEffect(() => {
     if (!data) return;
     const previous = document.title;
@@ -146,7 +146,7 @@ function renderCard(card: {
 
   const lines: string[] = [
     rule,
-    spread(' MLM SITTU  -  REFERRAL CARD', `CARD ${card.cardNumber} OF ${card.total} `),
+    spread(' VERTEX HOME  -  REFERRAL CARD', `CARD ${card.cardNumber} OF ${card.total} `),
     rule,
     '',
     // Parent first, then the number. These are the two things typed at registration and they are

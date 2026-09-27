@@ -8,6 +8,7 @@ import com.democode.mlmsittu.shared.audit.api.Audited;
 import com.democode.mlmsittu.shared.error.ApiException;
 import com.democode.mlmsittu.shared.error.ConflictException;
 import com.democode.mlmsittu.shared.notify.NotificationSender;
+import com.democode.mlmsittu.shared.password.PasswordPolicy;
 import com.democode.mlmsittu.shared.ratelimit.api.RateLimiter;
 import com.democode.mlmsittu.shared.phone.PhoneNumber;
 import java.nio.charset.StandardCharsets;
@@ -140,6 +141,7 @@ public class AccountSignupService {
         user.setEmail(identifiers.email());
         user.setFullName(fullName.trim());
         user.setMobile(identifiers.mobile());
+        PasswordPolicy.require(rawPassword);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
 
         // Active immediately. There is no verification step any more: many customers have no email
@@ -202,6 +204,7 @@ public class AccountSignupService {
         user.setEmail(identifiers.email());
         user.setFullName(fullName.trim());
         user.setMobile(identifiers.mobile());
+        PasswordPolicy.require(rawPassword);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setStatusValue(UserStatus.ACTIVE);
 

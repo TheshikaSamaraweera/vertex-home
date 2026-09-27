@@ -63,6 +63,36 @@ public class AppUser {
     @Column(name = "totp_enabled", nullable = false)
     private boolean totpEnabled;
 
+    /**
+     * Set when an administrator issues a temporary password.
+     *
+     * <p>Sign-in succeeds and then goes nowhere but the change-password screen, so a password
+     * somebody else chose — and wrote on a slip, and may have read out across a counter — never
+     * becomes the password this account keeps.
+     */
+    @Column(name = "must_change_password", nullable = false)
+    private boolean mustChangePassword;
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
+    }
+
+    /** The picture shown beside this person's name. Null until they upload one. */
+    @Column(name = "profile_photo_id")
+    private java.util.UUID profilePhotoId;
+
+    public java.util.UUID getProfilePhotoId() {
+        return profilePhotoId;
+    }
+
+    public void setProfilePhotoId(java.util.UUID profilePhotoId) {
+        this.profilePhotoId = profilePhotoId;
+    }
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 

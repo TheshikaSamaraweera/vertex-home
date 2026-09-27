@@ -21,6 +21,16 @@ public record UserSummary(
         boolean emailVerified,
         boolean mobileVerified,
         boolean totpEnabled,
+        /**
+         * True while the account is on a password an administrator chose.
+         *
+         * <p>Sign-in succeeds and the client sends them straight to the change-password screen.
+         * Enforced here rather than by refusing the login, because somebody who cannot get in at
+         * all cannot change anything either.
+         */
+        boolean mustChangePassword,
+        /** The profile picture, or null. Fetched from /api/v1/users/photo/{id}. */
+        java.util.UUID profilePhotoId,
         List<String> roles,
         Instant createdAt) {
 
@@ -34,6 +44,8 @@ public record UserSummary(
                 user.isEmailVerified(),
                 user.isMobileVerified(),
                 user.isTotpEnabled(),
+                user.isMustChangePassword(),
+                user.getProfilePhotoId(),
                 user.getRoles().stream().map(AppRole::getCode).sorted().toList(),
                 user.getCreatedAt());
     }
