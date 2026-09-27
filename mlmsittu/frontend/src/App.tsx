@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import { LoginPage } from './auth/LoginPage';
+import { OfficerSignupPage } from './auth/OfficerSignupPage';
 import { SignupPage } from './auth/SignupPage';
 import { ForgotPasswordPage } from './auth/ForgotPasswordPage';
 import { AppShell } from './components/AppShell';
@@ -96,6 +97,9 @@ export function App() {
     return (
       <Routes>
         <Route path="/portal/signup" element={<PortalSignupPage />} />
+        {/* The officer front door. Its own route, because an applicant arrives here from a link
+            they were sent rather than by clicking through the customer login. */}
+        <Route path="/officer/signup" element={<OfficerSignupPage />} />
         <Route path="/portal/*" element={<PortalLoginPage />} />
         {/* Its own route rather than another flag on the catch-all: a reset link arrives as a URL
             with a token in it, and a URL has to survive being opened in a browser with no

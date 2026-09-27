@@ -580,6 +580,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/officer/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["signUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/{id}/read": {
         parameters: {
             query?: never;
@@ -1214,6 +1230,54 @@ export interface paths {
         get: operations["list_3"];
         put?: never;
         post: operations["enrol"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/marketing-officers/{userId}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/marketing-officers/{userId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approve_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/marketing-officers/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["register_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2436,6 +2500,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/marketing-officers/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["applications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/distributors": {
         parameters: {
             query?: never;
@@ -2932,6 +3012,12 @@ export interface components {
             /** Format: int32 */
             customerCount?: number;
             earned?: number;
+            status?: string;
+            /** Format: date-time */
+            appliedAt?: string;
+            /** Format: date-time */
+            decidedAt?: string;
+            rejectionReason?: string;
         };
         AssignRequest: {
             /** Format: uuid */
@@ -3236,6 +3322,16 @@ export interface components {
         RejectPaymentRequest: {
             reason: string;
         };
+        OfficerSignupRequest: {
+            fullName: string;
+            /** Format: email */
+            email?: string;
+            mobile?: string;
+            password: string;
+        };
+        AcknowledgementResponse: {
+            message?: string;
+        };
         Notification: {
             /** Format: uuid */
             id?: string;
@@ -3382,9 +3478,6 @@ export interface components {
             token: string;
             password: string;
         };
-        AcknowledgementResponse: {
-            message?: string;
-        };
         RegisterRequest: {
             fullName: string;
             /** Format: email */
@@ -3527,6 +3620,20 @@ export interface components {
         EnrolRequest: {
             /** Format: uuid */
             userId: string;
+            commissionRate?: number;
+        };
+        RejectionRequest: {
+            reason: string;
+        };
+        DecisionRequest: {
+            commissionRate?: number;
+        };
+        RegisterOfficerRequest: {
+            fullName: string;
+            /** Format: email */
+            email?: string;
+            mobile?: string;
+            password: string;
             commissionRate?: number;
         };
         AccessTokenResponse: {
@@ -5401,6 +5508,30 @@ export interface operations {
             };
         };
     };
+    signUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OfficerSignupRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AcknowledgementResponse"];
+                };
+            };
+        };
+    };
     markRead: {
         parameters: {
             query?: never;
@@ -6525,6 +6656,82 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["EnrolRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Officer"];
+                };
+            };
+        };
+    };
+    reject_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Officer"];
+                };
+            };
+        };
+    };
+    approve_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecisionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Officer"];
+                };
+            };
+        };
+    };
+    register_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegisterOfficerRequest"];
             };
         };
         responses: {
@@ -8258,6 +8465,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["PagedResponseAssignedCustomer"];
+                };
+            };
+        };
+    };
+    applications: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponseOfficer"];
                 };
             };
         };

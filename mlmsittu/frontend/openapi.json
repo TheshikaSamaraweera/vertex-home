@@ -1788,6 +1788,36 @@
         }
       }
     },
+    "/api/v1/officer/signup": {
+      "post": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "signUp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfficerSignupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcknowledgementResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications/{id}/read": {
       "post": {
         "tags": [
@@ -3329,6 +3359,117 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EnrolRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketing-officers/{userId}/reject": {
+      "post": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "reject_1",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketing-officers/{userId}/approve": {
+      "post": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "approve_1",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketing-officers/register": {
+      "post": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "register_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterOfficerRequest"
               }
             }
           },
@@ -5751,6 +5892,26 @@
         }
       }
     },
+    "/api/v1/admin/marketing-officers/applications": {
+      "get": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "applications",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseOfficer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/distributors": {
       "get": {
         "tags": [
@@ -7131,6 +7292,20 @@
           },
           "earned": {
             "type": "number"
+          },
+          "status": {
+            "type": "string"
+          },
+          "appliedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "decidedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rejectionReason": {
+            "type": "string"
           }
         }
       },
@@ -7946,6 +8121,44 @@
           "reason"
         ]
       },
+      "OfficerSignupRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 320,
+            "minLength": 0
+          },
+          "mobile": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 0
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "fullName",
+          "password"
+        ]
+      },
+      "AcknowledgementResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "Notification": {
         "type": "object",
         "properties": {
@@ -8392,14 +8605,6 @@
           "password",
           "token"
         ]
-      },
-      "AcknowledgementResponse": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "type": "string"
-          }
-        }
       },
       "RegisterRequest": {
         "type": "object",
@@ -8861,6 +9066,64 @@
         },
         "required": [
           "userId"
+        ]
+      },
+      "RejectionRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "DecisionRequest": {
+        "type": "object",
+        "properties": {
+          "commissionRate": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
+          }
+        }
+      },
+      "RegisterOfficerRequest": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 0
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 320,
+            "minLength": 0
+          },
+          "mobile": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 0
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 0
+          },
+          "commissionRate": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "fullName",
+          "password"
         ]
       },
       "AccessTokenResponse": {

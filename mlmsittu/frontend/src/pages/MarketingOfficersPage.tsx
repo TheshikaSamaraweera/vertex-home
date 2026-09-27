@@ -2,13 +2,24 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   asPercent,
+  useApproveOfficer,
+  useEnrolOfficer,
   useMarketingOfficers,
+  useOfficerApplications,
   useOfficerCustomers,
+  useRegisterOfficer,
+  useRejectOfficer,
   useSetOfficerRate,
   type MarketingOfficer,
 } from '../api/officers';
 import { useUsers } from '../api/queries';
-import { useEnrolOfficer } from '../api/officers';
+import {
+  isAcceptablePassword,
+  MAX_LENGTH,
+  MIN_LENGTH,
+  PASSWORD_RULE,
+  passwordProblem,
+} from '../lib/password';
 import { Avatar } from './MyAccountPage';
 import { expiryStatus } from '../lib/expiry';
 import {
@@ -21,6 +32,7 @@ import {
   Instructions,
   Modal,
   PageHeader,
+  PasswordInput,
   Select,
   Spinner,
   Table,
@@ -39,12 +51,17 @@ import {
 export function MarketingOfficersPage() {
   const { t } = useTranslation();
   const officers = useMarketingOfficers();
+  const applications = useOfficerApplications();
 
   const [enrolling, setEnrolling] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [viewing, setViewing] = useState<MarketingOfficer | null>(null);
   const [rateFor, setRateFor] = useState<MarketingOfficer | null>(null);
+  const [decidingOn, setDecidingOn] = useState<MarketingOfficer | null>(null);
 
   if (officers.isLoading) return <Spinner />;
+
+  const waiting = applications.data ?? [];
 
   return (
     <>
@@ -52,11 +69,67 @@ export function MarketingOfficersPage() {
         title={t('Marketing officers')}
         description={t('Who brings customers in, and what the packs those customers earned have come to.')}
         actions={
-          <Button variant="primary" onClick={() => setEnrolling(true)}>
-            {t('Add a marketing officer')}
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setEnrolling(true)}>{t('Use an existing account')}</Button>
+            <Button variant="primary" onClick={() => setRegistering(true)}>
+              {t('Register an officer')}
+            </Button>
+          </div>
         }
       />
+
+      {/* The queue first, and only when there is something in it. An application that nobody has
+          looked at is the one thing on this screen that is waiting on a person. */}
+      {waiting.length > 0 && (
+        <Card title={t('Waiting for approval ({{count}})', { count: waiting.length })}>
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>{t('Name')}</Th>
+                  <Th>{t('Contact')}</Th>
+                  <Th>{t('Applied')}</Th>
+                  <Th>{''}</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {waiting.map((applicant) => (
+                  <tr key={applicant.userId}>
+                    <Td>
+                      <span className="flex items-center gap-2.5">
+                        <Avatar
+                          photoId={applicant.profilePhotoId}
+                          name={applicant.fullName}
+                          size={30}
+                        />
+                        <span className="text-ink">{applicant.fullName}</span>
+                      </span>
+                    </Td>
+                    <Td className="text-xs">
+                      <p>{applicant.email ?? '—'}</p>
+                      <p className="text-ink3">{applicant.mobile ?? ''}</p>
+                    </Td>
+                    <Td className="text-xs text-ink2">{whenApplied(applicant.appliedAt)}</Td>
+                    <Td>
+                      <div className="flex justify-end">
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => setDecidingOn(applicant)}
+                        >
+                          {t('Review')}
+                        </Button>
+                      </div>
+                    </Td>
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableWrap>
+        </Card>
+      )}
+
+      {waiting.length > 0 && <div className="h-5" />}
 
       {(officers.data ?? []).length === 0 ? (
         <Card>
@@ -121,6 +194,10 @@ export function MarketingOfficersPage() {
       )}
 
       {enrolling && <EnrolModal onClose={() => setEnrolling(false)} />}
+      {registering && <RegisterOfficerModal onClose={() => setRegistering(false)} />}
+      {decidingOn && (
+        <DecisionModal applicant={decidingOn} onClose={() => setDecidingOn(null)} />
+      )}
       {rateFor && <RateModal officer={rateFor} onClose={() => setRateFor(null)} />}
       {viewing && (
         <Modal
@@ -349,6 +426,252 @@ function RateModal({ officer, onClose }: { officer: MarketingOfficer; onClose: (
       </div>
     </Modal>
   );
+}
+
+/**
+ * Approve at a rate, or decline with a reason.
+ *
+ * <p>One screen for both, because they are the same decision. The rate is settled here rather than
+ * afterwards: an officer approved without one earns the default from that moment, and the first
+ * anybody would hear of it is a figure on the cost analysis.
+ */
+function DecisionModal({
+  applicant,
+  onClose,
+}: {
+  applicant: MarketingOfficer;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+  const approve = useApproveOfficer();
+  const reject = useRejectOfficer();
+
+  const [percent, setPercent] = useState('1');
+  const [reason, setReason] = useState('');
+  const [declining, setDeclining] = useState(false);
+
+  const rate = Number(percent) / 100;
+  const rateIsSound = Number.isFinite(rate) && rate >= 0 && rate <= 1;
+
+  return (
+    <Modal title={t('{{name}} — application', { name: applicant.fullName })} onClose={onClose}>
+      <div className="flex flex-col gap-4">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+          <dt className="text-ink3">{t('Email')}</dt>
+          <dd className="text-ink">{applicant.email ?? '—'}</dd>
+          <dt className="text-ink3">{t('Phone')}</dt>
+          <dd className="text-ink">{applicant.mobile ?? '—'}</dd>
+          <dt className="text-ink3">{t('Applied')}</dt>
+          <dd className="text-ink">{whenApplied(applicant.appliedAt)}</dd>
+        </dl>
+
+        {!declining ? (
+          <>
+            <Field
+              label={t('Commission rate')}
+              hint={t('A percentage of each pack this officer’s customers earn. One per cent is the default.')}
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  step="0.25"
+                  min="0"
+                  max="100"
+                  value={percent}
+                  onChange={(event) => setPercent(event.target.value)}
+                  className="max-w-[8rem]"
+                />
+                <span className="text-sm text-ink2">%</span>
+              </div>
+            </Field>
+
+            <ErrorBanner error={approve.error} />
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setDeclining(true)}>
+                {t('Decline')}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={approve.isPending || !rateIsSound}
+                onClick={() =>
+                  approve.mutate(
+                    { userId: applicant.userId, commissionRate: rate },
+                    { onSuccess: onClose },
+                  )
+                }
+              >
+                {approve.isPending ? t('Approving…') : t('Approve')}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <Field
+              label={t('Why')}
+              required
+              hint={t('The applicant is shown this, so write it for them to read.')}
+            >
+              <Input
+                autoFocus
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder={t('We are not taking on new officers in this area.')}
+              />
+            </Field>
+
+            <ErrorBanner error={reject.error} />
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setDeclining(false)}>
+                {t('Back')}
+              </Button>
+              <Button
+                variant="danger"
+                disabled={reject.isPending || reason.trim() === ''}
+                onClick={() =>
+                  reject.mutate(
+                    { userId: applicant.userId, reason: reason.trim() },
+                    { onSuccess: onClose },
+                  )
+                }
+              >
+                {reject.isPending ? t('Declining…') : t('Decline application')}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+/**
+ * Creates the account and the officer together, the way an administrator registers a customer.
+ *
+ * <p>No approval step. The administrator filling this in is the person who would have approved it.
+ */
+function RegisterOfficerModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const register = useRegisterOfficer();
+
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [password, setPassword] = useState('');
+  const [percent, setPercent] = useState('1');
+
+  const hasIdentifier = email.trim() !== '' || mobile.trim() !== '';
+  const rate = Number(percent) / 100;
+  const ready =
+    fullName.trim() !== '' &&
+    hasIdentifier &&
+    isAcceptablePassword(password) &&
+    Number.isFinite(rate) &&
+    rate >= 0 &&
+    rate <= 1;
+
+  return (
+    <Modal title={t('Register a marketing officer')} onClose={onClose}>
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          register.mutate(
+            {
+              fullName: fullName.trim(),
+              email: email.trim() || undefined,
+              mobile: mobile.trim() || undefined,
+              password,
+              commissionRate: rate,
+            },
+            { onSuccess: onClose },
+          );
+        }}
+      >
+        <Instructions title={t('Approved on the spot')}>
+          {t('An officer you create here does not go into the approval queue — you are the approval. They can be assigned customers straight away.')}
+        </Instructions>
+
+        <Field label={t('Full name')} required>
+          <Input
+            required
+            autoFocus
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+          />
+        </Field>
+
+        <Field label={t('Email')} hint={t('An email address or a phone number — at least one.')}>
+          <Input
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
+        </Field>
+
+        <Field label={t('Phone number')}>
+          <Input
+            type="tel"
+            value={mobile}
+            onChange={(event) => setMobile(event.target.value)}
+            placeholder="077 123 4567"
+          />
+        </Field>
+
+        <Field
+          label={t('Password')}
+          required
+          hint={t(PASSWORD_RULE)}
+          error={passwordProblem(password) ?? undefined}
+        >
+          <PasswordInput
+            required
+            minLength={MIN_LENGTH}
+            maxLength={MAX_LENGTH}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+        </Field>
+
+        <Field label={t('Commission rate')}>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              step="0.25"
+              min="0"
+              max="100"
+              value={percent}
+              onChange={(event) => setPercent(event.target.value)}
+              className="max-w-[8rem]"
+            />
+            <span className="text-sm text-ink2">%</span>
+          </div>
+        </Field>
+
+        <ErrorBanner error={register.error} />
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            {t('Cancel')}
+          </Button>
+          <Button type="submit" variant="primary" disabled={register.isPending || !ready}>
+            {register.isPending ? t('Registering…') : t('Register officer')}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+/** A date somebody can read, or a dash. The queue is sorted by this, so it has to be legible. */
+function whenApplied(at: string | null): string {
+  if (!at) return '—';
+  return new Date(at).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function money(value: number): string {

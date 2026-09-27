@@ -1,5 +1,6 @@
 package com.democode.mlmsittu.identity.internal.service;
 
+import com.democode.mlmsittu.identity.api.AccountRegistrar;
 import com.democode.mlmsittu.identity.internal.domain.AppUser;
 import com.democode.mlmsittu.identity.internal.domain.UserStatus;
 import com.democode.mlmsittu.identity.internal.repo.AppUserRepository;
@@ -45,9 +46,12 @@ import org.springframework.transaction.annotation.Transactional;
  * yields no usable links. Tokens last 24 hours and work once.
  */
 @Service
-public class AccountSignupService {
+public class AccountSignupService implements AccountRegistrar {
 
     private static final Logger log = LoggerFactory.getLogger(AccountSignupService.class);
+
+    /** The front door this application has always had. Officers now come in by another one. */
+    private static final String DISTRIBUTOR = "DISTRIBUTOR";
 
     private final AppUserRepository users;
     private final UserInserter userInserter;
@@ -123,10 +127,19 @@ public class AccountSignupService {
 
     // ------------------------------------------------------------------ signup
 
+    /** The distributor front door. Unchanged: same signature, same role, same vagueness. */
     @Transactional
-    @Audited(action = "ACCOUNT_REGISTERED", entityType = "app_user", auditFailures = true)
     public void register(
             String fullName, String email, String mobile, String rawPassword, String clientIp) {
+        registerSelfService(fullName, email, mobile, rawPassword, DISTRIBUTOR, clientIp);
+    }
+
+    @Override
+    @Transactional
+    @Audited(action = "ACCOUNT_REGISTERED", entityType = "app_user", auditFailures = true)
+    public Optional<UUID> registerSelfService(
+            String fullName, String email, String mobile, String rawPassword, String roleCode,
+            String clientIp) {
 
         if (!rateLimiter.tryAcquire("signup:ip:" + clientIp, 5, Duration.ofHours(1))) {
             throw new ApiException(
@@ -157,12 +170,14 @@ public class AccountSignupService {
         if (saved.isEmpty()) {
             // Deliberately the same outcome an attacker would see for a fresh identifier: the
             // caller is told the same thing either way, so this endpoint cannot be used to
-            // discover who has an account. Only the log records which happened.
-            return;
+            // discover who has an account. Only the log records which happened. Empty rather than
+            // the existing id — see AccountRegistrar for why that distinction carries weight.
+            return Optional.empty();
         }
 
-        grantDistributorRole(saved.get().getId());
+        grantRole(saved.get().getId(), roleCode);
         AuditContext.record(saved.get().getId(), null, identifiers.forAudit());
+        return Optional.of(saved.get().getId());
     }
 
     /**
@@ -193,10 +208,24 @@ public class AccountSignupService {
      *
      * @return the new account's id and the identifiers it was given
      */
+    @Override
+    @Transactional
+    public UUID registerForRole(
+            String fullName, String email, String mobile, String rawPassword, String roleCode) {
+        return registerOnBehalf(fullName, email, mobile, rawPassword, roleCode).id();
+    }
+
+    /** The distributor form. Unchanged for every existing caller. */
+    @Transactional
+    public CreatedAccount registerOnBehalf(
+            String fullName, String email, String mobile, String rawPassword) {
+        return registerOnBehalf(fullName, email, mobile, rawPassword, DISTRIBUTOR);
+    }
+
     @Transactional
     @Audited(action = "ACCOUNT_REGISTERED_ON_BEHALF", entityType = "app_user", auditFailures = true)
     public CreatedAccount registerOnBehalf(
-            String fullName, String email, String mobile, String rawPassword) {
+            String fullName, String email, String mobile, String rawPassword, String roleCode) {
 
         Identifiers identifiers = Identifiers.of(email, mobile);
 
@@ -214,7 +243,7 @@ public class AccountSignupService {
             throw takenBy(identifiers);
         }
 
-        grantDistributorRole(saved.get().getId());
+        grantRole(saved.get().getId(), roleCode);
         AuditContext.record(
                 saved.get().getId(),
                 null,
@@ -256,24 +285,34 @@ public class AccountSignupService {
 
 
     /**
-     * Everybody who signs up here is a distributor.
+     * Grants the one role that says which front door somebody came in by.
      *
-     * <p>Self-signup is the distributor front door; staff accounts are created by a super admin and
-     * never come through this path. Granting the role at creation is what lets the two be told
-     * apart at login, and what stops a distributor landing on the staff screens.
+     * <p>Self-signup used to mean distributor and nothing else; marketing officers now have a form
+     * of their own. Staff accounts still never come through either — a super admin creates those.
+     * Granting the role at creation is what lets the doors be told apart at login, and what stops
+     * anybody landing on the staff screens.
      *
      * <p>Raw SQL rather than the role repository because this runs inside the signup transaction
      * and the mapping is a two-column join row — loading an entity graph to write one would be
      * ceremony. {@code ON CONFLICT} keeps it safe against a retry.
+     *
+     * <p>A code that matches no role inserts nothing, so it is checked: an account created with no
+     * role at all can sign in and see nothing, and the cause would be a typo in a string.
      */
-    private void grantDistributorRole(UUID userId) {
-        jdbc.update(
-                """
-                INSERT INTO user_role (user_id, role_id)
-                SELECT ?, id FROM app_role WHERE code = 'DISTRIBUTOR'
-                ON CONFLICT DO NOTHING
-                """,
-                userId);
+    private void grantRole(UUID userId, String roleCode) {
+        int granted =
+                jdbc.update(
+                        """
+                        INSERT INTO user_role (user_id, role_id)
+                        SELECT ?, id FROM app_role WHERE code = ?
+                        ON CONFLICT DO NOTHING
+                        """,
+                        userId,
+                        roleCode);
+
+        if (granted == 0) {
+            throw new IllegalStateException("No such role to grant at signup: " + roleCode);
+        }
     }
 
 

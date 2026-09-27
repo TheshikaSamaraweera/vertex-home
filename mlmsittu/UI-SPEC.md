@@ -98,6 +98,9 @@ DISTRIBUTOR        — a customer. Implies nothing. Portal only.
 MARKETING_OFFICER  — brings customers in, earns a percentage of the packs they earn.
                      Implies nothing and nothing implies it: an officer is not staff, and an
                      administrator is not automatically an officer. One screen of their own.
+                     Granted when they apply, which is what sends them to the officer portal —
+                     holding the role is NOT the same as being approved, and every screen behind
+                     it checks the application state rather than the role.
 ```
 
 **Two-factor:** the five specialist roles require TOTP and are handed an enrolment QR on first
@@ -302,16 +305,48 @@ of every customer's portal home page until taken down or until their optional en
 composer previews with the same component the portal renders, so the preview cannot drift.
 
 **`/marketing-officers` Marketing officers** · `ADMIN`
-Who brings customers in. An officer is an ordinary account with the `MARKETING_OFFICER` role and a
-commission rate (default **1%**, admin-changeable). Admin assigns customers to officers; both the
-officer and the admin can see the assignment. Shows each officer's customer count and what the
-issued packs under them come to.
+Who brings customers in. An officer is an ordinary account with the `MARKETING_OFFICER` role, a
+commission rate (default **1%**, admin-changeable) and an application state. Admin assigns customers
+to officers; both the officer and the admin can see the assignment. Shows each officer's customer
+count and what the issued packs under them come to.
+
+Two lists, deliberately separate. **Waiting for approval** appears above the officers table and only
+when somebody is in it — an applicant is not an officer yet, and a single table with a status column
+is how somebody gets assigned customers before anybody agreed they should have any. Reviewing an
+application is one screen for both outcomes: approve at a rate, or decline with a reason the
+applicant is shown.
+
+Three ways somebody becomes an officer:
+
+| Route | Who starts it | Ends up |
+|---|---|---|
+| **`/officer/signup`** the public form | the applicant | `applied` — waiting |
+| **Register an officer** | an admin, taking details in person | `approved` immediately |
+| **Use an existing account** | an admin, enrolling somebody who already has an account | `approved` immediately |
+
+An admin creating an officer does not produce a queue entry: the administrator filling the form is
+the person who would have approved it, so the decision and the creation are one act. Declining an
+approved officer releases their customers — the assignment empties and an admin gives them to
+somebody else, because commission must stop being credited to somebody who is no longer an officer.
+
+**`/officer/signup` Apply as a marketing officer** · public
+A front door of its own, beside the customer one, linked from the sign-in page. Creating the account
+and becoming an officer are **not the same thing**, and the form says so before it is submitted: the
+account works immediately, the officer part waits for the office. Answered identically whether or
+not the details were already taken, and a duplicate attaches **no** application — otherwise somebody
+who knows an email address could put their own application in front of an admin under another
+person's name.
 
 **`/officer` My customers** · `MARKETING_OFFICER`
 The officer's own screen, and their only one. Their assigned customers, each one's stage progress
 and membership, and what each has earned them. **Every query is scoped to the signed-in officer
 with no id parameter anywhere** — there is no shape of any call on that page that returns another
 officer's customers.
+
+Until an admin decides, this page is the decision instead: *Application received*, or *Application
+declined* with the reason. The applicant can sign in from the moment they apply — refusing the login
+would answer them with "this account cannot sign in at the moment", which cannot tell a pending
+application from a suspended account.
 
 > **The earnings are informational.** Nothing records a payment, tracks a balance or marks
 > anything settled. Changing an officer's rate changes what every past pack is shown as having

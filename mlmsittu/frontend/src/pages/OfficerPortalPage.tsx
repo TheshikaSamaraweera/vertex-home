@@ -3,6 +3,7 @@ import {
   asPercent,
   useMyAssignedCustomers,
   useMyOfficerRecord,
+  type MarketingOfficer,
 } from '../api/officers';
 import { expiryStatus } from '../lib/expiry';
 import { StageDots } from './MarketingOfficersPage';
@@ -16,6 +17,57 @@ import {
   Td,
   Th,
 } from '../components/ui';
+
+/**
+ * What an applicant sees until somebody decides.
+ *
+ * <p>The account can sign in from the moment it is created — this is the page behind that. The
+ * alternative was refusing the login, which tells an applicant "this account cannot sign in at the
+ * moment" and leaves them unable to tell a pending application from a suspended account.
+ */
+function AwaitingDecision({ officer }: { officer: MarketingOfficer }) {
+  const { t } = useTranslation();
+  const rejected = officer.status === 'rejected';
+
+  return (
+    <>
+      <PageHeader
+        title={rejected ? t('Application declined') : t('Application received')}
+        description={
+          rejected
+            ? t('The office has reviewed your application.')
+            : t('An administrator will review your application.')
+        }
+      />
+
+      <Card title={rejected ? t('What the office said') : t('What happens next')}>
+        <div className="px-5 py-8">
+          <Badge tone={rejected ? 'danger' : 'warn'}>
+            {rejected ? t('Declined') : t('Waiting for approval')}
+          </Badge>
+
+          {rejected ? (
+            <p className="mt-4 max-w-prose text-sm text-ink2">{officer.rejectionReason}</p>
+          ) : (
+            <p className="mt-4 max-w-prose text-sm text-ink2">
+              {t(
+                'Your account is ready and you are signed in. Once the office approves your ' +
+                  'application, the customers assigned to you appear here, along with what each ' +
+                  'has earned you.',
+              )}
+            </p>
+          )}
+
+          <p className="mt-4 text-sm text-ink3">
+            {rejected
+              ? t('Speak to the office if you think this is a mistake.')
+              : t('There is nothing else for you to do.')}
+          </p>
+        </div>
+      </Card>
+    </>
+  );
+}
 
 /**
  * A marketing officer's own screen.
@@ -32,6 +84,13 @@ export function OfficerPortalPage() {
   const customers = useMyAssignedCustomers();
 
   if (me.isLoading || customers.isLoading) return <Spinner />;
+
+  // A decision is pending, or went the other way. The portal says so rather than showing an empty
+  // customer table, which is what somebody waiting on an approval would otherwise see and read as
+  // "approved, but nobody assigned to me".
+  if (me.data && me.data.status !== 'approved') {
+    return <AwaitingDecision officer={me.data} />;
+  }
 
   const rows = customers.data ?? [];
   const issued = rows.filter((row) => row.packIssued).length;

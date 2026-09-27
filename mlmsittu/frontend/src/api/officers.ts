@@ -11,6 +11,11 @@ export type MarketingOfficer = {
   commissionRate: number;
   customerCount: number;
   earned: number;
+  /** applied | approved | rejected. Only an approved officer may hold customers. */
+  status: 'applied' | 'approved' | 'rejected';
+  appliedAt: string | null;
+  decidedAt: string | null;
+  rejectionReason: string | null;
 };
 
 export type AssignedCustomer = {
@@ -38,6 +43,17 @@ export const useMarketingOfficers = () =>
     queryKey: ['marketing-officers'],
     queryFn: () =>
       api.get<PagedResponse<MarketingOfficer>>('/api/v1/admin/marketing-officers'),
+    select: (page) => page.data,
+  });
+
+/** Everybody waiting on a decision. Deliberately a separate list from the officers themselves. */
+export const useOfficerApplications = () =>
+  useQuery({
+    queryKey: ['marketing-officers', 'applications'],
+    queryFn: () =>
+      api.get<PagedResponse<MarketingOfficer>>(
+        '/api/v1/admin/marketing-officers/applications',
+      ),
     select: (page) => page.data,
   });
 
@@ -75,6 +91,30 @@ export const useSetOfficerRate = () =>
     api.put<MarketingOfficer>(`/api/v1/admin/marketing-officers/${userId}/rate`, {
       commissionRate,
     }),
+  );
+
+export const useApproveOfficer = () =>
+  useOfficerMutation(({ userId, commissionRate }: { userId: string; commissionRate?: number }) =>
+    api.post<MarketingOfficer>(`/api/v1/admin/marketing-officers/${userId}/approve`, {
+      commissionRate,
+    }),
+  );
+
+export const useRejectOfficer = () =>
+  useOfficerMutation(({ userId, reason }: { userId: string; reason: string }) =>
+    api.post<MarketingOfficer>(`/api/v1/admin/marketing-officers/${userId}/reject`, { reason }),
+  );
+
+/** Creates the account and the officer in one go, approved on the spot. */
+export const useRegisterOfficer = () =>
+  useOfficerMutation(
+    (body: {
+      fullName: string;
+      email?: string | null;
+      mobile?: string | null;
+      password: string;
+      commissionRate?: number;
+    }) => api.post<MarketingOfficer>('/api/v1/admin/marketing-officers/register', body),
   );
 
 export const useAssignOfficer = () =>

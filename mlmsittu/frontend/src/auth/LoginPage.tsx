@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import type { LoginResponse, UserSummary } from '../api/types';
 import { Button, ErrorBanner, Field, Input, PasswordInput } from '../components/ui';
@@ -298,6 +299,19 @@ export function LoginPage({
               </button>
             </p>
           )}
+
+          {/* A link rather than a third mode on this screen. An officer applies once and then signs
+              in here like everybody else, so the form they need is a page they visit, not a state
+              this one has to hold. */}
+          <p className="mt-2 text-center text-sm text-ink3">
+            {t('Joining as a marketing officer?')}{' '}
+            <Link
+              to="/officer/signup"
+              className="font-semibold text-brand hover:text-branddeep hover:underline"
+            >
+              {t('Apply here')}
+            </Link>
+          </p>
 
           {/* Development builds only. It used to be on the production sign-in page too, which
               told every visitor the seed password to try. */}

@@ -49,7 +49,12 @@ public class MarketingOfficerService {
             UUID profilePhotoId,
             BigDecimal commissionRate,
             int customerCount,
-            BigDecimal earned) {}
+            BigDecimal earned,
+            /** applied, approved or rejected. Only an approved officer may hold customers. */
+            String status,
+            Instant appliedAt,
+            Instant decidedAt,
+            String rejectionReason) {}
 
     /** One customer an officer looks after, and where they have got to. */
     public record AssignedCustomer(
@@ -69,13 +74,41 @@ public class MarketingOfficerService {
 
     // ------------------------------------------------------------------ administration
 
-    /** Every officer, with how many customers they carry and what that has earned. */
+    /** Every officer who has been let in, with how many customers they carry and what that earned. */
     @Transactional(readOnly = true)
     public List<Officer> list() {
+        return query("mo.status = 'approved'");
+    }
+
+    /**
+     * Everybody waiting on a decision, oldest first.
+     *
+     * <p>A separate call rather than a flag on {@link #list()}: the officers screen is a list of
+     * people who are working, and an applicant who has not been approved is not one of them. Mixing
+     * the two is how somebody gets assigned customers before anybody agreed they should have any.
+     */
+    @Transactional(readOnly = true)
+    public List<Officer> applications() {
+        return query("mo.status = 'applied'");
+    }
+
+    /** One officer whatever their state — an administrator deciding needs to see the applicant. */
+    @Transactional(readOnly = true)
+    public Officer get(UUID userId) {
+        return query("mo.user_id = ?", userId).stream()
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new NotFoundException(
+                                        "OFFICER_NOT_FOUND", "That marketing officer does not exist."));
+    }
+
+    private List<Officer> query(String where, Object... args) {
         return jdbc.query(
                 """
                 SELECT u.id, u.full_name, u.email, u.mobile, u.profile_photo_id,
-                       mo.commission_rate,
+                       mo.commission_rate, mo.status, mo.created_at, mo.decided_at,
+                       mo.rejection_reason,
                        (SELECT count(*) FROM distributor d
                          WHERE d.marketing_officer_id = u.id AND d.deleted_at IS NULL) AS customers,
                        COALESCE((
@@ -87,8 +120,10 @@ public class MarketingOfficerService {
                        ), 0) AS earned
                   FROM marketing_officer mo
                   JOIN app_user u ON u.id = mo.user_id
-                 ORDER BY u.full_name
-                """,
+                 WHERE %s
+                 ORDER BY mo.status = 'applied' DESC, mo.created_at, u.full_name
+                """
+                        .formatted(where),
                 (rs, row) ->
                         new Officer(
                                 rs.getObject("id", UUID.class),
@@ -98,19 +133,14 @@ public class MarketingOfficerService {
                                 rs.getObject("profile_photo_id", UUID.class),
                                 rs.getBigDecimal("commission_rate"),
                                 rs.getInt("customers"),
-                                rs.getBigDecimal("earned").setScale(2, java.math.RoundingMode.HALF_UP)));
+                                rs.getBigDecimal("earned").setScale(2, java.math.RoundingMode.HALF_UP),
+                                rs.getString("status"),
+                                instant(rs.getTimestamp("created_at")),
+                                instant(rs.getTimestamp("decided_at")),
+                                rs.getString("rejection_reason")),
+                args);
     }
 
-    @Transactional(readOnly = true)
-    public Officer get(UUID userId) {
-        return list().stream()
-                .filter(officer -> officer.userId().equals(userId))
-                .findFirst()
-                .orElseThrow(
-                        () ->
-                                new NotFoundException(
-                                        "OFFICER_NOT_FOUND", "That marketing officer does not exist."));
-    }
 
     /**
      * Makes an existing account a marketing officer.
@@ -124,17 +154,26 @@ public class MarketingOfficerService {
     public void enrol(UUID userId, BigDecimal rate, UUID actorId) {
         BigDecimal effective = rate == null ? DEFAULT_RATE : validated(rate);
 
+        // 'approved', because an administrator doing this *is* the decision. Sending it to a queue
+        // for the same person to approve a moment later would record nothing that is not already
+        // recorded here — decided_by is this administrator either way.
         jdbc.update(
                 """
-                INSERT INTO marketing_officer (user_id, commission_rate, updated_by)
-                VALUES (?, ?, ?)
+                INSERT INTO marketing_officer
+                       (user_id, commission_rate, updated_by, status, decided_by, decided_at)
+                VALUES (?, ?, ?, 'approved', ?, now())
                 ON CONFLICT (user_id) DO UPDATE
                     SET commission_rate = EXCLUDED.commission_rate,
                         updated_by = EXCLUDED.updated_by,
+                        status = 'approved',
+                        decided_by = EXCLUDED.decided_by,
+                        decided_at = now(),
+                        rejection_reason = NULL,
                         updated_at = now()
                 """,
                 userId,
                 effective,
+                actorId,
                 actorId);
 
         jdbc.update(
@@ -146,6 +185,140 @@ public class MarketingOfficerService {
                 userId);
 
         AuditContext.record(userId, null, Map.of("commissionRate", effective.toPlainString()));
+    }
+
+    // ------------------------------------------------------------------ applying, and deciding
+
+    /**
+     * Records an application from somebody who has just created their own account.
+     *
+     * <p>{@code applied}: the account exists and can sign in, and the portal tells them a decision
+     * is pending. The role is granted here too, because that is what sends them to the officer
+     * portal rather than the customer one — holding the role is not the same as being approved, and
+     * every screen behind it checks the status rather than the role.
+     *
+     * <p>No rate is taken from the applicant. What the business pays is not something the person
+     * being paid gets to fill in on a form; an administrator sets it when they approve.
+     */
+    @Transactional
+    @Audited(action = "MARKETING_OFFICER_APPLIED", entityType = "app_user", auditFailures = true)
+    public void apply(UUID userId) {
+        jdbc.update(
+                """
+                INSERT INTO marketing_officer (user_id, commission_rate, status)
+                VALUES (?, ?, 'applied')
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                userId,
+                DEFAULT_RATE);
+
+        jdbc.update(
+                """
+                INSERT INTO user_role (user_id, role_id)
+                SELECT ?, id FROM app_role WHERE code = 'MARKETING_OFFICER'
+                ON CONFLICT DO NOTHING
+                """,
+                userId);
+
+        AuditContext.record(userId, null, Map.of("status", "applied"));
+    }
+
+    /**
+     * Lets an applicant in, at a rate the administrator chooses.
+     *
+     * <p>The rate is settled here rather than left for later. An officer approved without one would
+     * be earning the default from the moment they are approved, and the first anybody hears of it
+     * is a figure on the cost analysis.
+     */
+    @Transactional
+    @Audited(action = "MARKETING_OFFICER_APPROVED", entityType = "app_user", auditFailures = true)
+    public Officer approve(UUID userId, BigDecimal rate, UUID actorId) {
+        BigDecimal effective = rate == null ? DEFAULT_RATE : validated(rate);
+
+        int updated =
+                jdbc.update(
+                        """
+                        UPDATE marketing_officer
+                           SET status = 'approved',
+                               commission_rate = ?,
+                               rejection_reason = NULL,
+                               decided_by = ?, decided_at = now(),
+                               updated_by = ?, updated_at = now()
+                         WHERE user_id = ? AND status <> 'approved'
+                        """,
+                        effective,
+                        actorId,
+                        actorId,
+                        userId);
+
+        if (updated == 0) {
+            // Either there is no such application, or somebody decided it while this screen was
+            // open. Both are the same answer: nothing here is waiting for you.
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "OFFICER_NOT_AWAITING_DECISION",
+                    "That application has already been decided.");
+        }
+
+        AuditContext.record(
+                userId,
+                null,
+                Map.of("status", "approved", "commissionRate", effective.toPlainString()));
+        return get(userId);
+    }
+
+    /**
+     * Turns an applicant down, with a reason they are shown.
+     *
+     * <p>The row is kept rather than deleted. Somebody refused should not be able to apply again and
+     * land in the queue as though nothing had happened, and an administrator seeing the same name a
+     * second time should be able to tell that it came up before and what was said about it.
+     *
+     * <p>Their customers, if an approved officer is being turned off, are released — the assignment
+     * becomes empty and an administrator gives them to somebody else. Leaving them attached would
+     * keep crediting commission to somebody who is no longer an officer.
+     */
+    @Transactional
+    @Audited(action = "MARKETING_OFFICER_REJECTED", entityType = "app_user", auditFailures = true)
+    public Officer reject(UUID userId, String reason, UUID actorId) {
+        if (reason == null || reason.isBlank()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "REJECTION_REASON_REQUIRED",
+                    "Say why. The applicant is shown this.");
+        }
+
+        int updated =
+                jdbc.update(
+                        """
+                        UPDATE marketing_officer
+                           SET status = 'rejected',
+                               rejection_reason = ?,
+                               decided_by = ?, decided_at = now(),
+                               updated_by = ?, updated_at = now()
+                         WHERE user_id = ?
+                        """,
+                        reason.trim(),
+                        actorId,
+                        actorId,
+                        userId);
+
+        if (updated == 0) {
+            throw new NotFoundException(
+                    "OFFICER_NOT_FOUND", "That marketing officer does not exist.");
+        }
+
+        int released =
+                jdbc.update(
+                        "UPDATE distributor SET marketing_officer_id = NULL, updated_at = now() "
+                                + "WHERE marketing_officer_id = ?",
+                        userId);
+
+        AuditContext.record(
+                userId,
+                null,
+                Map.of("status", "rejected", "customersReleased", String.valueOf(released)));
+        return get(userId);
     }
 
     /** Changes one officer's rate. */
@@ -184,19 +357,23 @@ public class MarketingOfficerService {
     @Audited(action = "MARKETING_OFFICER_ASSIGNED", entityType = "distributor", auditFailures = true)
     public void assign(UUID distributorId, UUID officerUserId) {
         if (officerUserId != null) {
-            Integer isOfficer =
+            Integer approved =
                     jdbc.queryForObject(
-                            "SELECT count(*) FROM marketing_officer WHERE user_id = ?",
+                            "SELECT count(*) FROM marketing_officer "
+                                    + "WHERE user_id = ? AND status = 'approved'",
                             Integer.class,
                             officerUserId);
-            if (isOfficer == null || isOfficer == 0) {
+            if (approved == null || approved == 0) {
                 // Guarded because the column is a plain reference to app_user: without this an
                 // administrator could assign a customer to another customer, and the officer's
                 // portal would then be the only thing that noticed.
+                //
+                // 'approved' rather than merely present, so an applicant cannot be given customers
+                // while their own application is still sitting in the queue.
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
-                        "NOT_A_MARKETING_OFFICER",
-                        "That account is not a marketing officer.");
+                        "NOT_AN_APPROVED_MARKETING_OFFICER",
+                        "That account is not an approved marketing officer.");
             }
         }
 

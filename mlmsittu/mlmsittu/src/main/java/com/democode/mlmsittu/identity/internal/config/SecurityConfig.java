@@ -181,6 +181,12 @@ public class SecurityConfig {
                                                 // Each is rate limited and answers identically
                                                 // whether or not the address exists.
                                                 "/api/v1/auth/register",
+                                                // The marketing officer front door. Same reasoning
+                                                // as /auth/register, and the same answer whether or
+                                                // not the details were free. It creates an account
+                                                // and an application; it approves nothing, so an
+                                                // open form cannot put anybody to work.
+                                                "/api/v1/officer/signup",
                                                 // Forgotten passwords. Somebody who cannot sign
                                                 // in cannot hold a session, so these cannot be
                                                 // authenticated — which is exactly why they are
