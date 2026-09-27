@@ -180,6 +180,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/marketing-officers/{userId}/rate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setRate"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/distributors/{distributorId}/marketing-officer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["assign"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/announcements/{id}": {
         parameters: {
             query?: never;
@@ -1076,6 +1108,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/marketing-officers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_3"];
+        put?: never;
+        post: operations["enrol"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/documents/{documentId}/access": {
         parameters: {
             query?: never;
@@ -1444,6 +1492,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/cost-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["costAnalysis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/registrations/mine": {
         parameters: {
             query?: never;
@@ -1748,6 +1812,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/officer/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["me_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/officer/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["myCustomers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -1755,7 +1851,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2043,7 +2139,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["me_1"];
+        get: operations["me_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2107,7 +2203,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list_4"];
+        get: operations["list_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2188,6 +2284,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["referralCardBatch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/marketing-officers/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["one_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/marketing-officers/{userId}/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["customers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2673,6 +2801,26 @@ export interface components {
         MembershipPeriodResponse: {
             /** Format: int32 */
             days?: number;
+        };
+        RateRequest: {
+            commissionRate: number;
+        };
+        Officer: {
+            /** Format: uuid */
+            userId?: string;
+            fullName?: string;
+            email?: string;
+            mobile?: string;
+            /** Format: uuid */
+            profilePhotoId?: string;
+            commissionRate?: number;
+            /** Format: int32 */
+            customerCount?: number;
+            earned?: number;
+        };
+        AssignRequest: {
+            /** Format: uuid */
+            marketingOfficerId?: string;
         };
         AnnouncementRequest: {
             title: string;
@@ -3224,6 +3372,11 @@ export interface components {
             distributorId?: string;
             businessId?: string;
         };
+        EnrolRequest: {
+            /** Format: uuid */
+            userId: string;
+            commissionRate?: number;
+        };
         AccessTokenResponse: {
             token?: string;
             url?: string;
@@ -3243,6 +3396,8 @@ export interface components {
             code?: string;
             /** Format: int32 */
             cardNumber?: number;
+            /** Format: date-time */
+            redeemedAt?: string;
         };
         ReferralCardBatch: {
             /** Format: uuid */
@@ -3471,6 +3626,36 @@ export interface components {
             daysSinceLastOrder?: number;
             children?: components["schemas"]["TreemapNode"][];
         };
+        CostAnalysis: {
+            rows?: components["schemas"]["IssuedPack"][];
+            totals?: components["schemas"]["CostAnalysisTotals"];
+        };
+        CostAnalysisTotals: {
+            /** Format: int32 */
+            packsIssued?: number;
+            sellingPrice?: number;
+            actualCost?: number;
+            grossProfit?: number;
+            commission?: number;
+            netProfit?: number;
+        };
+        IssuedPack: {
+            /** Format: uuid */
+            entitlementId?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            businessId?: string;
+            customerName?: string;
+            packCode?: string;
+            packName?: string;
+            sellingPrice?: number;
+            actualCost?: number;
+            grossProfit?: number;
+            officerName?: string;
+            commissionRate?: number;
+            commission?: number;
+            netProfit?: number;
+        };
         PagedResponseRegistrationRow: {
             data?: components["schemas"]["RegistrationRow"][];
             nextCursor?: string;
@@ -3552,6 +3737,31 @@ export interface components {
             imageId?: string;
             /** Format: int32 */
             quantity?: number;
+        };
+        AssignedCustomer: {
+            /** Format: uuid */
+            distributorId?: string;
+            businessId?: string;
+            fullName?: string;
+            status?: string;
+            /** Format: int32 */
+            stagesCompleted?: number;
+            /** Format: int32 */
+            totalStages?: number;
+            /** Format: date-time */
+            approvedAt?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            packName?: string;
+            packPrice?: number;
+            packIssued?: boolean;
+            /** Format: date-time */
+            packIssuedAt?: string;
+            earned?: number;
+        };
+        PagedResponseAssignedCustomer: {
+            data?: components["schemas"]["AssignedCustomer"][];
+            nextCursor?: string;
         };
         SseEmitter: {
             /** Format: int64 */
@@ -3721,6 +3931,10 @@ export interface components {
         RegistrationDetailResponse: {
             registration?: components["schemas"]["RegistrationRow"];
             timeline?: components["schemas"]["EventRow"][];
+        };
+        PagedResponseOfficer: {
+            data?: components["schemas"]["Officer"][];
+            nextCursor?: string;
         };
         DistributorRow: {
             /** Format: uuid */
@@ -4265,6 +4479,56 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["MembershipPeriodResponse"];
                 };
+            };
+        };
+    };
+    setRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Officer"];
+                };
+            };
+        };
+    };
+    assign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                distributorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -5914,6 +6178,50 @@ export interface operations {
             };
         };
     };
+    list_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponseOfficer"];
+                };
+            };
+        };
+    };
+    enrol: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrolRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Officer"];
+                };
+            };
+        };
+    };
     requestAccess: {
         parameters: {
             query?: {
@@ -6493,6 +6801,29 @@ export interface operations {
             };
         };
     };
+    costAnalysis: {
+        parameters: {
+            query?: {
+                from?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CostAnalysis"];
+                };
+            };
+        };
+    };
     myRegistrations: {
         parameters: {
             query?: never;
@@ -6895,7 +7226,47 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    me_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Officer"];
+                };
+            };
+        };
+    };
+    myCustomers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponseAssignedCustomer"];
+                };
+            };
+        };
+    };
+    list_4: {
         parameters: {
             query?: {
                 limit?: number;
@@ -7294,7 +7665,7 @@ export interface operations {
             };
         };
     };
-    me_1: {
+    me_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -7378,7 +7749,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_5: {
         parameters: {
             query?: {
                 status?: string;
@@ -7504,6 +7875,50 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ReferralCardBatch"];
+                };
+            };
+        };
+    };
+    one_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Officer"];
+                };
+            };
+        };
+    };
+    customers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PagedResponseAssignedCustomer"];
                 };
             };
         };

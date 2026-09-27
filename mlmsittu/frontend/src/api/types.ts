@@ -31,6 +31,9 @@ export const ROLES = [
   // Not staff. Held by everyone who signs up through the distributor front door, and the reason
   // the two applications can be told apart.
   'DISTRIBUTOR',
+  // Also not staff, and not a customer either: somebody who brings customers in and is credited
+  // for the packs they earn. They have one screen of their own and no place in the referral tree.
+  'MARKETING_OFFICER',
 ] as const;
 
 export type Role = (typeof ROLES)[number];

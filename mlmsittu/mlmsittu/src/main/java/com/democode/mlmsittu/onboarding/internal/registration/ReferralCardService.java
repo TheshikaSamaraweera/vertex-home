@@ -85,7 +85,14 @@ public class ReferralCardService {
     // ------------------------------------------------------------------ shapes
 
     /** One card, as printed. */
-    public record ReferralCard(UUID id, String code, int cardNumber) {}
+    /**
+     * One card, as printed.
+     *
+     * @param redeemedAt when somebody registered against it, or null while it is still live. The
+     *     list shows a spent card as used rather than hiding it — an administrator needs to see
+     *     that all five went out and which one came back.
+     */
+    public record ReferralCard(UUID id, String code, int cardNumber, java.time.Instant redeemedAt) {}
 
     /**
      * A print run, with everything the printed page needs.
@@ -182,8 +189,23 @@ public class ReferralCardService {
         // print the ones that can actually be sold.
         int toPrint = Math.min(cards, free);
 
+        // The pack the customer chose at registration, unless the administrator names another.
+        //
+        // Asking again was a question with an answer already on the record, and a chance to pick
+        // the wrong one — the card would then promise a pack the customer never chose and is not
+        // entitled to.
+        UUID effectiveSetId = itemSetId;
+        if (effectiveSetId == null) {
+            List<UUID> chosen =
+                    jdbc.queryForList(
+                            "SELECT item_set_id FROM distributor WHERE id = ? AND item_set_id IS NOT NULL",
+                            UUID.class,
+                            distributorId);
+            effectiveSetId = chosen.isEmpty() ? null : chosen.get(0);
+        }
+
         ItemSetRef pack =
-                itemSetId == null ? null : itemSets.findById(itemSetId).orElseThrow(
+                effectiveSetId == null ? null : itemSets.findById(effectiveSetId).orElseThrow(
                         () -> new NotFoundException("ITEM_SET_NOT_FOUND", "That item pack does not exist."));
 
         UUID batchId =
@@ -413,14 +435,17 @@ public class ReferralCardService {
 
         List<ReferralCard> cards =
                 jdbc.query(
-                        "SELECT id, code, card_number FROM referral_card WHERE batch_id = ? ORDER BY card_number",
+                        "SELECT id, code, card_number, redeemed_at FROM referral_card WHERE batch_id = ? ORDER BY card_number",
                         (rs, row) ->
                                 new ReferralCard(
                                         rs.getObject("id", UUID.class),
                                         // Hyphenated here and nowhere else: this is the one place
                                         // the number is on its way to a human.
                                         CardNumber.format(rs.getString("code")),
-                                        rs.getInt("card_number")),
+                                        rs.getInt("card_number"),
+                                        rs.getTimestamp("redeemed_at") == null
+                                                ? null
+                                                : rs.getTimestamp("redeemed_at").toInstant()),
                         batchId);
 
         ReferralCardBatch batch = found.get(0);

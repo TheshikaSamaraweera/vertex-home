@@ -770,15 +770,41 @@ function ReferralCards({
                           people, and the question afterwards is always "which one did they get",
                           which a number cannot answer. */}
                       <Td>
-                        <div className="flex flex-wrap gap-1">
-                          {(batch.cards ?? []).map((card) => (
-                            <span
-                              key={card.id}
-                              className="rounded bg-panel2 px-1.5 py-0.5 font-mono text-[11px] text-ink"
-                            >
-                              {card.code}
-                            </span>
-                          ))}
+                        {/* One per line, not wrapped across a row. A card number is read off
+                            paper and compared character by character; five of them on one line
+                            is five things the eye has to separate before it can start. */}
+                        <div className="flex flex-col gap-1">
+                          {(batch.cards ?? []).map((card) => {
+                            const used = Boolean(card.redeemedAt);
+                            return (
+                              <span
+                                key={card.id}
+                                className={
+                                  'inline-flex items-center gap-2 rounded border px-2 py-0.5 font-mono text-[11px] whitespace-nowrap ' +
+                                  (used
+                                    ? // Spent: struck through and greyed. Still listed, because
+                                      // the question is "did all five go out and which came
+                                      // back", which a hidden row cannot answer.
+                                      'border-rule bg-panel2 text-ink3 line-through'
+                                    : 'border-brand bg-brandsoft font-semibold text-brand')
+                                }
+                                title={
+                                  used
+                                    ? `${t('Used')} ${new Date(card.redeemedAt!).toLocaleDateString()}`
+                                    : t('Not yet used')
+                                }
+                              >
+                                {card.code}
+                                {used && (
+                                  // The word as well as the styling: a strike-through alone is
+                                  // invisible in a photocopy and to anybody not looking closely.
+                                  <span className="rounded-full bg-ink3 px-1.5 py-px text-[9px] font-bold text-white no-underline">
+                                    {t('USED')}
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })}
                         </div>
                       </Td>
                       <Td className="text-xs">{batch.itemSetName ?? '—'}</Td>

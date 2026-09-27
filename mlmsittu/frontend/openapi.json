@@ -698,6 +698,81 @@
         }
       }
     },
+    "/api/v1/admin/marketing-officers/{userId}/rate": {
+      "put": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "setRate",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/distributors/{distributorId}/marketing-officer": {
+      "put": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "assign",
+        "parameters": [
+          {
+            "name": "distributorId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/admin/announcements/{id}": {
       "get": {
         "tags": [
@@ -3014,6 +3089,54 @@
         }
       }
     },
+    "/api/v1/admin/marketing-officers": {
+      "get": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "list_3",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseOfficer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "enrol",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrolRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/documents/{documentId}/access": {
       "post": {
         "tags": [
@@ -3943,6 +4066,46 @@
         }
       }
     },
+    "/api/v1/reports/cost-analysis": {
+      "get": {
+        "tags": [
+          "reporting-controller"
+        ],
+        "operationId": "costAnalysis",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CostAnalysis"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/registrations/mine": {
       "get": {
         "tags": [
@@ -4384,12 +4547,52 @@
         }
       }
     },
+    "/api/v1/officer/me": {
+      "get": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "me_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/officer/customers": {
+      "get": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "myCustomers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseAssignedCustomer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications": {
       "get": {
         "tags": [
           "notification-controller"
         ],
-        "operationId": "list_3",
+        "operationId": "list_4",
         "parameters": [
           {
             "name": "limit",
@@ -4972,7 +5175,7 @@
         "tags": [
           "auth-controller"
         ],
-        "operationId": "me_1",
+        "operationId": "me_2",
         "responses": {
           "200": {
             "description": "OK",
@@ -5075,7 +5278,7 @@
         "tags": [
           "reward-controller"
         ],
-        "operationId": "list_4",
+        "operationId": "list_5",
         "parameters": [
           {
             "name": "status",
@@ -5236,6 +5439,68 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ReferralCardBatch"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketing-officers/{userId}": {
+      "get": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "one_1",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/Officer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/marketing-officers/{userId}/customers": {
+      "get": {
+        "tags": [
+          "marketing-officer-controller"
+        ],
+        "operationId": "customers",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PagedResponseAssignedCustomer"
                 }
               }
             }
@@ -6571,6 +6836,60 @@
           "days": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "RateRequest": {
+        "type": "object",
+        "properties": {
+          "commissionRate": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "commissionRate"
+        ]
+      },
+      "Officer": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "profilePhotoId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commissionRate": {
+            "type": "number"
+          },
+          "customerCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "earned": {
+            "type": "number"
+          }
+        }
+      },
+      "AssignRequest": {
+        "type": "object",
+        "properties": {
+          "marketingOfficerId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -8152,6 +8471,23 @@
           }
         }
       },
+      "EnrolRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commissionRate": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
       "AccessTokenResponse": {
         "type": "object",
         "properties": {
@@ -8198,6 +8534,10 @@
           "cardNumber": {
             "type": "integer",
             "format": "int32"
+          },
+          "redeemedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -8797,6 +9137,90 @@
           }
         }
       },
+      "CostAnalysis": {
+        "type": "object",
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssuedPack"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/CostAnalysisTotals"
+          }
+        }
+      },
+      "CostAnalysisTotals": {
+        "type": "object",
+        "properties": {
+          "packsIssued": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sellingPrice": {
+            "type": "number"
+          },
+          "actualCost": {
+            "type": "number"
+          },
+          "grossProfit": {
+            "type": "number"
+          },
+          "commission": {
+            "type": "number"
+          },
+          "netProfit": {
+            "type": "number"
+          }
+        }
+      },
+      "IssuedPack": {
+        "type": "object",
+        "properties": {
+          "entitlementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "customerName": {
+            "type": "string"
+          },
+          "packCode": {
+            "type": "string"
+          },
+          "packName": {
+            "type": "string"
+          },
+          "sellingPrice": {
+            "type": "number"
+          },
+          "actualCost": {
+            "type": "number"
+          },
+          "grossProfit": {
+            "type": "number"
+          },
+          "officerName": {
+            "type": "string"
+          },
+          "commissionRate": {
+            "type": "number"
+          },
+          "commission": {
+            "type": "number"
+          },
+          "netProfit": {
+            "type": "number"
+          }
+        }
+      },
       "PagedResponseRegistrationRow": {
         "type": "object",
         "properties": {
@@ -9034,6 +9458,70 @@
           "quantity": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "AssignedCustomer": {
+        "type": "object",
+        "properties": {
+          "distributorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "businessId": {
+            "type": "string"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "stagesCompleted": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalStages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "approvedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "packName": {
+            "type": "string"
+          },
+          "packPrice": {
+            "type": "number"
+          },
+          "packIssued": {
+            "type": "boolean"
+          },
+          "packIssuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "earned": {
+            "type": "number"
+          }
+        }
+      },
+      "PagedResponseAssignedCustomer": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssignedCustomer"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
           }
         }
       },
@@ -9514,6 +10002,20 @@
             "items": {
               "$ref": "#/components/schemas/EventRow"
             }
+          }
+        }
+      },
+      "PagedResponseOfficer": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Officer"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
           }
         }
       },

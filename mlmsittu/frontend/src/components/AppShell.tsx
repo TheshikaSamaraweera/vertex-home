@@ -46,7 +46,17 @@ export function AppShell() {
   const sections: Array<{ heading: string; items: NavItem[] }> = [
     {
       heading: t('Overview'),
-      items: [{ to: '/', label: t('Dashboard'), icon: 'dashboard' }],
+      items: [
+        { to: '/', label: t('Dashboard'), icon: 'dashboard' },
+        // An officer's one screen. Listed for them alone: everything else in this shell is a
+        // staff tool, and an officer approves nothing, sees no NIC images and moves no stock.
+        {
+          to: '/officer',
+          label: t('My customers'),
+          roles: ['MARKETING_OFFICER'],
+          icon: 'users',
+        },
+      ],
     },
     {
       heading: t('Catalogue'),
@@ -91,12 +101,23 @@ export function AppShell() {
     {
       heading: t('Reporting'),
       items: [
-        { to: '/reports', label: t('Stock and sales'), icon: 'chart' },
+        // Stock and sales, and Buyer analytics, are commented out at the client's request rather
+        // than deleted. Both pages and both endpoints still work; only the way in is gone, so
+        // restoring either is uncommenting one line. Deleting working reports that may be wanted
+        // again would have been the more destructive reading of "hide these".
+        //
+        // { to: '/reports', label: t('Stock and sales'), icon: 'chart' },
+        // {
+        //   to: '/analytics',
+        //   label: t('Buyer analytics'),
+        //   roles: ['FINANCE_OFFICER', 'SUPER_ADMIN', 'SUPPORT_AGENT'],
+        //   icon: 'pie',
+        // },
         {
-          to: '/analytics',
-          label: t('Buyer analytics'),
-          roles: ['FINANCE_OFFICER', 'SUPER_ADMIN', 'SUPPORT_AGENT'],
-          icon: 'pie',
+          to: '/cost-analysis',
+          label: t('Cost analysis'),
+          roles: ['FINANCE_OFFICER', 'ADMIN'],
+          icon: 'chart',
         },
       ],
     },
@@ -120,6 +141,12 @@ export function AppShell() {
           icon: 'shieldCheck',
         },
         { to: '/distributors', label: t('Customers'), roles: ['ADMIN'], icon: 'users' },
+        {
+          to: '/marketing-officers',
+          label: t('Marketing officers'),
+          roles: ['ADMIN'],
+          icon: 'userPlus',
+        },
       ],
     },
     {

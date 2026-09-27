@@ -39,6 +39,9 @@ import { PortalRegistration } from './portal/PortalRegistration';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { MyAccountPage } from './pages/MyAccountPage';
+import { CostAnalysisPage } from './pages/CostAnalysisPage';
+import { MarketingOfficersPage } from './pages/MarketingOfficersPage';
+import { OfficerPortalPage } from './pages/OfficerPortalPage';
 
 /**
  * Two applications, one bundle.
@@ -128,6 +131,25 @@ export function App() {
   // an administrator registers a business — is treated as staff, because the wider role decides.
   const distributorOnly = hasRole('DISTRIBUTOR') && !hasRole('SUPPORT_AGENT');
 
+  // An officer who is nothing else lands on their own screen rather than a staff dashboard full
+  // of tools they cannot use. Checked after distributorOnly, so somebody who is both a customer
+  // and an officer stays in the portal they registered through.
+  const officerOnly =
+    hasRole('MARKETING_OFFICER') && !hasRole('SUPPORT_AGENT') && !hasRole('DISTRIBUTOR');
+
+  if (officerOnly) {
+    return (
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/officer" element={<OfficerPortalPage />} />
+          <Route path="/my-account" element={<MyAccountPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="*" element={<Navigate to="/officer" replace />} />
+        </Route>
+      </Routes>
+    );
+  }
+
   if (distributorOnly) {
     return (
       <Routes>
@@ -197,6 +219,9 @@ export function App() {
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
         <Route path="/my-account" element={<MyAccountPage />} />
+        <Route path="/cost-analysis" element={<CostAnalysisPage />} />
+        <Route path="/marketing-officers" element={<MarketingOfficersPage />} />
+        <Route path="/officer" element={<OfficerPortalPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

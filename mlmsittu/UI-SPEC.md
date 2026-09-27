@@ -94,7 +94,10 @@ SUPER_ADMIN
                  ⋮
               (all five imply STAFF)
 
-DISTRIBUTOR   — a customer. Implies nothing. Portal only.
+DISTRIBUTOR        — a customer. Implies nothing. Portal only.
+MARKETING_OFFICER  — brings customers in, earns a percentage of the packs they earn.
+                     Implies nothing and nothing implies it: an officer is not staff, and an
+                     administrator is not automatically an officer. One screen of their own.
 ```
 
 **Two-factor:** the five specialist roles require TOTP and are handed an enrolment QR on first
@@ -218,7 +221,18 @@ stock movement — and records who issued it. No stock has moved for anything in
 
 ### Reporting
 
-**`/reports` Stock and sales** · everyone
+**`/cost-analysis` Cost analysis** · `ADMIN`, `FINANCE_OFFICER`
+What the reward packs earned and cost. **Issued packs only** — a pack somebody is merely eligible
+for has cost nothing and earned nothing. Columns: selling price (`item_set.set_price`), actual
+cost (sum of `unit_cost × quantity` across the pack's lines), gross profit, the marketing
+officer's commission, and net. Gross and net are both shown, because a pack that looks
+unprofitable is either expensive goods or a large commission and one number cannot say which.
+
+**Commented out, not deleted:** Stock and sales, and Buyer analytics. Both pages and both
+endpoints still work; only the nav entries are commented out. Restoring either is uncommenting
+one line in `AppShell.tsx`.
+
+**`/reports` Stock and sales** · everyone · *(nav entry commented out)*
 Three reports, each with a CSV export: stock position (value = on hand × unit cost), sales over a
 date range, customer/buyer totals. Figures are read live with no caching, so they are correct at
 the moment they are read.
@@ -286,6 +300,22 @@ lists) and an optional picture. **Save and send are separate** — a draft reach
 "Send to everyone", and each announcement is only ever sent once. Live notices appear at the top
 of every customer's portal home page until taken down or until their optional end date. The
 composer previews with the same component the portal renders, so the preview cannot drift.
+
+**`/marketing-officers` Marketing officers** · `ADMIN`
+Who brings customers in. An officer is an ordinary account with the `MARKETING_OFFICER` role and a
+commission rate (default **1%**, admin-changeable). Admin assigns customers to officers; both the
+officer and the admin can see the assignment. Shows each officer's customer count and what the
+issued packs under them come to.
+
+**`/officer` My customers** · `MARKETING_OFFICER`
+The officer's own screen, and their only one. Their assigned customers, each one's stage progress
+and membership, and what each has earned them. **Every query is scoped to the signed-in officer
+with no id parameter anywhere** — there is no shape of any call on that page that returns another
+officer's customers.
+
+> **The earnings are informational.** Nothing records a payment, tracks a balance or marks
+> anything settled. Changing an officer's rate changes what every past pack is shown as having
+> earned, because the figure was never a debt — only a statement about a percentage.
 
 **`/users` Users and roles** · `SUPER_ADMIN`
 **Staff accounts only** — customers are deliberately excluded; they belong on the Customers screen,

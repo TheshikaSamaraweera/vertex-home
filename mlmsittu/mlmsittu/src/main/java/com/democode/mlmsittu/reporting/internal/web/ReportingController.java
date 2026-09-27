@@ -19,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import com.democode.mlmsittu.reporting.internal.CostAnalysisService;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -42,6 +43,7 @@ public class ReportingController {
             "hasAnyRole('FINANCE_OFFICER', 'SUPER_ADMIN', 'SUPPORT_AGENT')";
 
     private final StockReportService stock;
+    private final CostAnalysisService costAnalysis;
     private final SalesReportService sales;
     private final CustomerAnalyticsService customers;
     private final ReportExportService exports;
@@ -50,7 +52,9 @@ public class ReportingController {
             StockReportService stock,
             SalesReportService sales,
             CustomerAnalyticsService customers,
-            ReportExportService exports) {
+            ReportExportService exports,
+            CostAnalysisService costAnalysis) {
+        this.costAnalysis = costAnalysis;
         this.stock = stock;
         this.sales = sales;
         this.customers = customers;
@@ -149,4 +153,30 @@ public class ReportingController {
                 .contentType(MediaType.parseMediaType("text/csv; charset=utf-8"))
                 .body(content);
     }
+    // ------------------------------------------------------------------ cost analysis
+
+    /**
+     * What the issued reward packs earned and what they cost.
+     *
+     * <p>Issued only. A pack somebody is merely eligible for has cost nothing and earned nothing;
+     * counting those would be counting an intention.
+     *
+     * <p>Defaults to the last ninety days. An unbounded report grows without limit, and the
+     * question people actually ask is about a period.
+     */
+    @GetMapping("/cost-analysis")
+    @PreAuthorize("hasAnyRole('ADMIN', 'FINANCE_OFFICER')")
+    public CostAnalysisService.CostAnalysis costAnalysis(
+            @RequestParam(required = false)
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    java.time.Instant from,
+            @RequestParam(required = false)
+                    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+                    java.time.Instant to) {
+        java.time.Instant end = to == null ? java.time.Instant.now() : to;
+        java.time.Instant start =
+                from == null ? end.minus(90, java.time.temporal.ChronoUnit.DAYS) : from;
+        return costAnalysis.analyse(start, end);
+    }
+
 }

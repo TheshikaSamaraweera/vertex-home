@@ -145,4 +145,8 @@ export const ROLE_LABELS: Record<Role, string> = {
   // changes. Renaming the code would be a breaking API change and a migration for a wording
   // preference.
   DISTRIBUTOR: 'Customer',
+  // Deliberately absent from IMPLIES in both directions: an officer is not staff, and an
+  // administrator is not automatically an officer. Being credited with commission is something
+  // you are assigned, not something a wider role includes.
+  MARKETING_OFFICER: 'Marketing officer',
 };
