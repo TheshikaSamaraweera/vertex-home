@@ -4128,6 +4128,12 @@ export interface components {
             /** Format: date-time */
             at?: string;
         };
+        AssignedOfficer: {
+            /** Format: uuid */
+            userId?: string;
+            fullName?: string;
+            commissionRate?: number;
+        };
         DistributorDetail: {
             distributor?: components["schemas"]["DistributorNode"];
             account?: components["schemas"]["AccountSummary"];
@@ -4144,6 +4150,7 @@ export interface components {
             documents?: components["schemas"]["DistributorDocuments"];
             registrationTimeline?: components["schemas"]["EventRow"][];
             activity?: components["schemas"]["ActivityEntry"][];
+            marketingOfficer?: components["schemas"]["AssignedOfficer"];
         };
         DistributorDocuments: {
             /** Format: uuid */
@@ -4221,6 +4228,9 @@ export interface components {
             approvedAt?: string;
             /** Format: date-time */
             expiresAt?: string;
+            /** Format: uuid */
+            marketingOfficerId?: string;
+            marketingOfficerName?: string;
         };
         PagedResponseDistributorRow: {
             data?: components["schemas"]["DistributorRow"][];

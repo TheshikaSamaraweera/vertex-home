@@ -10,6 +10,7 @@ import {
   useIssueReferralCards,
   useReferralCardBatches,
 } from '../api/onboarding';
+import { asPercent, useAssignOfficer, useMarketingOfficers } from '../api/officers';
 import { page, pagedOptions, useItemSets } from '../api/queries';
 import { useAuth } from '../auth/AuthContext';
 import { expiryStatus } from '../lib/expiry';
@@ -21,10 +22,12 @@ import {
   Card,
   EmptyState,
   ErrorBanner,
+  Field,
   humanStatus,
   Input,
   PageHeader,
   Pager,
+  Select,
   Spinner,
   statusTone,
   Table,
@@ -122,6 +125,7 @@ export function DistributorsPage() {
                   <Th>{t('Status')}</Th>
                   <Th>{t('Level')}</Th>
                   <Th>{t('Referred by')}</Th>
+                  <Th>{t('Officer')}</Th>
                   <Th align="right">{t('Places used')}</Th>
                   <Th>{t('Joined')}</Th>
                   <Th>{t('Expires')}</Th>
@@ -154,6 +158,17 @@ export function DistributorsPage() {
                       <LevelCell row={row} />
                     </Td>
                     <Td className="font-mono text-xs">{row.referrerBusinessId ?? '—'}</Td>
+                    <Td className="text-xs">
+                      {/* Named, or plainly unallocated. A blank cell here reads as "no data" when
+                          what it means is "nobody is being credited for this customer". */}
+                      {row.marketingOfficerName ?? (
+                        row.distributorId ? (
+                          <span className="text-ink3">{t('nobody')}</span>
+                        ) : (
+                          '—'
+                        )
+                      )}
+                    </Td>
                     <Td align="right">
                       {/* Places used, not "referrals" — four is the cap, and how many are left is
                           the number somebody is actually looking for. */}
@@ -461,6 +476,11 @@ export function DistributorProfilePage() {
       </div>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
+        <MarketingOfficerCard
+          distributorId={data?.distributor?.id}
+          assigned={data?.marketingOfficer ?? null}
+        />
+
         <Card title={t('Direct referrals')}>
           {(data?.children ?? []).length === 0 ? (
             <EmptyState message={t('None yet.')} />
@@ -569,6 +589,125 @@ export function DistributorProfilePage() {
         />
       )}
     </>
+  );
+}
+
+/**
+ * Who looks after this customer, and the one place an administrator changes it.
+ *
+ * <p>On the customer rather than on the officer. Allocating is something an administrator does while
+ * looking at a person — "this one needs somebody" — and a screen that only worked the other way
+ * round would mean opening every officer in turn to find out who is unallocated.
+ *
+ * <p>Only approved officers are offered. Somebody whose own application is still in the queue cannot
+ * be given customers, and the server refuses it as well; offering them here and failing afterwards
+ * would be a worse way of saying the same thing.
+ */
+function MarketingOfficerCard({
+  distributorId,
+  assigned,
+}: {
+  distributorId?: string;
+  assigned: components['schemas']['AssignedOfficer'] | null;
+}) {
+  const { t } = useTranslation();
+  const officers = useMarketingOfficers();
+  const assign = useAssignOfficer();
+
+  const [choice, setChoice] = useState<string>('');
+  const [editing, setEditing] = useState(false);
+
+  const options = officers.data ?? [];
+
+  if (!distributorId) {
+    return (
+      <Card title={t('Marketing officer')}>
+        <p className="px-5 py-8 text-sm text-ink3">
+          {t('Not a customer yet. An officer is allocated once the registration is approved.')}
+        </p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card title={t('Marketing officer')}>
+      <div className="p-5">
+        {!editing ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              {assigned ? (
+                <>
+                  <p className="text-sm font-semibold text-ink">{assigned.fullName}</p>
+                  <p className="mt-0.5 text-xs text-ink2">
+                    {t('Earns {{rate}} of each pack this customer earns', {
+                      rate: asPercent(assigned.commissionRate ?? 0),
+                    })}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Badge tone="neutral">{t('Nobody allocated')}</Badge>
+                  <p className="mt-1.5 text-xs text-ink2">
+                    {t('Nothing is credited to anybody for this customer.')}
+                  </p>
+                </>
+              )}
+            </div>
+            <Button
+              size="sm"
+              onClick={() => {
+                setChoice(assigned?.userId ?? '');
+                setEditing(true);
+              }}
+            >
+              {assigned ? t('Change') : t('Allocate an officer')}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {options.length === 0 ? (
+              <p className="text-sm text-ink2">
+                {t('No approved officers yet. Approve one under Marketing officers first.')}
+              </p>
+            ) : (
+              <Field label={t('Officer')}>
+                <Select value={choice} onChange={(event) => setChoice(event.target.value)}>
+                  {/* Explicit, and it is a real choice: clearing an allocation is what happens when
+                      an officer leaves and their customers have not been given to anybody yet. */}
+                  <option value="">{t('Nobody')}</option>
+                  {options.map((officer) => (
+                    <option key={officer.userId} value={officer.userId}>
+                      {officer.fullName} — {asPercent(officer.commissionRate)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            )}
+
+            <ErrorBanner error={assign.error} />
+
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                {t('Cancel')}
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={assign.isPending}
+                onClick={() =>
+                  assign.mutate(
+                    { distributorId, marketingOfficerId: choice === '' ? null : choice },
+                    { onSuccess: () => setEditing(false) },
+                  )
+                }
+              >
+                {assign.isPending ? t('Saving…') : t('Save')}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

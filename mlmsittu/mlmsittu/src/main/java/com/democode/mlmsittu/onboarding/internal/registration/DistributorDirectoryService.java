@@ -54,7 +54,10 @@ public class DistributorDirectoryService {
             Instant registeredAt,
             Instant approvedAt,
             /** When the membership lapses. Null for anybody not yet approved. */
-            Instant expiresAt) {}
+            Instant expiresAt,
+            /** Who looks after them, null when nobody has been given them yet. */
+            UUID marketingOfficerId,
+            String marketingOfficerName) {}
 
     /** The columns of one row. Shared by the full list and the paged one so they cannot drift. */
     private static final String SELECT_ROW =
@@ -75,7 +78,9 @@ public class DistributorDirectoryService {
                    u.created_at        AS joined_at,
                    reg.submitted_at    AS registered_at,
                    d.approved_at,
-                   d.expires_at
+                   d.expires_at,
+                   d.marketing_officer_id,
+                   mo.full_name        AS marketing_officer_name
             """;
 
     /**
@@ -89,6 +94,9 @@ public class DistributorDirectoryService {
             JOIN app_role r   ON r.id = ur.role_id AND r.code = 'DISTRIBUTOR'
             LEFT JOIN distributor d ON d.user_id = u.id
             LEFT JOIN referral_stage_progress sp ON sp.distributor_id = d.id
+            -- Who looks after them. A join rather than a second query per row: an administrator
+            -- scanning this list for somebody unassigned needs the column, not a spinner per line.
+            LEFT JOIN app_user mo ON mo.id = d.marketing_officer_id
             -- The most recent application, which is the one that describes where they are now.
             LEFT JOIN LATERAL (
                 SELECT status, referrer_business_id, submitted_at
@@ -201,7 +209,9 @@ public class DistributorDirectoryService {
                 instant(rs.getTimestamp("joined_at")),
                 instant(rs.getTimestamp("registered_at")),
                 instant(rs.getTimestamp("approved_at")),
-                instant(rs.getTimestamp("expires_at")));
+                instant(rs.getTimestamp("expires_at")),
+                rs.getObject("marketing_officer_id", UUID.class),
+                rs.getString("marketing_officer_name"));
     }
 
     /**

@@ -31,16 +31,19 @@ public class DistributorDetailService {
     private final RegistrationRepository registrations;
     private final UserDirectory users;
     private final DistributorDirectoryService directory;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbc;
 
     public DistributorDetailService(
             ReferralHierarchy hierarchy,
             RegistrationRepository registrations,
             UserDirectory users,
-            DistributorDirectoryService directory) {
+            DistributorDirectoryService directory,
+            org.springframework.jdbc.core.JdbcTemplate jdbc) {
         this.hierarchy = hierarchy;
         this.registrations = registrations;
         this.users = users;
         this.directory = directory;
+        this.jdbc = jdbc;
     }
 
     /** How many recent actions the profile shows. Enough to be useful, not a scrollback. */
@@ -66,7 +69,18 @@ public class DistributorDetailService {
             StageProgress stages,
             DistributorDocuments documents,
             List<RegistrationRepository.EventRow> registrationTimeline,
-            List<DistributorDirectoryService.ActivityEntry> activity) {}
+            List<DistributorDirectoryService.ActivityEntry> activity,
+            /** Who looks after them. Null until an administrator allocates somebody. */
+            AssignedOfficer marketingOfficer) {}
+
+    /**
+     * The officer a customer is allocated to, as this screen needs them.
+     *
+     * <p>Name as well as id, because a select showing a UUID is not a screen anybody can use — and
+     * the rate, because an administrator deciding whether to move somebody is deciding what that
+     * customer's packs will cost.
+     */
+    public record AssignedOfficer(UUID userId, String fullName, java.math.BigDecimal commissionRate) {}
 
     /**
      * The account behind the distributor.
@@ -130,7 +144,8 @@ public class DistributorDetailService {
                 registration
                         .map(row -> registrations.timelineOf(row.id()))
                         .orElseGet(java.util.List::of),
-                directory.activityOf(node.userId(), ACTIVITY_LIMIT));
+                directory.activityOf(node.userId(), ACTIVITY_LIMIT),
+                officerOf(distributorId));
     }
 
     /** Business IDs from the root down, so the chain reads the way somebody would say it aloud. */
@@ -146,6 +161,34 @@ public class DistributorDetailService {
      * <p>Most recent rather than the approved one: a rejected-then-resubmitted applicant has
      * several, and the reviewer looking at this screen wants the documents that are current.
      */
+    /**
+     * Who looks after this customer.
+     *
+     * <p>Only an approved officer is reported. An assignment can only ever have been made to one —
+     * the assignment path refuses anybody else — but reading it back through the same condition
+     * means a customer whose officer was later declined shows as unallocated here, which is what
+     * they now are.
+     */
+    private AssignedOfficer officerOf(UUID distributorId) {
+        return jdbc.query(
+                """
+                SELECT u.id, u.full_name, mo.commission_rate
+                  FROM distributor d
+                  JOIN app_user u          ON u.id = d.marketing_officer_id
+                  JOIN marketing_officer mo ON mo.user_id = u.id AND mo.status = 'approved'
+                 WHERE d.id = ?
+                """,
+                (rs, row) ->
+                        new AssignedOfficer(
+                                rs.getObject("id", UUID.class),
+                                rs.getString("full_name"),
+                                rs.getBigDecimal("commission_rate")),
+                distributorId)
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
     private Optional<DistributorDocuments> documentsFor(UUID userId) {
         return registrations.findByUser(userId).stream()
                 .findFirst()

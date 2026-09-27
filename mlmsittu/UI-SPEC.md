@@ -329,6 +329,22 @@ the person who would have approved it, so the decision and the creation are one 
 approved officer releases their customers — the assignment empties and an admin gives them to
 somebody else, because commission must stop being credited to somebody who is no longer an officer.
 
+### Allocating a customer to an officer · `ADMIN`
+
+Done from the **customer**, not from the officer: allocating is something an admin does while looking
+at a person — *this one needs somebody* — and a screen that only worked the other way round would
+mean opening every officer in turn to find out who is unallocated.
+
+- **`/distributors/:id`** — a **Marketing officer** card shows who looks after them and what that
+  customer's packs cost at the officer's rate, with *Allocate an officer* / *Change*. The select
+  offers **approved officers only**, plus an explicit **Nobody** — clearing an allocation is a real
+  choice, and what happens when an officer leaves before their customers are handed on.
+- **`/distributors`** — an **Officer** column, so "who still needs one" is answerable by scanning the
+  list rather than opening each person. An unallocated customer reads *nobody*, not a blank cell: a
+  blank reads as "no data" when it means "nobody is being credited for this customer".
+
+Both sides see it, as asked: the admin on these two screens, the officer on their own three.
+
 **`/officer/signup` Apply as a marketing officer** · public
 A front door of its own, beside the customer one, linked from the sign-in page. Creating the account
 and becoming an officer are **not the same thing**, and the form says so before it is submitted: the
@@ -337,16 +353,30 @@ not the details were already taken, and a duplicate attaches **no** application 
 who knows an email address could put their own application in front of an admin under another
 person's name.
 
-**`/officer` My customers** · `MARKETING_OFFICER`
-The officer's own screen, and their only one. Their assigned customers, each one's stage progress
-and membership, and what each has earned them. **Every query is scoped to the signed-in officer
-with no id parameter anywhere** — there is no shape of any call on that page that returns another
-officer's customers.
+**The officer's portal** · `MARKETING_OFFICER` · **three screens and no more**
 
-Until an admin decides, this page is the decision instead: *Application received*, or *Application
-declined* with the reason. The applicant can sign in from the moment they apply — refusing the login
-would answer them with "this account cannot sign in at the moment", which cannot tell a pending
-application from a suspended account.
+| Path | Screen | Shows |
+|---|---|---|
+| `/officer` | **Dashboard** | Customers, packs issued, earned; how many are still waiting on a pack, and their rate |
+| `/officer/revenue` | **Revenue** | Per customer: pack, pack price, rate, earned, date handed over — and the total |
+| `/officer/customers` | **My customers** | Allocated customers with status, level, membership and pack state |
+
+Nothing else. An officer approves nothing, sees no NIC images, moves no stock and has no way to
+reach another officer's figures. **Every query is scoped to the signed-in officer server-side with no
+id parameter anywhere** — there is no shape of any call on these pages that returns somebody else's
+customers. *My account* and *Notifications* remain reachable as utilities; they are not officer
+screens.
+
+All three sit behind **one** gate rather than a check per page — three copies of a rule is three
+chances for the fourth screen somebody adds later to forget it. Until an admin decides, the gate is
+the page: *Application received*, or *Application declined* with the reason. The applicant can sign
+in from the moment they apply — refusing the login would answer them with "this account cannot sign
+in at the moment", which cannot tell a pending application from a suspended account. *My account* is
+deliberately outside the gate: somebody waiting still has to be able to change their password.
+
+Revenue and My customers read the same endpoint but answer different questions — "what has this come
+to, and from whom" against "who am I looking after and how are they doing". One table trying to be
+both is a table an officer has to read twice.
 
 > **The earnings are informational.** Nothing records a payment, tracks a balance or marks
 > anything settled. Changing an officer's rate changes what every past pack is shown as having

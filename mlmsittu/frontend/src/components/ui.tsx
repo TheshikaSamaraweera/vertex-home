@@ -329,13 +329,17 @@ export function Td({
   children,
   align = 'left',
   className,
+  /** For a totals row, where one label spans the columns it is the total of. */
+  colSpan,
 }: {
   children: ReactNode;
   align?: 'left' | 'right';
   className?: string;
+  colSpan?: number;
 }) {
   return (
     <td
+      colSpan={colSpan}
       className={cx(
         // Hairline dividers and generous row height: dense enough for a stock list, airy enough
         // that a row is easy to follow across a wide table.

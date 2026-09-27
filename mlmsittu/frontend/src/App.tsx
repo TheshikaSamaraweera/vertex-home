@@ -42,7 +42,12 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { MyAccountPage } from './pages/MyAccountPage';
 import { CostAnalysisPage } from './pages/CostAnalysisPage';
 import { MarketingOfficersPage } from './pages/MarketingOfficersPage';
-import { OfficerPortalPage } from './pages/OfficerPortalPage';
+import {
+  OfficerCustomersPage,
+  OfficerGate,
+  OfficerPortalPage,
+  OfficerRevenuePage,
+} from './pages/OfficerPortalPage';
 
 /**
  * Two applications, one bundle.
@@ -145,7 +150,14 @@ export function App() {
     return (
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/officer" element={<OfficerPortalPage />} />
+          {/* The three officer screens sit behind one gate, so an applicant waiting on a decision
+              cannot reach any of them by typing a URL. My account is outside it on purpose:
+              somebody waiting still has to be able to change the password they were given. */}
+          <Route element={<OfficerGate />}>
+            <Route path="/officer" element={<OfficerPortalPage />} />
+            <Route path="/officer/revenue" element={<OfficerRevenuePage />} />
+            <Route path="/officer/customers" element={<OfficerCustomersPage />} />
+          </Route>
           <Route path="/my-account" element={<MyAccountPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="*" element={<Navigate to="/officer" replace />} />
@@ -225,7 +237,13 @@ export function App() {
         <Route path="/my-account" element={<MyAccountPage />} />
         <Route path="/cost-analysis" element={<CostAnalysisPage />} />
         <Route path="/marketing-officers" element={<MarketingOfficersPage />} />
-        <Route path="/officer" element={<OfficerPortalPage />} />
+        {/* A staff account that also holds the officer role — an administrator who brings customers
+            in themselves. Same three screens, same gate. */}
+        <Route element={<OfficerGate />}>
+          <Route path="/officer" element={<OfficerPortalPage />} />
+          <Route path="/officer/revenue" element={<OfficerRevenuePage />} />
+          <Route path="/officer/customers" element={<OfficerCustomersPage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

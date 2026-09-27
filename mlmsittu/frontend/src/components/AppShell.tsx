@@ -50,8 +50,22 @@ export function AppShell() {
         { to: '/', label: t('Dashboard'), icon: 'dashboard' },
         // An officer's one screen. Listed for them alone: everything else in this shell is a
         // staff tool, and an officer approves nothing, sees no NIC images and moves no stock.
+        // An officer's whole portal: where they stand, what they earned, who they look after.
+        // Three entries and no more — they approve nothing and move no stock.
         {
           to: '/officer',
+          label: t('Dashboard'),
+          roles: ['MARKETING_OFFICER'],
+          icon: 'dashboard',
+        },
+        {
+          to: '/officer/revenue',
+          label: t('Revenue'),
+          roles: ['MARKETING_OFFICER'],
+          icon: 'pie',
+        },
+        {
+          to: '/officer/customers',
           label: t('My customers'),
           roles: ['MARKETING_OFFICER'],
           icon: 'users',
