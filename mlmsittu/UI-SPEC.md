@@ -353,30 +353,51 @@ not the details were already taken, and a duplicate attaches **no** application 
 who knows an email address could put their own application in front of an admin under another
 person's name.
 
-**The officer's portal** · `MARKETING_OFFICER` · **three screens and no more**
+**The officer's portal** · `MARKETING_OFFICER` · **its own shell, four pills, nothing else**
 
 | Path | Screen | Shows |
 |---|---|---|
-| `/officer` | **Dashboard** | Customers, packs issued, earned; how many are still waiting on a pack, and their rate |
-| `/officer/revenue` | **Revenue** | Per customer: pack, pack price, rate, earned, date handed over — and the total |
-| `/officer/customers` | **My customers** | Allocated customers with status, level, membership and pack state |
+| `/officer` | **Dashboard** | A greeting, earned so far, and three tiles: customers, packs handed over, waiting on a pack |
+| `/officer/revenue` | **Revenue** | Total earned, then per customer: pack, pack price, earned, date handed over |
+| `/officer/customers` | **My customers** | One card per customer: status, level, membership, pack state |
+| `/officer/account` | **My account** | Password and profile photo |
 
-Nothing else. An officer approves nothing, sees no NIC images, moves no stock and has no way to
-reach another officer's figures. **Every query is scoped to the signed-in officer server-side with no
-id parameter anywhere** — there is no shape of any call on these pages that returns somebody else's
-customers. *My account* and *Notifications* remain reachable as utilities; they are not officer
-screens.
+An officer signs in to **`OfficerShell`**, not the staff `AppShell`. That matters: `AppShell` shows a
+navigation entry to everybody unless the entry names the roles allowed to see it, and Catalogue,
+Inventory, Stores and the rest name none — so an officer used to see the whole staff menu, every link
+leading to a page the router bounced them straight off. A menu of dead ends is worse than no menu.
+Adding `roles` to a dozen entries would have left the same trap set for the next entry added without
+them, so an officer gets a shell whose navigation is a **closed list** rather than an open one with
+exceptions.
 
-All three sit behind **one** gate rather than a check per page — three copies of a rule is three
-chances for the fourth screen somebody adds later to forget it. Until an admin decides, the gate is
-the page: *Application received*, or *Application declined* with the reason. The applicant can sign
-in from the moment they apply — refusing the login would answer them with "this account cannot sign
-in at the moment", which cannot tell a pending application from a suspended account. *My account* is
-deliberately outside the gate: somebody waiting still has to be able to change their password.
+Styled as the customer portal: soft canvas, frosted header, pill navigation, rounded glass cards. An
+officer is somebody the business is asking to go out and represent it, and this is a screen they will
+open in front of a prospective customer. The chrome carries their **commission rate** where the
+customer portal carries a Business ID — it is the number every figure on these screens depends on.
+
+**Every query is scoped to the signed-in officer server-side with no id parameter anywhere** — there
+is no shape of any call on these pages that returns somebody else's customers. An officer approves
+nothing, sees no NIC images and moves no stock.
+
+The working three sit behind **one** gate rather than a check per page — three copies of a rule is
+three chances for the fourth screen somebody adds later to forget it. The navigation is derived from
+that gate, not from roles: an applicant waiting on a decision sees **two** pills, *My application* and
+*My account*, because linking to three pages that would all show the same notice is a menu of
+disappointments. The customer portal reached the same conclusion for the same reason.
+
+The applicant can sign in from the moment they apply — refusing the login would answer them with
+"this account cannot sign in at the moment", which cannot tell a pending application from a suspended
+account. *My account* is deliberately outside the gate: somebody waiting still has to be able to
+change the password the office gave them.
 
 Revenue and My customers read the same endpoint but answer different questions — "what has this come
 to, and from whom" against "who am I looking after and how are they doing". One table trying to be
-both is a table an officer has to read twice.
+both is a table an officer has to read twice. My customers is **cards, not a table**: an officer looks
+after a handful of people and wants each one's level, membership and pack laid out with room to read,
+not six columns of small text.
+
+A staff account that also holds `MARKETING_OFFICER` — an administrator who brings customers in
+themselves — reaches the same three screens inside the staff shell, behind the same gate.
 
 > **The earnings are informational.** Nothing records a payment, tracks a balance or marks
 > anything settled. Changing an officer's rate changes what every past pack is shown as having

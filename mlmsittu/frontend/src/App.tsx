@@ -42,6 +42,7 @@ import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { MyAccountPage } from './pages/MyAccountPage';
 import { CostAnalysisPage } from './pages/CostAnalysisPage';
 import { MarketingOfficersPage } from './pages/MarketingOfficersPage';
+import { OfficerShell } from './officer/OfficerShell';
 import {
   OfficerCustomersPage,
   OfficerGate,
@@ -149,8 +150,11 @@ export function App() {
   if (officerOnly) {
     return (
       <Routes>
-        <Route element={<AppShell />}>
-          {/* The three officer screens sit behind one gate, so an applicant waiting on a decision
+        {/* Their own shell, not the staff one. AppShell shows every navigation entry that does not
+            name a role, so an officer saw the whole staff menu — every link a page the router would
+            bounce them straight off again. */}
+        <Route element={<OfficerShell />}>
+          {/* The three working screens sit behind one gate, so an applicant waiting on a decision
               cannot reach any of them by typing a URL. My account is outside it on purpose:
               somebody waiting still has to be able to change the password they were given. */}
           <Route element={<OfficerGate />}>
@@ -158,8 +162,7 @@ export function App() {
             <Route path="/officer/revenue" element={<OfficerRevenuePage />} />
             <Route path="/officer/customers" element={<OfficerCustomersPage />} />
           </Route>
-          <Route path="/my-account" element={<MyAccountPage />} />
-          <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/officer/account" element={<MyAccountPage />} />
           <Route path="*" element={<Navigate to="/officer" replace />} />
         </Route>
       </Routes>
